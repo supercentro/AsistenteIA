@@ -17,15 +17,15 @@ The system SHALL expose `GET /api/v1/health`, which requires no authentication a
 - **THEN** the response is 503 using the common `Error` body with code `SERVICE_UNAVAILABLE` and contains no connection string, host or stack trace
 
 ### Requirement: Health endpoint has a stable two-response contract
-`GET /api/v1/health` SHALL return only 200 (`{"status": "ok"}`) or 503 (common `Error` body with code `SERVICE_UNAVAILABLE`), and this change SHALL NOT add any other endpoint.
+`GET /api/v1/health` SHALL return only 200 (`{"status": "ok"}`) or 503 (common `Error` body with code `SERVICE_UNAVAILABLE`), and its contract MUST NOT change when other endpoints are added to the API.
 
 #### Scenario: Only documented statuses
 - **WHEN** the endpoint is called under any condition (database up or down)
 - **THEN** the status is either 200 or 503, matching `docs/api-spec.yml`
 
 #### Scenario: No additional endpoints
-- **WHEN** the OpenAPI document of the API is inspected after this change
-- **THEN** `/api/v1/health` is the only API path besides the interactive documentation
+- **WHEN** the OpenAPI document is inspected after other endpoints (such as authentication) were added to the API
+- **THEN** `/api/v1/health` still declares exactly the 200 and 503 responses and requires no authentication
 
 ### Requirement: Health endpoint exposes no sensitive information
 The health response SHALL NOT include configuration values, versions of dependencies, credentials or user data.
