@@ -1,0 +1,57 @@
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:5442:5432" # host port 5442 avoids clashes with other local PostgreSQL instances
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app
+    command:
+      [
+        "uvicorn",
+        "app.main:app_factory",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--reload-dir",
+        "/app/app",
+      ]
+
+  frontend:
+    build: ./frontend
+    env_file:
+      - ./frontend/.env
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  db_data:
