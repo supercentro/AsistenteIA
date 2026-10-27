@@ -106,6 +106,16 @@ Reports required by `docs/openspec-tasks-mandatory-steps.md` are saved in `opens
 - [x] 14.6 §9.8 Documentation updated in this change; conventional commits prepared (commits, push and Pull Request only when the user asks); `/chat` consent enforcement NOT implemented (change 9)
 - [x] 14.7 Run `openspec validate auth-and-roles --strict` and tick this change's tasks only after all items above pass
 
+## 15. Independent Review Follow-ups (TDD; findings of the second adversarial review)
+
+- [x] 15.1 Write failing tests, then fix F1: the engine hides SQL parameters (API and CLI), an outermost middleware keeps unexpected exceptions and their data out of the server log (no traceback propagates, only type/method/path are logged), and a statement error does not expose the password hash or email in its text
+- [x] 15.2 Write failing tests, then fix F7: database-unreachable errors on login/register (and any endpoint) return 503 `SERVICE_UNAVAILABLE` with a generic body
+- [x] 15.3 Write failing tests, then fix F2: start the real Uvicorn with the Dockerfile's flags and show rotating `X-Forwarded-For` / `Forwarded` / `X-Real-IP` cannot bypass the login and registration limits; add `--no-proxy-headers` to the Dockerfile and the compose command and a test that guards the flag
+- [x] 15.4 Write failing tests, then fix F3 and F4: names reject Unicode line/paragraph separators and bidirectional overrides (API and CLI `--name`); remove dead helper code
+- [x] 15.5 Write failing tests, then fix F5: unsupported CLI arguments are rejected without echoing their values
+- [x] 15.6 F6: add `maxLength` 128 and `minLength` 1 to the login password in `docs/api-spec.yml`; document the proxy-header requirement, the 503 behaviour and the log hardening in the development guide
+- [x] 15.7 Re-run all quality gates, `openspec validate auth-and-roles --strict`, update the reports, push the fixes to the same branch and re-check GitHub Actions
+
 ## Workflow follow-up
 
 - Open the Pull Request from `feature/auth-and-roles` to `main` when the user requests it and confirm the CI run is green.

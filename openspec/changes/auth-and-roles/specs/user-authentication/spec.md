@@ -22,7 +22,7 @@ Lets people create a student account, prove who they are with email and password
 - **THEN** the response is 409 with an `Error` body and no second account is created
 
 ### Requirement: Registration input is validated
-Registration SHALL reject, with 422 and field-level details that do not echo the submitted values, a password shorter than 10 or longer than 128 characters, an invalid email, and a name that is empty after trimming, longer than 100 characters or containing control characters (NUL, tabs, line breaks).
+Registration SHALL reject, with 422 and field-level details that do not echo the submitted values, a password shorter than 10 or longer than 128 characters, an invalid email, and a name that is empty after trimming, longer than 100 characters or containing control characters (NUL, tabs, line breaks), Unicode line/paragraph separators or bidirectional-override characters.
 
 #### Scenario: Short password
 - **WHEN** the password has 9 characters
@@ -34,6 +34,10 @@ Registration SHALL reject, with 422 and field-level details that do not echo the
 
 #### Scenario: Invalid email or name
 - **WHEN** the email is malformed or the name is blank
+- **THEN** the response is 422
+
+#### Scenario: Look-alike control characters are rejected
+- **WHEN** the name contains U+2028, U+2029 or a bidirectional override such as U+202E
 - **THEN** the response is 422
 
 #### Scenario: Unstorable characters never cause a server error
@@ -100,7 +104,7 @@ Login SHALL allow at most the configured number of attempts per client within th
 - **THEN** the next request receives 429 with `Retry-After`, no Argon2id hashing is performed and no account is created
 
 #### Scenario: Forwarding headers are not trusted
-- **WHEN** a client rotates `X-Forwarded-For`, `Forwarded` or `X-Real-IP` values
+- **WHEN** a client rotates `X-Forwarded-For`, `Forwarded` or `X-Real-IP` values, including against the real server started with the project's default command (proxy headers disabled)
 - **THEN** its requests still count against one limit determined by the connection address
 
 #### Scenario: Independent from login

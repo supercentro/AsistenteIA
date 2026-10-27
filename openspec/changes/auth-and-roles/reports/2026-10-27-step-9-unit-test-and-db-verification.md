@@ -44,5 +44,8 @@ Notes: flaky tests: none observed. The rate-limit "window elapsed" test uses a r
 - Step 9 status: PASS
 - Blocking issues: none
 
+## Update after the independent review
+Full run: **305 passed**, 97 % coverage (`services/`, `repositories/`, `rate_limit.py`, `handlers.py` 100 %), `alembic check` clean, `npm audit` 0, Playwright 2 passed.
+
 ## Update after the review follow-ups
 Added: registration rate limiting tests (7 integration + 2 settings), real-process CLI tests (`test_cli_process.py`, 9), adversarial probes (13), JWT strictness tests. Final full run: **274 passed**, 97 % coverage (`services/` and `repositories/` 100 %, `rate_limit.py` 100 %, `cli.py` 86 % in-process plus the real-process tests above), ruff/format/mypy strict clean, `npm audit` clean, frontend 3 Vitest + 2 Playwright passing. `pip-audit` was clean on the last run that completed (no dependency changed since); the final reruns timed out reaching pypi.org (network), so it is re-checked by CI.

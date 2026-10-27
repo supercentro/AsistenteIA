@@ -41,6 +41,9 @@ Every scenario of the three new specs and of the `service-health` delta maps to 
 | Minor (tracked) | Tests | `cli.main()` wiring is covered only by the manual curl run (86 % coverage on `cli.py`); the rate-limit window test uses a 1.2 s real sleep instead of an injected clock | coverage report | accepted |
 | Minor (tracked) | Process | Role guards were written together with `get_current_user` (before their dedicated tests); the tests were then validated by mutation | task 5 | recorded |
 
+## Follow-up
+A second, independent review (separate subagent, clean context) found two further majors that this same-session review missed: server-log leakage of SQL parameters on statement errors, and a rate-limit bypass through Uvicorn's default proxy-header handling. Both are fixed; see `2026-10-27-independent-review.md`.
+
 ## Verdict
 **PASS WITH GAPS.** No open blockers or majors: the one major (500 on control characters) and the JWT strictness gaps are fixed with regression tests. Open items are tracked minors/questions above, (unlimited registration was fixed after this review). Because this review was done in the implementing session, archiving is advisable only after the user accepts the tracked items (or asks for registration rate limiting) and, ideally, after a second independent pass.
 

@@ -26,6 +26,7 @@ Every remaining MVP feature (subjects, enrollments, documents, chat, GDPR deleti
 - `privacy-consent`: recording of acceptance of the configured privacy-policy version (version and timestamp) per user, the evidence later required by chat.
 
 ### Modified Capabilities
+- `api-error-handling`: database outages answer 503 on every endpoint and unexpected failures never write request data to logs (ADDED requirements).
 - `service-health`: the stable-contract requirement no longer claims that `/api/v1/health` is the only API path (obsolete once authentication endpoints exist); the 200/503 contract itself is unchanged.
 
 ## Impact
@@ -53,4 +54,5 @@ Every remaining MVP feature (subjects, enrollments, documents, chat, GDPR deleti
 9. The backend setting `PRIVACY_POLICY_VERSION` has an equivalent UI constant (`frontend/src/lib/privacyPolicy.ts`, constant only, no screens) with automated consistency checks in CI; no endpoint exposes the version.
 10. Valid consent for the **current** version will be required by `/chat`; enforcement belongs to change 9 and is not implemented here.
 11. Registration rate limiting (5/minute per address, `limits`, no trust in client-supplied forwarding headers, rejected requests run no Argon2id and persist nothing) approved on 2026-10-27 after the first adversarial review.
-12. Implementation approved to start (2026-10-27) with mandatory adversarial review; no commits, push, PR, merge or archive of this change without further approval.
+12. Independent review (2026-10-27) findings F1 (log leakage on SQL errors), F2 (rate-limit bypass via `X-Forwarded-For` with loopback proxies), F3-F7 (name look-alike characters, CLI name check, argument echo, login `maxLength` in the contract, 503 on outage) are fixed in this change; F8 (email Unicode normalization) is left as a question.
+13. Implementation approved to start (2026-10-27) with mandatory adversarial review; no commits, push, PR, merge or archive of this change without further approval.

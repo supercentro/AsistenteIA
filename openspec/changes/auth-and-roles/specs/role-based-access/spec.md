@@ -42,6 +42,14 @@ No HTTP endpoint SHALL create or promote a teacher account.
 - **WHEN** the command runs with a new email and a password of at least 10 characters
 - **THEN** a teacher account exists, the exit code is 0 and the output contains neither password nor hash
 
+#### Scenario: Unsafe name
+- **WHEN** `--name` contains control characters, line or paragraph separators or bidirectional overrides, or exceeds 100 characters
+- **THEN** no account is created and the exit code is non-zero
+
+#### Scenario: Rejected arguments are not echoed
+- **WHEN** the command is invoked with an unsupported argument such as `--password <value>`
+- **THEN** it exits with code 2 and the message does not repeat the supplied value
+
 #### Scenario: Weak password
 - **WHEN** the password has fewer than 10 characters
 - **THEN** no account is created and the exit code is non-zero
