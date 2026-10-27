@@ -3,7 +3,9 @@
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
+from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
@@ -42,3 +44,31 @@ def drop_everything(url: str) -> None:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
         conn.execute(text("DROP EXTENSION IF EXISTS vector CASCADE"))
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+def alembic_config(url: str) -> Config:
+    """Alembic config bound to a URL that already passed the isolation guard."""
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+    return config
+
+
+def truncate_all(url: str) -> None:
+    """Destructive cleanup between tests: empty every table except alembic_version."""
+    with guarded_engine(url) as engine, engine.connect() as conn:
+        names = [
+            row[0]
+            for row in conn.execute(
+                text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+                )
+            )
+        ]
+        if names:
+            quoted = ", ".join(f'"{name}"' for name in names)
+            conn.execute(text(f"TRUNCATE {quoted} RESTART IDENTITY CASCADE"))
