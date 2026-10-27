@@ -39,6 +39,11 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: ok }
+        '503':
+          description: Database is unreachable (code `SERVICE_UNAVAILABLE`; no connection details are exposed)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/register:
     post:
@@ -423,7 +428,13 @@ components:
       type: object
       required: [code, message]
       properties:
-        code: { type: string, example: CONSENT_REQUIRED }
+        code:
+          type: string
+          description: |
+            Stable machine-readable code. Generic codes: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED,
+            CONFLICT, VALIDATION_ERROR, INTERNAL_ERROR, SERVICE_UNAVAILABLE. Feature changes add their own
+            (e.g. CONSENT_REQUIRED, LLM_UNAVAILABLE).
+          example: CONSENT_REQUIRED
         message: { type: string }
         details: { type: object, additionalProperties: true, nullable: true }
     RegisterRequest:
