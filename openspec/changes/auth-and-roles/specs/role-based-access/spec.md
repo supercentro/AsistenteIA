@@ -54,6 +54,10 @@ No HTTP endpoint SHALL create or promote a teacher account.
 - **WHEN** the password has fewer than 10 characters
 - **THEN** no account is created and the exit code is non-zero
 
+#### Scenario: Non-ASCII email
+- **WHEN** the email (for `create-teacher`, or either seed email) contains a non-ASCII character
+- **THEN** no account is created and the exit code is non-zero
+
 #### Scenario: Existing email
 - **WHEN** the email already belongs to any account, including a student
 - **THEN** nothing is created or modified, the role is not changed and the exit code is non-zero

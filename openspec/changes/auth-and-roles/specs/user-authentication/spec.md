@@ -22,7 +22,15 @@ Lets people create a student account, prove who they are with email and password
 - **THEN** the response is 409 with an `Error` body and no second account is created
 
 ### Requirement: Registration input is validated
-Registration SHALL reject, with 422 and field-level details that do not echo the submitted values, a password shorter than 10 or longer than 128 characters, an invalid email, and a name that is empty after trimming, longer than 100 characters or containing control characters (NUL, tabs, line breaks), Unicode line/paragraph separators or bidirectional-override characters.
+Registration SHALL reject, with 422 and field-level details that do not echo the submitted values, a password shorter than 10 or longer than 128 characters, an invalid email or an email containing any non-ASCII character, and a name that is empty after trimming, longer than 100 characters or containing control characters (NUL, tabs, line breaks), Unicode line/paragraph separators or bidirectional-override characters.
+
+#### Scenario: Non-ASCII emails are rejected
+- **WHEN** the email contains a non-ASCII character in the local part or the domain (accents, full-width letters, Greek or Cyrillic look-alikes, an internationalised domain in Unicode form)
+- **THEN** the response is 422 and no account is created; the ASCII (punycode) form of a domain is accepted
+
+#### Scenario: Uppercase ASCII emails are normalised
+- **WHEN** an email with uppercase ASCII letters is registered
+- **THEN** it is stored in lowercase and a second registration differing only in case returns 409
 
 #### Scenario: Short password
 - **WHEN** the password has 9 characters
@@ -65,6 +73,10 @@ The system SHALL store only an Argon2id hash of each password, SHALL NOT impose 
 #### Scenario: Missing fields
 - **WHEN** the email or password is missing
 - **THEN** the response is 422
+
+#### Scenario: Non-ASCII login email
+- **WHEN** the email contains a non-ASCII character
+- **THEN** the response is 422, never a server error
 
 ### Requirement: Login failures are uniform
 Login SHALL answer a wrong password and an unknown email with the identical 401 status, code `INVALID_CREDENTIALS` and message, and SHALL spend comparable work in both cases so the response does not reveal whether the account exists.

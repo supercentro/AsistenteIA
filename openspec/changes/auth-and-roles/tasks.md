@@ -116,6 +116,13 @@ Reports required by `docs/openspec-tasks-mandatory-steps.md` are saved in `opens
 - [x] 15.6 F6: add `maxLength` 128 and `minLength` 1 to the login password in `docs/api-spec.yml`; document the proxy-header requirement, the 503 behaviour and the log hardening in the development guide
 - [x] 15.7 Re-run all quality gates, `openspec validate auth-and-roles --strict`, update the reports, push the fixes to the same branch and re-check GitHub Actions
 
+## 16. Email Normalization Decision (review F8; TDD)
+
+- [x] 16.1 Write failing tests, then restrict emails to ASCII (lowercased) in registration, login and the CLI (`create-teacher`, `seed`): accented, full-width, Greek/Cyrillic look-alike and Unicode-domain emails are rejected (422 / non-zero exit), uppercase ASCII is normalised, duplicates in any case return 409, punycode domains are accepted
+- [x] 16.2 Add the database check `ck_users_email_ascii` to migration `0002` with a test (non-ASCII insert fails; constraint present after upgrade and gone after downgrade); verify compatibility: no non-ASCII rows exist in the development database and `0002` was never merged or applied elsewhere; re-run downgrade/upgrade locally
+- [x] 16.3 Run the `update-docs` skill (no earlier evidence that the skill itself was invoked; only its checklist was applied manually) and update `docs/api-spec.yml`, `docs/data-model.md`, `docs/backend-standards.md` and `docs/development_guide.md` consistently with the artifacts
+- [x] 16.4 Re-verify review findings F1-F8, run all quality gates and audits, `openspec validate auth-and-roles --strict`, push, update the PR and wait for green CI
+
 ## Workflow follow-up
 
 - Open the Pull Request from `feature/auth-and-roles` to `main` when the user requests it and confirm the CI run is green.

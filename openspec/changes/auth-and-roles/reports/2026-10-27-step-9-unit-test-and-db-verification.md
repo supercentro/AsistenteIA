@@ -44,6 +44,9 @@ Notes: flaky tests: none observed. The rate-limit "window elapsed" test uses a r
 - Step 9 status: PASS
 - Blocking issues: none
 
+## Update after F8 (final)
+Full run: **344 passed**, 97 % coverage, `pip-audit` clean (completed run), `npm audit` 0, Vitest 3, Playwright 2, `alembic check` clean on the migrated development database.
+
 ## Update after the independent review
 Full run: **305 passed**, 97 % coverage (`services/`, `repositories/`, `rate_limit.py`, `handlers.py` 100 %), `alembic check` clean, `npm audit` 0, Playwright 2 passed.
 
