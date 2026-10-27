@@ -68,6 +68,7 @@ External providers (LLM, embeddings) are accessed through small interfaces (`LLM
 
 ## 5. Authentication and Authorization
 
+- MUST: emails are ASCII only and lowercased by one shared validator (registration, login, CLI) and by database checks; names reject control, line-separator and bidirectional characters.
 - MUST: passwords hashed with Argon2id; length 10-128; never logged or returned; unknown-email logins verify against a dummy hash.
 - MUST: JWT HS256 signed with `JWT_SECRET` (≥ 32 bytes, placeholders rejected in every environment), claims `sub`, `iat`, `exp`, `iss`, `aud` all required and validated, short expiry (default 60 min); `sub` = user id, `role` re-read from the database on every request (no role claim is issued or trusted).
 - MUST: role guards as dependencies (`require_teacher`, `require_student`). Ownership/enrolment checks live in services (`SubjectService.assert_teacher_owns`, `assert_student_enrolled`).

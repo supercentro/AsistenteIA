@@ -46,6 +46,8 @@ Backend variables (`backend/.env`):
 
 Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
+> **Local databases created before migration `0002` was final:** the migration gained the `ck_users_email_ascii` check before being merged; run `docker compose exec backend alembic downgrade -1 && docker compose exec backend alembic upgrade head` (it drops the `users` table, so only for development data).
+
 > **Upgrading an existing checkout:** the backend now refuses to start without a valid `JWT_SECRET`. Add one to your local `backend/.env` (never commit it) and run `alembic upgrade head`.
 
 _(planned)_ Gemini, embedding, upload and similarity variables are added by the change that first uses them.
@@ -84,7 +86,7 @@ printf '%s\n' "$TEACHER_PASSWORD" | docker compose exec -T backend python -m app
 docker compose exec backend python -m app.cli seed
 ```
 
-- Passwords are 10-128 characters. An existing email is never modified or promoted (non-zero exit).
+- Passwords are 10-128 characters. Emails must be ASCII (lowercased; write internationalised domains in punycode, for example `user@xn--bcher-kva.com`). An existing email is never modified or promoted (non-zero exit).
 - `seed` is idempotent (existing accounts are skipped), has no built-in credentials, prints no passwords, and refuses to run when `APP_ENV=production`.
 
 ### Login and registration rate limiting: limitations
