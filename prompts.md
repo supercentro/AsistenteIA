@@ -386,4 +386,76 @@ Autorizo el squash merge del PR #2.
 - `APP_ENV` toma `development` por defecto y `/docs` está abierto en todos los entornos (pendiente para el cambio 13, despliegue).
 - Las bases locales que aplicaron una versión previa de la migración `0002` requieren `downgrade -1` y `upgrade head`.
 
-> Nota: el uso de IA del cambio 1 (`project-scaffold`) aún no está registrado en este archivo.
+> Nota: el uso de IA del cambio 1 (`project-scaffold`) está en la sección 11.
+
+## 11. Andamiaje del proyecto (`project-scaffold`, cambio OpenSpec 1 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, con el flujo OpenSpec del repositorio (`openspec new change`, `openspec instructions`, validación `--strict`, `/opsx:apply`, `openspec archive`). Fase: crear la base ejecutable del producto (backend, frontend, base de datos, Docker Compose, CI) antes de las funcionalidades. Esta sección se agregó con aprobación explícita del usuario y se redactó solo con evidencia verificable: los mensajes del usuario en la sesión, los informes archivados en `openspec/changes/archive/2026-10-27-project-scaffold/reports/`, el historial de Git (`e0e115a`, `d63efd5`) y el PR #1. Los bloques *(fragmento textual)* son frases literales del usuario; los *(resumido, no textual)* son resúmenes. No se usaron subagentes ni se invocó el skill `adversarial-review` en este cambio (la configuración solo lo exige para autenticación, autorización, subida, chat y datos personales); `update-docs` solo se aplicó como checklist manual.
+
+### 11.1 Análisis del README y plan de implementación
+
+**Prompt 1 (fragmentos textuales):**
+
+```
+Analizá íntegramente el archivo `readme.md` de este repositorio.
+No modificar el alcance ni agregar funcionalidades sin mi autorización.
+No implementar código todavía.
+Presentar primero un plan de implementación para mi aprobación.
+```
+
+La IA leyó `readme.md`, `docs/`, `ai-specs/` y `openspec/config.yaml` y devolvió una tabla de 13 cambios en 5 etapas con dependencias, más contradicciones y vacíos detectados (por ejemplo: la HU-3 usa 403 donde el contrato dice 404; el Ticket 3 declaraba "sin dependencias" pese a depender de `subjects`; la fecha de la Entrega 2 ya había pasado).
+
+**Prompt 2 — decisión humana (fragmentos textuales):**
+
+```
+Los recursos pertenecientes a otros usuarios deben responder 404 para evitar revelar su existencia.
+El acceso al chat de una asignatura sin inscripción debe responder 403.
+Utilizar SQLAlchemy síncrono para el MVP.
+Mantener JWT en memoria en el frontend, sin utilizar localStorage.
+Utilizar proveedores fake de LLM y embeddings para las pruebas automatizadas.
+Ahora quiero comenzar exclusivamente con el primer cambio: `project-scaffold`.
+```
+
+### 11.2 Artefactos OpenSpec y ajustes del usuario
+
+La IA creó proposal, cuatro specs (`service-health`, `api-error-handling`, `dev-environment`, `continuous-integration`), diseño (D1–D10) y 15 grupos de tareas, y los presentó antes de implementar.
+
+**Prompt 3 — ajustes obligatorios antes de implementar (fragmentos textuales):**
+
+```
+`TEST_DATABASE_URL` debe ser obligatoria únicamente al ejecutar tests de integración, no para iniciar
+el backend normalmente.
+Garantizar que la base de datos de pruebas esté aislada de desarrollo y producción.
+```
+
+Del primer ajuste surgieron `APP_ENV`, la regla de CORS en producción y el guard de aislamiento de la base de pruebas (diseño D11).
+
+### 11.3 Revisión y cierre
+
+**Prompt 4 (fragmentos textuales):**
+
+```
+Realizá una revisión completa del diff contra `main`, incluyendo seguridad, dependencias,
+configuración, migraciones y archivos no versionados.
+Registrá en el informe final la desviación del proceso TDD detectada en `/health`, sin modificar
+código innecesariamente.
+Incorporar un timeout de conexión PostgreSQL de 5 segundos, configurable si corresponde, con su
+prueba automatizada.
+```
+
+### 11.4 Correcciones y hallazgos de la IA durante la implementación
+- La plantilla de Vite traía React 19, TypeScript 7 y oxlint; se fijaron React 18, TypeScript 5.9 y ESLint/typescript-eslint según los estándares. ESLint quedó en la versión 9 porque la 10 choca con `eslint-plugin-jsx-a11y`.
+- El puerto 5432 estaba ocupado por contenedores de otros proyectos locales: la base se publica en `127.0.0.1:5442`. Usar `localhost` colgaba las conexiones desde el host por resolverse primero a IPv6: se usa `127.0.0.1`.
+- MSW 3 renombró `onUnhandledRequest` a `onUnhandledFrame`; `fileConfig` de Alembic deshabilitaba los loggers existentes y rompía un test de logs al correr toda la suite.
+- La revisión del diff detectó un archivo sobrante de la plantilla (`.oxlintrc.json`), un `.gitattributes` con alcance excesivo y puertos de Docker publicados en todas las interfaces (pasaron a `127.0.0.1`).
+- El timeout de conexión se agregó porque `/health` podía colgarse con una base que no responde; se probó con un servidor TCP que acepta y no contesta.
+- **Desviación TDD reconocida:** el endpoint `/health` se escribió antes de sus tests de integración (el resto fue test primero); quedó registrada en el informe final archivado.
+
+### 11.5 Resultados verificables
+- 62 tests de backend (unitarios e integración sobre PostgreSQL 15 + pgvector), cobertura 98 %; 2 de Vitest y 2 de Playwright; `ruff`, `mypy --strict`, ESLint, Prettier y `tsc` limpios; `pip-audit` y `npm audit` sin vulnerabilidades; arranque limpio con `docker compose up --build`.
+- PR #1 con CI en verde, squash merge `e0e115a`; archivado OpenSpec `d63efd5` con 4 specs principales (20 requisitos).
+
+### 11.6 Riesgos residuales
+- El guard de aislamiento es una convención de nombres y entorno, no una barrera de privilegios, y no frena un `alembic downgrade` manual contra la base de desarrollo.
+- El timeout acota solo el establecimiento de la conexión, no la duración de las consultas.
+- ESLint 9 está en desuso; las dependencias del backend usan rangos `>=` fijados por `uv.lock`.
