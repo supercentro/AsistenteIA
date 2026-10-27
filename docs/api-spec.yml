@@ -73,6 +73,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/login:
     post:
@@ -87,8 +92,8 @@ paths:
               type: object
               required: [email, password]
               properties:
-                email: { type: string, format: email }
-                password: { type: string, format: password }
+                email: { type: string, format: email, maxLength: 255 }
+                password: { type: string, format: password, minLength: 1, maxLength: 128 }
       responses:
         '200':
           description: Authenticated
@@ -107,6 +112,11 @@ paths:
             Retry-After:
               description: Seconds until another attempt is allowed
               schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
