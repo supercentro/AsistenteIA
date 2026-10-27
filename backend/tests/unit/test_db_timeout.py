@@ -3,6 +3,7 @@ from sqlalchemy import event
 
 from app.core.config import ConfigurationError, load_settings
 from app.core.database import create_db_engine
+from tests.constants import TEST_JWT_SECRET
 
 DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 
@@ -11,6 +12,7 @@ DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("APP_ENV", "DATABASE_URL", "CORS_ORIGINS", "DB_CONNECT_TIMEOUT_SECONDS"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
 
 
 def test_connect_timeout_defaults_to_five_seconds(monkeypatch: pytest.MonkeyPatch) -> None:

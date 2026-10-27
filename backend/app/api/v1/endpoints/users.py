@@ -1,0 +1,25 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+
+from app.api.deps import CurrentUser, get_consent_service
+from app.schemas.consent import ConsentRequest
+from app.schemas.user import UserResponse
+from app.services.consent_service import ConsentService
+
+router = APIRouter(prefix="/users", tags=["Auth"])
+
+
+@router.get("/me", response_model=UserResponse)
+def read_me(user: CurrentUser) -> UserResponse:
+    return UserResponse.model_validate(user)
+
+
+@router.post("/me/consent", response_model=UserResponse)
+def record_consent(
+    body: ConsentRequest,
+    user: CurrentUser,
+    service: Annotated[ConsentService, Depends(get_consent_service)],
+) -> UserResponse:
+    """Record acceptance of the current privacy-policy version (updates version and date)."""
+    return UserResponse.model_validate(service.record(user, body.consent_version))

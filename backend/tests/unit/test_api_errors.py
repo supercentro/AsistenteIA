@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.main import create_app
+from tests.constants import TEST_JWT_SECRET
 
 SECURE_HEADERS = {
     "x-content-type-options": "nosniff",
@@ -23,6 +24,7 @@ class Payload(BaseModel):
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     settings = Settings(
+        jwt_secret=TEST_JWT_SECRET,
         database_url="postgresql+psycopg://u:p@localhost:5432/asistenteia",
         cors_origins=["http://localhost:5173"],
     )

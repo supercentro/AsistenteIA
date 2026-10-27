@@ -26,6 +26,7 @@ def create_db_engine(database_url: str, connect_timeout_seconds: int = 5) -> Eng
     return create_engine(
         database_url,
         pool_pre_ping=True,
+        hide_parameters=True,  # never render bound parameters (emails, hashes) in error text
         connect_args={"connect_timeout": connect_timeout_seconds},
     )
 

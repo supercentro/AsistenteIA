@@ -20,7 +20,7 @@ Legend: **MUST** blocks merge; **SHOULD** is recommended. Canonical contracts: [
 | RAG | LangChain (text splitters, prompt templates, Gemini chat model wrapper) |
 | LLM | Gemini 2.5 Flash via `langchain-google-genai` (model name read from config; verify availability before release) |
 | Embeddings | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, local, 384 dims |
-| Auth | `PyJWT`, `argon2-cffi` |
+| Auth | `PyJWT`, `argon2-cffi`, `limits` (in-memory login rate limiting) |
 | PDF extraction | `pypdf` |
 | Packaging | `uv` with committed `uv.lock` |
 | Quality | `ruff` (lint + format), `mypy --strict` |
@@ -64,12 +64,13 @@ External providers (LLM, embeddings) are accessed through small interfaces (`LLM
 - MUST: routes under `/api/v1`, plural nouns, `snake_case` JSON fields, UUID identifiers.
 - MUST: status codes as in the spec. For resources scoped to a user (conversations, messages, documents of another teacher) return **404** rather than 403 to avoid confirming existence.
 - MUST: CORS allows only configured origins (`CORS_ORIGINS`), never `*` with credentials.
-- SHOULD: rate limiting on `/auth/login` and `/chat` (e.g. `slowapi`).
+- MUST (login): rate limiting of `/auth/login` with `limits` (429 + `Retry-After`; in-memory, see the limitations in `development_guide.md`). SHOULD: the same for `/chat` in the chat change.
 
 ## 5. Authentication and Authorization
 
-- MUST: passwords hashed with argon2; minimum length 10; never logged.
-- MUST: JWT signed with `JWT_SECRET` (≥ 32 random bytes), short expiry (default 60 min), validated on every request; `sub` = user id, `role` re-read from the database (do not trust the claim for authorization).
+- MUST: emails are ASCII only and lowercased by one shared validator (registration, login, CLI) and by database checks; names reject control, line-separator and bidirectional characters.
+- MUST: passwords hashed with Argon2id; length 10-128; never logged or returned; unknown-email logins verify against a dummy hash.
+- MUST: JWT HS256 signed with `JWT_SECRET` (≥ 32 bytes, placeholders rejected in every environment), claims `sub`, `iat`, `exp`, `iss`, `aud` all required and validated, short expiry (default 60 min); `sub` = user id, `role` re-read from the database on every request (no role claim is issued or trusted).
 - MUST: role guards as dependencies (`require_teacher`, `require_student`). Ownership/enrolment checks live in services (`SubjectService.assert_teacher_owns`, `assert_student_enrolled`).
 - MUST: public registration creates only students; teacher accounts come from a seed/CLI command.
 - MUST: `/chat` requires recorded consent (`consent_accepted_at` not null).
