@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.config import ConfigurationError, load_settings
+from tests.constants import TEST_JWT_SECRET
 
 DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 
@@ -9,6 +10,7 @@ DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("APP_ENV", "LOG_LEVEL", "DATABASE_URL", "CORS_ORIGINS", "TEST_DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
 
 
 def test_load_settings_missing_database_url_names_the_variable() -> None:

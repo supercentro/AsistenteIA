@@ -10,6 +10,11 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
+    "pyjwt>=2.15.1",
+    "argon2-cffi>=25.1.0",
+    "pydantic[email]>=2.14.1",
+    "limits>=5.8.0",
+    "python-dotenv>=1.2.4",
 ]
 
 [dependency-groups]

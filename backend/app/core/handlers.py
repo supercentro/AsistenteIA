@@ -25,15 +25,21 @@ _HTTP_CODES = {
 
 
 def _error_response(
-    status_code: int, code: str, message: str, details: dict[str, object] | None = None
+    status_code: int,
+    code: str,
+    message: str,
+    details: dict[str, object] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     body = ErrorResponse(code=code, message=message, details=details)
-    return JSONResponse(status_code=status_code, content=body.model_dump(exclude_none=True))
+    return JSONResponse(
+        status_code=status_code, content=body.model_dump(exclude_none=True), headers=headers
+    )
 
 
 async def _app_error_handler(_: Request, error: Exception) -> JSONResponse:
     exc = cast(AppError, error)
-    return _error_response(exc.status_code, exc.code, exc.message, exc.details)
+    return _error_response(exc.status_code, exc.code, exc.message, exc.details, exc.headers)
 
 
 async def _http_exception_handler(_: Request, error: Exception) -> JSONResponse:
