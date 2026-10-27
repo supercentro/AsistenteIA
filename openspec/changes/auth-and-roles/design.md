@@ -1,0 +1,70 @@
+# Design
+
+## Context
+
+Backend skeleton from `project-scaffold` (merged): FastAPI app factory, typed settings, domain errors mapped to the `Error` body, synchronous SQLAlchemy 2.x with one transaction per request (`get_db`), Alembic with revision `0001`, a guarded `*_test` database and fake-friendly test layout. No users, tokens or role checks exist. Requirements: see `specs/` of this change; motivation: `proposal.md`. Contracts: `docs/api-spec.yml` and `docs/data-model.md` (`users`). Standards: `docs/backend-standards.md` §3-5, §8-9.
+
+## Goals / Non-Goals
+
+**Goals:**
+- A small, strict authentication and role layer that later changes consume through dependencies (`get_current_user`, `require_teacher`, `require_student`).
+- Secure defaults: Argon2id, strict JWT validation, uniform login failures, rate limiting, no secrets in logs, fail-fast configuration.
+- Every authorization rule with a denied-case test.
+
+**Non-Goals:** refresh tokens, revocation/logout, password change/reset, email verification, SSO, user administration, frontend, enforcing consent in chat, account deletion.
+
+## Decisions
+
+**D1. Layout (layers per `backend-standards` §2).** `models/user.py` (`User`, `UserRole`), `schemas/auth.py` and `schemas/user.py`, `repositories/user_repository.py`, `services/auth_service.py` (register, authenticate) and `services/consent_service.py`, `core/security.py` (password hashing, token encode/decode), `core/rate_limit.py`, `api/deps.py` (current user, role guards, service providers), `api/v1/endpoints/auth.py` and `users.py`, `app/cli.py`. Routers never touch repositories or models; services never import FastAPI; services do not commit (the request transaction does).
+
+**D2. Data model.** Migration `0002` creates enum type `user_role` (`teacher`, `student`) and table `users` exactly as `docs/data-model.md` (`name` varchar(100), `email` varchar(255) unique, `password_hash` text, `consent_version` varchar(20) null, `consent_accepted_at` timestamptz null, `created_at` timestamptz default now()). Added check `ck_users_email_lowercase (email = lower(email))` so case-insensitive uniqueness is guaranteed by the database. Downgrade drops the table then the enum type. The migration test is extended (table and type exist after upgrade, absent after downgrade).
+
+**D3. Passwords.** `argon2-cffi` `PasswordHasher` with the library defaults (Argon2id, RFC 9106 low-memory profile). Length 10-128 validated at the schema layer (the upper bound avoids hashing very large inputs; contract addition). No complexity rules. Unknown-email logins verify against a pre-computed dummy hash so both failure paths cost the same. Tests inject a low-cost hasher to stay fast; production uses the defaults. Rehash-on-login and parameter tuning for the deployment host are deferred.
+
+**D4. JWT.** `PyJWT`, HS256 only. Claims `sub` (user UUID), `iat`, `exp`, `iss`, `aud`; no role or other claim is issued or trusted. Decoding uses `algorithms=["HS256"]`, required claims `sub, iat, exp, iss, aud`, issuer and audience equality, zero leeway, and `sub` must parse as UUID; any failure maps to one generic `UnauthorizedError` (401, `WWW-Authenticate: Bearer`). `expires_in` = lifetime in seconds. Token functions take an explicit `now` so expiry is tested without sleeping. No revocation: a token is valid until `exp` as long as its user exists (documented limitation; short default lifetime of 60 minutes).
+
+**D5. Settings (extends `core/config.py`).** `JWT_SECRET` (required, ≥ 32 bytes UTF-8, rejected if it contains `CHANGE_ME`/`changeme` case-insensitively or has fewer than 8 distinct characters; same rule in every environment so production can never run with a weak value), `JWT_ISSUER` (default `asistenteia`), `JWT_AUDIENCE` (default `asistenteia-api`), `JWT_EXPIRE_MINUTES` (default 60, 1-1440), `PRIVACY_POLICY_VERSION` (default `2026-10-v1`, 1-20 chars), `LOGIN_RATE_LIMIT` (default `10/minute`, parsed at startup). The secret is a `SecretStr` so it never appears in repr or logs. Existing tests, `.env.example`, compose and CI are updated; CI generates a random secret at job start (no stored secret). Seed variables (`SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD`) are read only by the CLI, not by `Settings`, and documented without values.
+
+**D6. Authentication dependency.** `HTTPBearer(auto_error=False)` so missing or malformed headers produce our 401 `Error` body (not FastAPI's 403). `get_current_user` decodes the token, loads the user by id from PostgreSQL on every request and returns the ORM user; absent user → 401. `require_teacher` / `require_student` compare the **database** role and raise `ForbiddenError` (403). Ownership and enrolment checks are not part of this change.
+
+**D7. Login rate limiting with `limits` (not `slowapi`).** `limits` (the library under `slowapi`) is typed and framework-neutral; a `MemoryStorage` + `MovingWindowRateLimiter` instance lives on `app.state` and a dependency on `/auth/login` counts one hit per attempt keyed by the client address (`request.client.host`) before any database or hashing work. Exceeded → `RateLimitedError` (429, code `RATE_LIMITED`, `Retry-After` seconds). Alternative `slowapi` (named in the standards as an example): decorator and handler coupling, weaker typing. Limitations to document in the development guide: storage is per process and lost on restart; multiple workers or instances each keep their own counters; behind a proxy the client address is the proxy unless trusted forwarded headers are configured (not done here); shared NATs share a bucket; a distributed attack on one account from many addresses is not covered. A shared store (Redis) is a later hardening step.
+
+**D7a. Registration limit (added after review).** `POST /auth/register` uses the same `limits` mechanism through a second, independent limiter (`REGISTER_RATE_LIMIT`, default `5/minute`, same format validation), enforced as a route dependency before body processing, hashing and persistence. The limiter class is generic (`RateLimiter(limit, namespace, message)`); login and registration keep separate counters. Motivation: registration hashes with Argon2id (about 64 MiB per call) and is otherwise an unauthenticated exhaustion and account-spam vector. Same limitations as D7.
+
+**D7b. Client address is never taken from client-controlled headers.** The limiter key is the connection peer address (`request.client.host`). The application does not read `X-Forwarded-For`, `Forwarded` or `X-Real-IP` itself. Uvicorn's proxy-header handling stays restricted to its trusted-proxy list (`--forwarded-allow-ips`, default loopback only), so a forged header from an untrusted client cannot change the key; deployments behind a proxy must set that list explicitly (documented). A test sends rotating forged headers and shows they share one bucket. Default limit `10/minute` per address, in-memory.
+
+**D8. Uniform login errors.** Code `INVALID_CREDENTIALS`, message "Invalid email or password", identical for unknown email and wrong password. Registration conflict stays 409 as in the approved contract (accepted enumeration surface). Race on concurrent registration: the unique violation is caught in the repository and mapped to the same 409.
+
+**D9. Consent.** `ConsentService.record(user, version)` compares with `settings.privacy_policy_version`; a mismatch raises `InvalidConsentVersionError` (422, `INVALID_CONSENT_VERSION`, `details={"current_version": ...}`, which is public information); updates version and `consent_accepted_at = now(UTC)` (overwrite on re-acceptance). A pure helper `has_current_consent(user, settings)` (stored version equals configured version) is added and unit-tested here for the chat change to use; it is not wired to any endpoint now.
+
+**D9b. Policy version consistency (approved).** The current version is configured in the backend (`PRIVACY_POLICY_VERSION`, default `2026-10-v1`). The future UI gets an equivalent constant in `frontend/src/lib/privacyPolicy.ts` (a single exported `PRIVACY_POLICY_VERSION` string; no screens, no auth UI, no behaviour). Consistency mechanisms: (1) a backend unit test reads that file, extracts the constant and asserts it equals the `Settings` default and is 1-20 characters; (2) a Vitest test asserts the constant's format; both run in CI, so changing one side alone fails the pipeline; (3) at runtime the 422 of `/users/me/consent` returns `details.current_version`, which lets the client detect drift when an operator overrides the environment variable. Accepting that an operator override of `PRIVACY_POLICY_VERSION` must be mirrored in the UI constant at deploy time (documented in the guide). Enforcement of consent in `/chat` is the chat change (9); this change only provides `has_current_consent`.
+
+**D10. CLI (`python -m app.cli`).** `argparse`, no new dependency. `create-teacher --email E [--name N]`: name defaults to the part of the email before `@`; password via `getpass` prompt (with confirmation) or `--password-stdin`; never as an argument; same length policy; refuses if the email already exists (no overwrite, no promotion); prints only the created id and email. `seed`: allowed only when `APP_ENV` is `development` or `test`; reads the four seed variables, no defaults in code or `.env.example`; creates the teacher and student only if their emails do not exist; prints which were created or skipped, never passwords; exits non-zero on missing or weak input or in production. Both commands use the same service/repository code and one transaction. The CLI is not importable from any router and exposes no HTTP surface.
+
+**D11. Errors.** New domain errors in `core/errors.py`: `InvalidCredentialsError` (401), `RateLimitedError` (429, carries `retry_after`), `InvalidConsentVersionError` (422). `handlers.py` adds the `Retry-After` header for 429. New codes are documented in `docs/api-spec.yml`.
+
+**D12. Logging.** Auth services log events with user id only (`login ok user=<id>`, `login failed` without email, `token rejected`). Passwords, hashes, tokens, the Authorization header, the secret and request bodies are never logged. A test captures logs across register, login, failures and invalid tokens and asserts none of those strings appear.
+
+**D13. Test strategy.** Unit: security primitives, settings validation, consent/role helpers, CLI logic with a fake session. Integration (real PostgreSQL test database through the existing guard): every endpoint's happy path and the denied cases from the specs; guards exercised through test-only routes added to the app instance; role-change and deleted-user cases by direct database updates; rate limiting with a tiny limit (e.g. `2/minute`) and an injectable clock; table cleanup between tests with a guarded `TRUNCATE`. The frontend Playwright smoke suite is re-run only to prove no regression (no UI change).
+
+**D14. Contract and docs updates (same change).** `docs/api-spec.yml`: login 429 (+ `Retry-After`), consent 422, password `maxLength` 128, name `minLength` 1, new error codes; `docs/data-model.md`: lowercase-email check and `user_role` type; `docs/development_guide.md`: variables, CLI usage, rate-limit limitations; `.env.example`; CI environment.
+
+## Risks / Trade-offs
+
+- [In-memory rate limiting is bypassable and per instance] → documented (D7); acceptable for the MVP, Redis later.
+- [Tokens cannot be revoked before expiry] → short lifetime; user existence and role are checked on each request.
+- [Registration reveals existing emails (409)] → approved contract; login stays uniform.
+- [Argon2 default cost may be slow on a small host] → measure at deployment; parameters adjustable later.
+- [Weak-secret heuristics are simple] → length ≥ 32 bytes, placeholders and low variety rejected; real entropy remains the operator's job (documented generation command).
+- [Strictly requiring `JWT_SECRET` breaks existing local `.env` files] → documented in the development guide; clear startup message.
+- [Branch base] → `feature/auth-and-roles` was cut from local `main`, which contains the unpushed archive commit `d63efd5`; the PR will carry it unless `main` is pushed first.
+
+## Migration Plan
+
+Alembic `0002` is applied manually (`alembic upgrade head`); rollback with `alembic downgrade -1`. Developers add `JWT_SECRET` (and optionally the seed variables) to `backend/.env` before starting the backend.
+
+## Open Questions
+
+Resolved by the user on 2026-10-27: (a) the UI uses an equivalent constant with consistency checks (D9b), no new endpoint; (b) chat (change 9) will require **current** consent; `docs/api-spec.yml` wording ("recorded consent") is aligned in that change, not here.
+
+Still open and deferrable without effect on specs: Argon2 parameter tuning and rehash-on-login.
