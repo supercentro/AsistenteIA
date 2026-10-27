@@ -92,10 +92,11 @@ erDiagram
 ## Entities
 
 ### users
-- `id` uuid PK; `name` varchar(100) not null; `email` varchar(255) unique not null (stored lowercase); `password_hash` text not null (argon2); `role` enum `teacher|student` not null.
-- `consent_version` varchar(20) and `consent_accepted_at` timestamptz: evidence of the privacy-policy acceptance. The API must refuse chat usage until a consent is recorded.
-- Teacher accounts are created only by a seed/CLI command (public registration creates students), so a role can never be self-assigned.
-- Validation: email format; password minimum length 10 (validated at the API layer, never stored).
+- `id` uuid PK (default `gen_random_uuid()`); `name` varchar(100) not null; `email` varchar(255) unique not null (stored lowercase, enforced by check constraint `ck_users_email_lowercase`: `email = lower(email)`); `password_hash` text not null (Argon2id); `role` PostgreSQL enum type `user_role` (`teacher`, `student`) not null.
+- `consent_version` varchar(20) and `consent_accepted_at` timestamptz: evidence of the privacy-policy acceptance; only the latest acceptance is stored (re-acceptance overwrites both). The recorded version must equal the currently configured policy version (`PRIVACY_POLICY_VERSION`). The API must refuse chat usage until consent for the current version is recorded (enforced by the chat change).
+- Teacher accounts are created only by the `python -m app.cli create-teacher` and `seed` commands (public registration creates students), so a role can never be self-assigned.
+- Validation: email format; password length 10-128 (validated at the API layer, never stored).
+- Created by migration `0002` (downgrade drops the table, then the `user_role` type).
 
 ### subjects
 - `teacher_id` FK → users (must have role `teacher`, enforced in the service layer). Unique `(teacher_id, name)`.

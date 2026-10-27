@@ -64,6 +64,15 @@ paths:
               schema: { $ref: '#/components/schemas/User' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: Too many registrations from this client address (code `RATE_LIMITED`). Configurable (`REGISTER_RATE_LIMIT`, default 5/minute); counters are in memory per process.
+          headers:
+            Retry-After:
+              description: Seconds until another attempt is allowed
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/login:
     post:
@@ -86,7 +95,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TokenResponse' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401':
+          description: Unknown email or wrong password (identical response for both; code `INVALID_CREDENTIALS`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: Too many login attempts from this client address (code `RATE_LIMITED`). Limit is configurable (`LOGIN_RATE_LIMIT`, default 10/minute); counters are in memory per process.
+          headers:
+            Retry-After:
+              description: Seconds until another attempt is allowed
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /users/me:
     get:
@@ -123,14 +146,21 @@ paths:
               type: object
               required: [consent_version]
               properties:
-                consent_version: { type: string, example: "2026-10-v1" }
+                consent_version: { type: string, minLength: 1, maxLength: 20, example: "2026-10-v1" }
       responses:
         '200':
-          description: Consent recorded
+          description: Consent recorded (version and date updated, also on re-acceptance)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: |
+            Validation failed. A version that is not the currently configured policy version returns code
+            `INVALID_CONSENT_VERSION` with `details.current_version`; an empty or over-long value returns `VALIDATION_ERROR`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /users/me/conversations:
     delete:
@@ -432,8 +462,8 @@ components:
           type: string
           description: |
             Stable machine-readable code. Generic codes: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED,
-            CONFLICT, VALIDATION_ERROR, INTERNAL_ERROR, SERVICE_UNAVAILABLE. Feature changes add their own
-            (e.g. CONSENT_REQUIRED, LLM_UNAVAILABLE).
+            CONFLICT, VALIDATION_ERROR, INTERNAL_ERROR, SERVICE_UNAVAILABLE. Authentication adds INVALID_CREDENTIALS,
+            RATE_LIMITED and INVALID_CONSENT_VERSION. Feature changes add their own (e.g. CONSENT_REQUIRED, LLM_UNAVAILABLE).
           example: CONSENT_REQUIRED
         message: { type: string }
         details: { type: object, additionalProperties: true, nullable: true }
@@ -441,9 +471,9 @@ components:
       type: object
       required: [name, email, password]
       properties:
-        name: { type: string, maxLength: 100 }
-        email: { type: string, format: email }
-        password: { type: string, format: password, minLength: 10 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 255, description: Stored in lowercase }
+        password: { type: string, format: password, minLength: 10, maxLength: 128 }
     TokenResponse:
       type: object
       required: [access_token, token_type, expires_in]

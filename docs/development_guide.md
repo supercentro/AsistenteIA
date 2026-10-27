@@ -2,7 +2,7 @@
 
 How to set up the environment, run the stack and run quality checks for AsistenteIA.
 
-> Status: the scaffold (`project-scaffold`) is implemented: backend skeleton with `GET /api/v1/health`, frontend skeleton, database, Alembic and CI. Items marked _(planned)_ arrive with later OpenSpec changes. When a command changes, update this guide in the same change.
+> Status: the scaffold (`project-scaffold`) and authentication (`auth-and-roles`: users, JWT, roles, consent, admin CLI) are implemented. Items marked _(planned)_ arrive with later OpenSpec changes. When a command changes, update this guide in the same change.
 
 ## Prerequisites
 
@@ -34,12 +34,21 @@ Backend variables (`backend/.env`):
 | `CORS_ORIGINS` | Comma-separated allowed origins. `*` is rejected. Mandatory and explicit when `APP_ENV=production` | `http://localhost:5173` (development only) |
 | `LOG_LEVEL` | Python log level | `INFO` |
 | `DB_CONNECT_TIMEOUT_SECONDS` | Seconds allowed to open a PostgreSQL connection (1-60); keeps `/health` from hanging | `5` |
+| `JWT_SECRET` | HS256 signing key. **Required in every environment**, at least 32 bytes; values containing `CHANGE_ME`/`changeme` or with fewer than 8 distinct characters are rejected. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` | required |
+| `JWT_ISSUER`, `JWT_AUDIENCE` | `iss` and `aud` claims, both validated on every request | `asistenteia`, `asistenteia-api` |
+| `JWT_EXPIRE_MINUTES` | Access-token lifetime (1-1440) | `60` |
+| `PRIVACY_POLICY_VERSION` | Current privacy-policy version (1-20 chars) that users must accept. Mirror any override in `frontend/src/lib/privacyPolicy.ts` | `2026-10-v1` |
+| `LOGIN_RATE_LIMIT` | Login attempts per client address, `<n>/<second\|minute\|hour>` | `10/minute` |
+| `REGISTER_RATE_LIMIT` | Registrations per client address (independent counters, same format) | `5/minute` |
+| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | Read only by `python -m app.cli seed`; no defaults exist | optional |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Read by the `db` compose service | required for compose |
 | `TEST_DATABASE_URL` | **Integration tests only**; never read by the application | required for integration tests |
 
 Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
-_(planned)_ JWT, Gemini, embedding, upload and similarity variables are added by the change that first uses them.
+> **Upgrading an existing checkout:** the backend now refuses to start without a valid `JWT_SECRET`. Add one to your local `backend/.env` (never commit it) and run `alembic upgrade head`.
+
+_(planned)_ Gemini, embedding, upload and similarity variables are added by the change that first uses them.
 
 ## 2. Run the full stack
 
@@ -60,7 +69,27 @@ docker compose exec backend alembic upgrade head      # apply migrations (manual
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
 
-_(planned)_ `python -m app.cli seed` and `python -m app.cli create-teacher` arrive with the auth change.
+### Administrative commands (teacher accounts and demo data)
+
+Teacher accounts can only be created from the command line; no HTTP endpoint creates teachers or changes roles.
+
+```bash
+# Interactive hidden prompt (asks twice). The password is never accepted as an argument.
+docker compose exec backend python -m app.cli create-teacher --email teacher@example.com --name "Ana Teacher"
+# Non-interactive: first line of standard input
+printf '%s\n' "$TEACHER_PASSWORD" | docker compose exec -T backend python -m app.cli create-teacher --email teacher@example.com --password-stdin
+
+# Demo accounts: one teacher and one student, no subjects. Development and test only.
+# Set the four SEED_* variables first (in backend/.env or with `docker compose exec -e ...`).
+docker compose exec backend python -m app.cli seed
+```
+
+- Passwords are 10-128 characters. An existing email is never modified or promoted (non-zero exit).
+- `seed` is idempotent (existing accounts are skipped), has no built-in credentials, prints no passwords, and refuses to run when `APP_ENV=production`.
+
+### Login and registration rate limiting: limitations
+
+`POST /api/v1/auth/login` (`LOGIN_RATE_LIMIT`, default 10/minute) and `POST /api/v1/auth/register` (`REGISTER_RATE_LIMIT`, default 5/minute) are limited per client address, with independent counters, and answer 429 with `Retry-After`. The counters live in the memory of each backend process: they reset on restart, are not shared between workers or instances, and a distributed attack on one account from many addresses (including rotation inside an IPv6 prefix) is not covered. The address is the connection peer; `X-Forwarded-For`, `Forwarded` and `X-Real-IP` are never read by the application, and Uvicorn only honours them from its trusted proxies (`--forwarded-allow-ips`, default loopback). Behind a reverse proxy set that list explicitly, otherwise all clients share the proxy's address and one bucket. A shared store (for example Redis) is a later hardening step. Tokens cannot be revoked before they expire (default 60 minutes); the user and role are re-read from the database on every request.
 
 Create migrations with `alembic revision --autogenerate -m "describe change"` and **review** the generated file; every migration needs a working `downgrade`.
 
