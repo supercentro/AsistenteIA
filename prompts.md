@@ -312,3 +312,78 @@ AsistenteIA, configurá origin, y pedime aprobación antes de commit o push.
 - La IA verificó la copia con hashes SHA-256 (84 archivos, 0 diferencias) y confirmó que el repositorio original conservó el mismo `HEAD` y el mismo `git status`.
 - Correcciones aplicadas solo en la copia: jerarquía de precedencia documental (documentos originales del Máster > `docs/academic-requirements.md` > `docs/` técnico > `readme.md` §3-4); Playwright MCP (verificación interactiva del agente) separado de Playwright Test (suite E2E versionada) con Playwright CLI como alternativa; flujo `feature/<change-name>` → PR a `main`; `.gitignore` ampliado; URL de clonación de la guía de desarrollo actualizada.
 - Divergencia a revisar por el usuario: `readme.md` y las secciones 1-8 de este archivo conservan la URL del repositorio académico (`AlejandroNicolaide/AI4Devs-finalproject`) porque son entregables históricos; no se modificaron.
+
+## 10. Autenticación y roles (`auth-and-roles`, cambio OpenSpec 2 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, siguiendo el flujo OpenSpec del repositorio (`/opsx:propose` → validación estricta → `/opsx:apply` con TDD → revisión adversarial → PR → `/opsx:archive`). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md` y `openspec/config.yaml`. Esta sección se agregó con aprobación explícita del usuario. Fase: implementación del backend de autenticación (usuarios, JWT, roles, consentimiento, CLI de administración); el frontend solo recibió una constante.
+
+**Skills y subagentes usados:**
+- Skill `adversarial-review`, ejecutada por la propia IA en la misma sesión que implementó (no es una revisión independiente).
+- **Un subagente** de Claude Code (tipo `general-purpose`, lanzado con el parámetro `model=opus`), con contexto limpio y de solo lectura, como segunda revisión adversarial independiente.
+- Skill `update-docs`: solo se aplicó su checklist a mano durante la implementación; **se invocó el skill propiamente dicho una sola vez**, al final, a petición del usuario.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de los mensajes del usuario en la sesión; los marcados *(resumido, no textual)* son resúmenes. No se reconstruyó ninguna conversación ni se incluye la sesión completa.
+
+### 10.1 Prompts y decisiones del usuario
+
+**Prompt 1 — decisiones de diseño previas a la implementación (fragmentos textuales):**
+
+```
+El seed inicial contiene únicamente docente y estudiante, sin asignaturas. Debe ser explícito,
+idempotente y no crear credenciales predeterminadas inseguras en producción.
+
+El backend valida `consent_version` contra la versión vigente de la política de privacidad configurada
+en el sistema. No se aceptan versiones arbitrarias.
+
+Algoritmo HS256.
+Claims sub, iat, exp, iss y aud.
+Releer el rol desde PostgreSQL en cada petición autenticada.
+```
+
+**Prompt 2 — resumido, no textual:** el usuario aprobó los artefactos OpenSpec (proposal, tres specs, diseño D1–D14, tareas) y pidió empezar `/opsx:apply` exclusivamente para `auth-and-roles`, con TDD, pruebas unitarias e integración, lint, tipos, auditorías y una revisión adversarial obligatoria sobre autenticación, roles, secretos, consentimiento y rate limiting, sin commits, push ni PR sin su aprobación.
+
+**Prompt 3 — tras la primera revisión (fragmentos textuales):**
+
+```
+Incorporar rate limiting en POST /auth/register:
+  - Límite inicial: 5 solicitudes/minuto por IP.
+Incluir tests que comprueben el bloqueo y que la solicitud rechazada no ejecute Argon2id ni persista usuarios.
+
+Realizar una segunda revisión adversarial en una sesión independiente de Claude Code o con otro revisor,
+centrada en autenticación, autorización, rate limiting, CLI, JWT y consentimiento.
+```
+
+**Prompt 4 — tras la revisión independiente (fragmentos textuales):**
+
+```
+Restringir emails a caracteres ASCII.
+Verificar si el skill de SpecBoot ya se ejecutó. Si no existe evidencia, ejecutarlo.
+Autorizo el squash merge del PR #2.
+```
+
+**Prompt de la IA al subagente revisor (resumido, no textual):** se le entregó el alcance del PR #2, las rutas de los artefactos OpenSpec y las áreas de foco (autenticación, JWT, autorización, rate limiting, CLI, consentimiento, secretos y logs, migración y contratos), con reglas estrictas de solo lectura (sin editar archivos, sin git que cambie estado, sin tocar la base de desarrollo) y un formato de informe con ataques probados, hallazgos con severidad y evidencia, y veredicto.
+
+### 10.2 Decisiones técnicas principales
+- Argon2id (10–128 caracteres, verificación contra un hash falso cuando el email no existe), JWT HS256 con validación estricta de firma, algoritmo, emisor, audiencia exacta, `sub` canónico y expiración; el rol se relee de PostgreSQL en cada petición y nunca se emite ni se confía en un claim de rol.
+- `JWT_SECRET` obligatorio en todos los entornos (≥ 32 bytes, sin marcadores de posición ni baja variedad).
+- Rate limiting en memoria con la librería `limits` (login 10/min, registro 5/min por dirección de conexión), elegida frente a `slowapi` por tipado y menor acoplamiento; documentadas sus limitaciones.
+- Consentimiento validado contra `PRIVACY_POLICY_VERSION`, con constante equivalente en el frontend y pruebas de consistencia; la exigencia del consentimiento vigente en `/chat` queda para el cambio 9.
+- CLI `create-teacher` y `seed` fuera de la API (la contraseña nunca como argumento; seed solo en desarrollo/test y sin credenciales por defecto).
+
+### 10.3 Correcciones y ajustes humanos / de la IA
+- **Primera revisión (la propia IA):** un `name` con NUL u otro carácter de control producía un 500; el JWT aceptaba `aud` como lista, `sub` no canónico y booleanos como `iat`; el registro no tenía límite de tasa. Se corrigió todo con pruebas de regresión. Una validación defensiva de codificación agregada por la IA resultó código muerto (una mutación lo demostró) y se eliminó.
+- **Segunda revisión (subagente independiente), veredicto PASS WITH GAPS:** F1 (mayor) un error SQL volcaba parámetros —email y hash Argon2id— al log del servidor; F2 (mayor) rotar `X-Forwarded-For` saltaba ambos limitadores porque Uvicorn confía por defecto en el loopback; F3 caracteres bidireccionales y separadores de línea en nombres; F4 el CLI no validaba `--name`; F5 argparse repetía el valor de `--password` en el error; F6 `maxLength` del login ausente del contrato; F7 una caída de la base devolvía 500 en lugar de 503; F8 (pregunta) emails Unicode sin normalizar. F1–F7 se corrigieron con pruebas, incluidas pruebas contra un Uvicorn real (`--no-proxy-headers`); **F8 lo resolvió el usuario**: emails solo ASCII y en minúsculas, validados en registro, login y CLI, más un check en la base de datos.
+- **Errores de proceso reconocidos por la IA:** los guards de rol se escribieron junto con `get_current_user` antes de sus tests (se validaron luego por mutación); la primera revisión no detectó F1 ni F2 porque los tests usaban un cliente de prueba que no pasa por Uvicorn; el test de ventana del rate limit usa un `sleep` real porque `limits` no admite reloj inyectable; la variante interactiva de `create-teacher` solo se prueba con un prompt inyectado.
+
+### 10.4 Resultados de validación
+- Pruebas: 344 en el backend (unitarias e integración sobre PostgreSQL 15 + pgvector, incluidas pruebas con proceso real de Uvicorn y del CLI), cobertura 97 %; 3 de Vitest y 2 de Playwright en el frontend; `ruff`, `mypy --strict`, ESLint, Prettier y `tsc` limpios; `pip-audit` y `npm audit` sin vulnerabilidades; `openspec validate --strict` válido.
+- Entrega: PR #2 con CI en verde (backend y frontend), squash merge `2e87864` y archivado OpenSpec `3ca9b6b` publicado en `main`.
+
+### 10.5 Riesgos residuales (documentados en `docs/development_guide.md` y el PR)
+- El rate limit en memoria se pierde al reiniciar, no se comparte entre procesos y no cubre rotación de IPv6 ni NAT compartido; detrás de un proxy todos los clientes comparten un límite hasta configurar proxies confiables.
+- Los tokens no se revocan antes de expirar (60 minutos por defecto).
+- El registro revela emails existentes (409, según el contrato aprobado); las contraseñas no se normalizan en Unicode.
+- `APP_ENV` toma `development` por defecto y `/docs` está abierto en todos los entornos (pendiente para el cambio 13, despliegue).
+- Las bases locales que aplicaron una versión previa de la migración `0002` requieren `downgrade -1` y `upgrade head`.
+
+> Nota: el uso de IA del cambio 1 (`project-scaffold`) aún no está registrado en este archivo.
