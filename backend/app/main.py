@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import Settings, load_settings
 from app.core.database import create_db_engine, create_session_factory
+from app.core.error_middleware import UnhandledErrorMiddleware
 from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimiter
@@ -39,6 +40,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(UnhandledErrorMiddleware)  # added last: outermost
     register_exception_handlers(app)
     app.include_router(api_router, prefix="/api/v1")
     return app
