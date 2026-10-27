@@ -9,7 +9,7 @@ import getpass
 import os
 import sys
 from collections.abc import Callable, Mapping
-from typing import TextIO
+from typing import NoReturn, TextIO
 
 from dotenv import dotenv_values
 from pydantic import EmailStr, TypeAdapter, ValidationError
@@ -21,7 +21,12 @@ from app.core.errors import ConflictError
 from app.core.security import PasswordService
 from app.models.user import UserRole
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, normalize_email
+from app.schemas.auth import (
+    MAX_PASSWORD_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    ensure_no_control_characters,
+    normalize_email,
+)
 from app.services.user_admin_service import UserAdminService
 
 SEED_VARIABLES = (
@@ -53,8 +58,20 @@ def _valid_password(password: str, label: str) -> str:
     return password
 
 
+class SafeArgumentParser(argparse.ArgumentParser):
+    """Argument errors never repeat supplied values (a typed password stays unprinted)."""
+
+    def error(self, message: str) -> NoReturn:
+        if message.startswith("unrecognized arguments"):
+            message = (
+                "unrecognized arguments (values hidden; passwords are never accepted as arguments)"
+            )
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {message}\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="python -m app.cli", allow_abbrev=False)
+    parser = SafeArgumentParser(prog="python -m app.cli", allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
 
     teacher = commands.add_parser(
@@ -87,6 +104,10 @@ def _create_teacher(
 ) -> None:
     email = _valid_email(args.email, "--email")
     name = (args.name or email.split("@", 1)[0]).strip()
+    try:
+        ensure_no_control_characters(name)
+    except ValueError:
+        raise CliError("--name must not contain control or direction characters") from None
     if not 1 <= len(name) <= 100:
         raise CliError("--name must be 1-100 characters long")
 
@@ -107,10 +128,6 @@ def _create_teacher(
         raise CliError("An account with this email already exists; nothing was changed") from None
     session.commit()
     out(f"Created teacher id={user.id} email={user.email}")
-
-
-def _seed_password(values: Mapping[str, str | None], name: str) -> str:
-    return _valid_password(str(values[name]), name)
 
 
 def _seed(

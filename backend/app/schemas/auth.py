@@ -8,13 +8,21 @@ MIN_PASSWORD_LENGTH = 10
 MAX_PASSWORD_LENGTH = 128
 
 
-def ensure_no_control_characters(value: str) -> str:
-    """Names are single-line text: no NUL, tabs, line breaks or other control characters.
+# Bidirectional marks, embeddings, overrides and isolates: they allow visual spoofing of names.
+BIDI_CONTROLS = frozenset(
+    chr(code) for code in (*range(0x202A, 0x202F), *range(0x2066, 0x206A), 0x200E, 0x200F)
+)
 
-    PostgreSQL cannot store NUL, which would otherwise surface as a 500.
+
+def ensure_no_control_characters(value: str) -> str:
+    """Names are single-line plain text.
+
+    Rejects control characters (PostgreSQL cannot store NUL), Unicode line and paragraph
+    separators and bidirectional controls. Joiners used by real scripts (ZWNJ, ZWJ) stay allowed.
     """
-    if any(unicodedata.category(char) == "Cc" for char in value):
-        raise ValueError("contains control characters")
+    for char in value:
+        if unicodedata.category(char) in {"Cc", "Zl", "Zp"} or char in BIDI_CONTROLS:
+            raise ValueError("contains control or direction characters")
     return value
 
 

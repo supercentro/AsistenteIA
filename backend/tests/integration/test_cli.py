@@ -306,3 +306,24 @@ def test_cli_source_has_no_default_credentials() -> None:
 
     assert not re.search(r"\.get\([^)]*,\s*['\"]", source), "env lookups must not have defaults"
     assert "getenv" not in source
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["a\u2028b", "a\u202eb", "tab\tname", "line\nbreak", "nul\x00name", "n" * 101],
+    ids=["line-separator", "bidi-override", "tab", "newline", "nul", "too-long"],
+)
+def test_create_teacher_rejects_unsafe_names(cli: Cli, clean_db: str, name: str) -> None:
+    code = cli(["create-teacher", "--email", "prof@example.com", "--name", name])
+
+    assert code != 0
+    assert accounts(clean_db) == []
+
+
+def test_unsupported_arguments_are_not_echoed(cli: Cli, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cli(["create-teacher", "--email", "a@example.com", "--password", "Hunter2-Secret!"])
+
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert "Hunter2-Secret!" not in captured.out + captured.err

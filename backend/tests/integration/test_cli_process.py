@@ -172,4 +172,5 @@ def test_a_password_argument_is_refused_by_the_real_process(
     )
 
     assert result.returncode == 2
+    assert TEACHER_PASSWORD not in all_output(result)
     assert accounts(clean_db) == {}
