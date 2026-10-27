@@ -1,0 +1,45 @@
+# Upstream Specboot clone (not part of this repository)
+lidr-specboot/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local worktrees
+.worktrees/
+
+# Secrets (only .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+build/
+coverage/
+
+# Playwright (MCP, CLI and Playwright Test artifacts)
+.playwright-mcp/
+.playwright-cli/
+playwright-report/
+test-results/
+blob-report/
+
+# Logs
+*.log
+
+# Claude Code local-only settings
+.claude/settings.local.json

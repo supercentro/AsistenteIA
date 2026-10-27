@@ -1,0 +1,71 @@
+schema: spec-driven
+
+# Supported keys (OpenSpec 1.15.0): schema, context, rules (keys = artifact ids: proposal, specs, design, tasks),
+# operations (apply, archive -> guidance). Keep this file thin: it points to docs/ and ai-specs/, it does not copy them.
+
+context: |
+  Product: AsistenteIA — academic RAG assistant organised by subject (teachers upload course material; enrolled
+  students ask questions and get answers grounded in that material with verifiable citations). Starting functional
+  and architectural documentation: readme.md (Spanish, academic deliverable). Never edit readme.md or prompts.md
+  without explicit user approval, and never invent AI interactions in prompts.md.
+
+  Approved MVP scope: subject and material management by teachers; RAG queries with sources; conversation history;
+  deletion of conversations and personal data (GDPR); JWT authentication with teacher/student roles.
+  Out of scope: Moodle integration, student-services assistant, advanced teacher analytics (should-have only).
+  Do not propose features outside this scope without user approval.
+
+  Single source of truth per topic (link, do not copy; if two sources disagree, docs/ wins over readme.md and the
+  divergence must be reported to the user):
+  - docs/academic-requirements.md — summary of the LIDR course requirements (deliveries, branches, AI log); the original Master documents win over it
+  - docs/base-standards.md — central technical standard: principles, documentation hierarchy, quality gates (MUST/SHOULD), Definition of Done, change workflow
+  - docs/backend-standards.md — FastAPI, RAG pipeline, security, backend testing
+  - docs/frontend-standards.md — React, UX rules, frontend testing
+  - docs/documentation-standards.md — documentation ownership and when to update what
+  - docs/api-spec.yml — canonical REST contract
+  - docs/data-model.md — canonical database model
+  - docs/development_guide.md — setup and commands
+  - docs/openspec-tasks-mandatory-steps.md — mandatory steps for tasks.md
+  OpenSpec artifacts (proposal, specs, design, tasks) define WHAT is built and its acceptance criteria; docs/ defines
+  HOW it is built. Do not restate docs/ rules inside specs or tasks: reference them by path.
+
+  Agents (ai-specs/agents/): for backend work adopt ai-specs/agents/backend-developer.md; for frontend work adopt
+  ai-specs/agents/frontend-developer.md; for product or scope questions use ai-specs/agents/product-strategy-analyst.md.
+  Skills (ai-specs/skills/): use enrich-us to detail a user story before proposing; adversarial-review before archiving
+  any change touching authentication, authorization, upload, chat/RAG or personal data; update-docs after implementation;
+  commit when committing; explain when the user asks for concepts.
+
+  Language: code, comments, docs/, ai-specs/ and OpenSpec artifacts in English. Conventional commits.
+  All paths in this file are relative to the repository root.
+
+rules:
+  proposal:
+    - State explicitly what is out of scope and confirm the change stays inside the approved MVP scope
+    - Identify impact on authorization, data isolation between subjects and users, personal data (GDPR) and external services (Gemini)
+    - List which of docs/api-spec.yml and docs/data-model.md must change, if any
+  specs:
+    - Every authorization rule needs a scenario for the denied case (wrong role, not owner, not enrolled, another user's data)
+    - RAG scenarios must cover citations, the no-material case, and LLM or vector-search failure
+    - Requirements must be testable and consistent with docs/api-spec.yml and docs/data-model.md; do not redefine those contracts here
+  design:
+    - Follow docs/backend-standards.md and docs/frontend-standards.md; reference them instead of copying their rules
+    - Call out prompt-injection, data-leakage, GDPR and error-handling implications when relevant
+    - Any architecture-affecting decision (stack, layering, data model, external provider) must be flagged for user approval
+  tasks:
+    - Follow docs/openspec-tasks-mandatory-steps.md
+    - Tests come first (TDD); include unit, integration and, for user-facing flows, E2E tasks
+    - Include a task to update docs/api-spec.yml, docs/data-model.md or the relevant standards whenever they are affected
+    - Include an Alembic migration task (with downgrade) for every schema change
+    - Include a final verification task that checks the MUST quality gates of docs/base-standards.md section 9
+
+operations:
+  apply:
+    guidance:
+      - Adopt the matching agent from ai-specs/agents/ and implement one task at a time
+      - Do not mark a task complete until the MUST quality gates in docs/base-standards.md section 9 pass
+      - Never call the real Gemini API in tests; use fakes
+      - If implementation reveals a spec or design gap, update the OpenSpec artifacts first (/opsx:update), then continue
+  archive:
+    guidance:
+      - Run the adversarial-review skill first when the change touches authentication, authorization, upload, chat/RAG or personal data
+      - Confirm docs/ files reflect the final behaviour before archiving
+      - Ask the user whether to record notable AI usage in prompts.md; do not edit it without approval
