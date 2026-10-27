@@ -53,6 +53,7 @@ def test_users_table_and_role_type_exist_after_upgrade_and_vanish_after_downgrad
         "pk_users",
         "uq_users_email",
         "ck_users_email_lowercase",
+        "ck_users_email_ascii",
     } <= constraint_names(test_db_url)
 
     command.downgrade(config, "base")

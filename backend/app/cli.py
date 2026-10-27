@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from typing import NoReturn, TextIO
 
 from dotenv import dotenv_values
-from pydantic import EmailStr, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import ConfigurationError, Settings, load_settings
@@ -24,8 +24,8 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
     MAX_PASSWORD_LENGTH,
     MIN_PASSWORD_LENGTH,
+    Email,
     ensure_no_control_characters,
-    normalize_email,
 )
 from app.services.user_admin_service import UserAdminService
 
@@ -38,7 +38,7 @@ SEED_VARIABLES = (
 SEED_ALLOWED_ENVIRONMENTS = ("development", "test")
 PASSWORD_RULE = f"must be {MIN_PASSWORD_LENGTH}-{MAX_PASSWORD_LENGTH} characters long"
 
-_email_adapter: TypeAdapter[str] = TypeAdapter(EmailStr)
+_email_adapter: TypeAdapter[str] = TypeAdapter(Email)
 
 
 class CliError(Exception):
@@ -47,7 +47,7 @@ class CliError(Exception):
 
 def _valid_email(raw: str, label: str) -> str:
     try:
-        return normalize_email(_email_adapter.validate_python(raw.strip()))
+        return _email_adapter.validate_python(raw)
     except (ValidationError, ValueError):
         raise CliError(f"{label} is not a valid email address") from None
 

@@ -40,6 +40,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_users")),
         sa.UniqueConstraint("email", name=op.f("uq_users_email")),
         sa.CheckConstraint("email = lower(email)", name=op.f("ck_users_email_lowercase")),
+        sa.CheckConstraint(
+            "octet_length(email) = char_length(email)", name=op.f("ck_users_email_ascii")
+        ),
     )
 
 

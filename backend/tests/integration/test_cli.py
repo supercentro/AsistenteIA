@@ -327,3 +327,22 @@ def test_unsupported_arguments_are_not_echoed(cli: Cli, capsys: pytest.CaptureFi
     captured = capsys.readouterr()
     assert exc.value.code == 2
     assert "Hunter2-Secret!" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize(
+    "email", ["prof\u00e9@example.com", "user@b\u00fccher.com", "\u03a3@example.com"]
+)
+def test_create_teacher_rejects_non_ascii_emails(cli: Cli, clean_db: str, email: str) -> None:
+    assert cli(["create-teacher", "--email", email]) != 0
+    assert accounts(clean_db) == []
+
+
+@pytest.mark.parametrize("variable", ["SEED_TEACHER_EMAIL", "SEED_STUDENT_EMAIL"])
+def test_seed_rejects_non_ascii_emails_and_creates_nothing(
+    cli: Cli, clean_db: str, variable: str
+) -> None:
+    code = cli(["seed"], env={**SEED_ENV, variable: "caf\u00e9@example.com"})
+
+    assert code != 0
+    assert accounts(clean_db) == []
+    assert variable in cli.output
