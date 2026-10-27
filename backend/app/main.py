@@ -8,10 +8,14 @@ from app.core.config import Settings, load_settings
 from app.core.database import create_db_engine, create_session_factory
 from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimiter
+from app.core.security import PasswordService
 from app.core.security_headers import SecureHeadersMiddleware
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, password_service: PasswordService | None = None
+) -> FastAPI:
     settings = settings or load_settings()
     configure_logging(settings.log_level)
 
@@ -19,6 +23,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = create_db_engine(settings.database_url, settings.db_connect_timeout_seconds)
     app.state.settings = settings
     app.state.session_factory = create_session_factory(engine)
+    app.state.password_service = password_service or PasswordService()
+    app.state.login_rate_limiter = RateLimiter(
+        settings.login_rate_limit, "login", "Too many login attempts. Try again later."
+    )
+    app.state.register_rate_limiter = RateLimiter(
+        settings.register_rate_limit, "register", "Too many registrations. Try again later."
+    )
 
     app.add_middleware(SecureHeadersMiddleware)
     app.add_middleware(

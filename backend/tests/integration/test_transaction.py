@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.core.config import Settings
 from app.main import create_app
+from tests.constants import TEST_JWT_SECRET
 from tests.db_support import guarded_engine
 
 
@@ -28,7 +29,13 @@ def count_rows(test_db_url: str) -> int:
 
 
 def make_client(test_db_url: str) -> TestClient:
-    app = create_app(Settings(database_url=test_db_url, cors_origins=["http://localhost:5173"]))
+    app = create_app(
+        Settings(
+            jwt_secret=TEST_JWT_SECRET,
+            database_url=test_db_url,
+            cors_origins=["http://localhost:5173"],
+        )
+    )
 
     def write_ok(db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
         db.execute(text("INSERT INTO tx_probe (label) VALUES ('ok')"))
