@@ -13,9 +13,11 @@ from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.rate_limit import RateLimiter
 from app.core.security import TOKEN_ERROR_MESSAGE, PasswordService, decode_access_token
 from app.models.user import User, UserRole
+from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.services.consent_service import ConsentService
+from app.services.subject_service import SubjectService
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,16 @@ AppSettings = Annotated[Settings, Depends(get_settings)]
 
 def get_user_repository(db: DbSession) -> UserRepository:
     return UserRepository(db)
+
+
+def get_subject_repository(db: DbSession) -> SubjectRepository:
+    return SubjectRepository(db)
+
+
+def get_subject_service(
+    subjects: Annotated[SubjectRepository, Depends(get_subject_repository)],
+) -> SubjectService:
+    return SubjectService(subjects)
 
 
 def get_auth_service(
