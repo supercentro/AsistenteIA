@@ -28,4 +28,16 @@ No `localStorage`/`sessionStorage`/`document.cookie`/IndexedDB/`innerHTML`/`dang
 Full suite 236 tests passed (210 + 26 in two new files), lint, Prettier, `tsc`, `check:api-types` clean, mocked E2E 11 passed, coverage thresholds pass. The failing run of the new tests before the fixes is recorded in `2026-10-28-tdd-evidence.md`.
 
 ## Final verdict
-**PASS WITH GAPS**, all gaps resolved or accepted above. No open blocker or major. Open items for the owner: the `Retry-After` exposure decision (TD-021).
+**PASS WITH GAPS**, all gaps resolved or accepted above. No open blocker or major. Open items for the owner: none from this review (the `Retry-After` exposure, TD-021, was approved and resolved afterwards; see the last section).
+
+## Focused review of the CORS adjustment (TD-021, commits `1d65ac1`, `bd5311a`, `6a51c5e`)
+- Reviewer: a separate Claude subagent (`model=opus`), clean context, read-only; comparison and mutations on copies outside the working tree. Scope: `git diff 50fd89a..HEAD`.
+- Verdict: **PASS WITH GAPS**, no blocker.
+- Verified: building the app from the old and the new `main.py` and comparing headers (allowed origin, disallowed origin, no Origin, on 401, 429 and health; allowed and disallowed preflight) shows **one** difference, `access-control-expose-headers: Retry-After` on non-preflight responses that carry an Origin; origins, credentials, methods, allowed headers, `max-age`, `Vary` and preflight statuses are identical. Mutations on a copy: no `expose_headers` (3 tests fail, the recorded red run), `["*"]` (3), an extra exposed header (1), `allow_credentials=False` (1), `allow_origin_regex=".*"` (2). Full suite 494 passed; auth and rate-limit suites pass unchanged; ruff and mypy clean. A disallowed origin gets no `Access-Control-Allow-Origin`, so a browser grants it nothing; exposing `Retry-After` reveals nothing a non-browser client could not already read and only reflects the requester's own per-IP limit.
+- Findings and resolution:
+  1. Major (documentation): the final-verification addendum and task 17.4 referred to this review before it was recorded. **Fixed**: this section records it; the open item above was updated.
+  2. Minor: `proposal.md` and two rows of `final-verification.md` still said the backend was untouched. **Fixed** (approved exception stated).
+  3. Minor: the "policy unchanged" test did not pin the methods or `max-age`. **Fixed**: it now asserts the exact method set and `max-age=600` (a mutation such as `allow_methods=["POST"]` now fails it).
+  4. Minor: the automated backend tests use `TestClient` only (section 9.2 real-server rule). **Accepted as a recorded deviation**: curl and real-browser evidence plus the gated spec (see `final-verification.md`).
+  5. Question (security): no action needed.
+- Final verdict for the CORS adjustment: **PASS WITH GAPS**, all gaps resolved or accepted; no open blocker or major.
