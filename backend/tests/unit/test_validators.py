@@ -1,8 +1,11 @@
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from app.schemas.auth import LoginRequest, RegisterRequest
+from app.schemas.enrollment import EnrollmentRequest
 from app.schemas.subject import SubjectCreate
 from app.schemas.validators import (
+    MAX_EMAIL_LENGTH,
     Description,
     Email,
     Name,
@@ -125,3 +128,20 @@ def test_email_is_lowercased_trimmed_and_ascii_only() -> None:
     ):
         with pytest.raises(ValidationError):
             EmailModel(email=value)
+
+
+@pytest.mark.parametrize("model", [RegisterRequest, LoginRequest, EnrollmentRequest])
+def test_generated_schema_of_every_email_field_states_the_length_limit(
+    model: type[BaseModel],
+) -> None:
+    schema = model.model_json_schema()["properties"]
+    email_field = schema.get("email") or schema["student_email"]
+
+    assert email_field["format"] == "email"
+    assert email_field["maxLength"] == MAX_EMAIL_LENGTH
+
+
+def test_stating_the_email_limit_in_the_schema_does_not_change_validation() -> None:
+    assert EmailModel(email="  Ana@Example.com ").email == "ana@example.com"
+    with pytest.raises(ValidationError):
+        EmailModel(email="a" * 244 + "@example.com")  # 256 characters

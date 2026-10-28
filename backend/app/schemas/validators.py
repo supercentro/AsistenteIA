@@ -86,4 +86,9 @@ def ascii_email(value: str) -> str:
     return normalize_email(checked.ascii_email or checked.normalized)
 
 
-Email = Annotated[str, AfterValidator(ascii_email), Field(json_schema_extra={"format": "email"})]
+# The limit is enforced by `normalize_email`; `maxLength` only documents it in the OpenAPI schema.
+Email = Annotated[
+    str,
+    AfterValidator(ascii_email),
+    Field(json_schema_extra={"format": "email", "maxLength": MAX_EMAIL_LENGTH}),
+]
