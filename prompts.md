@@ -546,3 +546,76 @@ Autorizo finalizar la publicación del archivado y preparar la actualización de
 - TD-017: la inscripción por email permite a un docente distinguir estudiantes registrados.
 - TD-018: el validador compartido recorta espacios Unicode antes de comprobar ASCII y omite U+061C; pendiente de aprobación, porque afecta a registro y login.
 - `alembic check` sigue siendo un paso manual, fuera de la CI.
+
+## 13. Base del frontend (`frontend-foundation`, cambio OpenSpec 4 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, con el flujo OpenSpec del repositorio (`/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:archive`). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md`, `docs/frontend-standards.md`, `docs/lessons-learned.md` y `docs/technical-debt.md`. Esta sección se agregó con aprobación explícita del usuario.
+
+**Skills y subagentes usados:**
+- Skills de OpenSpec `opsx:explore`, `opsx:propose`, `opsx:apply` y `opsx:archive`.
+- Skill `update-docs`, invocado explícitamente durante la implementación.
+- **Dos subagentes** de Claude Code (tipo `general-purpose`, `model=opus`), con contexto limpio y de solo lectura, como revisiones adversariales independientes: la primera sobre todo el cambio y la segunda, focalizada en la corrección de CORS (TD-021).
+- Playwright MCP (navegador real) para la verificación interactiva contra el stack de Docker Compose.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de mensajes del usuario; los marcados *(resumido, no textual)* son resúmenes. No se reconstruyó ninguna conversación. Las notas de trabajo están en `openspec/changes/archive/2026-10-28-frontend-foundation/reports/2026-10-28-ai-usage-notes.md`.
+
+### 13.1 Prompts y decisiones del usuario
+
+**Prompt 1 — análisis previo (resumido, no textual):** el usuario pidió un análisis de solo lectura de la feature 4 (alcance, dependencias, decisiones por aprobar, riesgos, arquitectura frontend). El alcance no estaba escrito en ningún artefacto del repositorio, así que la IA lo propuso y el usuario lo aprobó.
+
+**Prompt 2 — aprobación de diseño, decisiones D1–D9 (fragmentos textuales):**
+
+```
+Documentar que este alcance se define mediante las decisiones actuales del proyecto y no mediante una especificación preexistente.
+D2: sesión exclusivamente en memoria. Recargar la página requiere volver a iniciar sesión. Gestionar expiración automática del token.
+D3: obtener usuario y rol mediante GET /users/me. El backend es la autoridad sobre permisos.
+```
+
+**Prompt 3 — ajustes a la planificación (fragmentos textuales):**
+
+```
+Registrar TD-019 diferenciando la pérdida de sesión al recargar del riesgo de exposición ante XSS.
+Corregir los campos `required` únicamente cuando la evidencia confirme que son obligatorios.
+```
+
+**Prompt 4 — autorización de implementación (fragmento textual, más resumen):**
+
+```
+Realizar modificaciones temporales de JWT exclusivamente en un entorno aislado de pruebas.
+```
+
+*(Resumido, no textual:)* autorizó publicar la planificación en un PR sin merge e implementar con TDD, pruebas contra backend real (autenticación, CORS, `Authorization`, 401, expiración), revisión adversarial independiente y `update-docs`.
+
+**Prompt 5 — aprobación con condición (fragmentos textuales):**
+
+```
+Apruebo la implementación de `frontend-foundation`, condicionada a resolver TD-021 antes del squash merge.
+Autorizo finalizar la feature 4 mediante squash merge y archivado OpenSpec.
+```
+
+**Prompt de la IA a los subagentes revisores (resumido, no textual):** alcance del diff, fuentes a leer, áreas a atacar (exposición del token, ciclo de vida de la sesión, redirecciones abiertas, mensajes de error, entradas extremas, aislamiento de caché entre usuarios, CI, y para la segunda revisión la política CORS antes y después), prohibición de editar el repositorio y de tocar la base de desarrollo, y formato del informe con severidades y veredicto.
+
+### 13.2 Decisiones técnicas principales
+- Sesión solo en memoria (un único almacén en `lib/session.ts`), sin `localStorage`, `sessionStorage`, cookies ni URL; expira por temporizador y por comprobación del reloj antes de cada petición; un 401 en una petición protegida la cierra una sola vez.
+- El rol sale de `GET /users/me` y el token nunca se decodifica; las guardas de ruta son una capa de usabilidad y el backend sigue siendo la autoridad.
+- Cliente Axios con `ApiError`: el mensaje en español se elige por `code`, nunca se muestra ni registra el texto del servidor; React Query sin reintentos en 4xx y caché por usuario.
+- Tipos generados desde `docs/api-spec.yml` con `openapi-typescript`, con verificación en CI; formularios con React Hook Form y Zod.
+- Alcance: login, registro de estudiantes, rutas protegidas por rol, shell y listado de asignaturas de solo lectura; sin gestión de asignaturas, documentos, chat ni consentimiento.
+
+### 13.3 Correcciones, desviaciones y hallazgos
+- **Evidencia TDD:** fallo previo registrado por grupo. Desviaciones: una sola ejecución roja combinada para los grupos 5 a 7 y el E2E con mocks escrito después de la UI; compensadas con 20 mutaciones de guardas (19 detectadas, 1 equivalente).
+- **Hallazgos al ejecutar contra el navegador real:** un desborde horizontal a 320 px con nombres largos (corregido) y que `Retry-After` no llegaba al navegador por la configuración CORS del backend (TD-021).
+- **Contrato:** el OpenAPI real confirmó los campos `required` de `User` y `Subject.description`; solo se añadieron esos.
+- **Revisión independiente 1 (PASS WITH GAPS, sin bloqueantes ni mayores):** un 401 tardío de una sesión anterior cerraba la sesión del usuario siguiente; el filtro de destino de retorno no resolvía mayúsculas, `..` ni codificación porcentual; el siguiente usuario volvía a la página del anterior tras cerrar sesión; `LoginRequest` estaba escrito a mano; faltaban pruebas de teclado y de otros casos. Todo corregido con tests primero.
+- **TD-021 (decisión del usuario):** `expose_headers=["Retry-After"]` en el middleware CORS, con test previo que fallaba, comprobación con curl y en Chrome real ("Espere 47 segundos") y revisión focalizada (PASS WITH GAPS; los huecos eran de documentación y de un test que no fijaba métodos ni `max-age`).
+- **Incidentes de herramientas y de proceso (reconocidos por la IA):** el intérprete de comandos colapsó barras invertidas y rechazó heredocs con apóstrofes (se usaron la herramienta de escritura y `String.fromCharCode`); el contenedor de frontend conservó el volumen anónimo de `node_modules` tras añadir dependencias (hace falta `docker compose up -d --build -V frontend`); un intento de ejecutar un comando de reversión innecesario fue bloqueado y no se ejecutó; el primer proceso aislado de Uvicorn sobrevivió a la orden de detención y hubo que cerrarlo por su puerto.
+
+### 13.4 Resultados de validación
+- 236 pruebas de frontend (cobertura de sentencias 95,9 %, umbral de 70 % en componentes y hooks comprobado), 11 E2E con mocks en CI, una spec condicionada contra el backend real con 6 casos (5 ejecutados contra el stack de Compose, incluido un 429 real que muestra los segundos; la expiración con `JWT_EXPIRE_MINUTES=1` se ejecutó antes en un entorno aislado y pasó), 20 de 20 casos con curl y verificación interactiva con Playwright MCP.
+- Backend: 494 pruebas, cobertura 98 %, `ruff`, `mypy --strict` y `pip-audit` limpios. Frontend: lint, Prettier, `tsc`, `check:api-types`, build y `npm audit` limpios. `openspec validate --all --strict`: 12 de 12 tras el archivado.
+- Entrega: PR #6 con CI en verde y squash merge `e603ea4` y archivado `09f741e` publicado en `main`.
+
+### 13.5 Riesgos residuales
+- TD-019: (a) la sesión se pierde al recargar la página y (b) el token en memoria queda expuesto ante XSS; se registraron por separado.
+- TD-020: el E2E con mocks puede divergir del backend real; se revisa en el cambio 12.
+- TD-021 quedó resuelto. `alembic check` sigue siendo un paso manual fuera del CI.
