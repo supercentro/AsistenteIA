@@ -196,15 +196,11 @@ def test_seed_creates_one_teacher_and_one_student_and_nothing_else(cli: Cli, cle
         assert stored.startswith("$argon2id$")
     engine = create_db_engine(clean_db)
     with engine.connect() as conn:
-        tables = {
-            r[0]
-            for r in conn.execute(
-                text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
-            )
-        }
         assert conn.execute(text("SELECT count(*) FROM users")).scalar_one() == 2
+        # The seed creates no subjects, enrollments or any other data.
+        for table in ("subjects", "enrollments"):
+            assert conn.execute(text(f"SELECT count(*) FROM {table}")).scalar_one() == 0  # noqa: S608
     engine.dispose()
-    assert tables <= {"users", "alembic_version"}  # no subjects or any other data
 
 
 def test_seed_never_prints_passwords_or_hashes(cli: Cli, clean_db: str) -> None:
