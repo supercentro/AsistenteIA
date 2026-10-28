@@ -33,3 +33,9 @@ None. In every group the tests were written and run (failing) before the impleme
 ## Review follow-ups (task 10.2)
 - Tests added before the fixes: `uv run pytest tests/unit/test_validators.py tests/unit/test_enrollment_service.py tests/integration/test_subjects_api.py -q` gave `3 failed, 77 passed` (`test_subject_create_turns_a_blank_description_into_none`, `test_vanished_student_race_gets_the_same_not_found_as_an_unknown_email`, `test_description_is_trimmed_and_a_blank_description_becomes_null`). After the fixes the full suite gives `479 passed`.
 - Caveat: the first version of these tests was written through a tool that collapsed `\n` escapes into real newlines (SyntaxError at collection); the escapes were rebuilt with explicit characters before the failing run above.
+
+## Follow-up F6 - owner-scoped `EnrollmentRepository.add` and OpenAPI email limit
+- Command: `uv run pytest tests/integration/test_subject_repositories.py -q` after rewriting the tests for `add(subject_id, teacher_id, student_id)` and adding four new ones (foreign teacher, missing subject / student account as actor, session still usable, 12-way concurrency with owner and stranger): `13 failed, 7 passed` (`TypeError: EnrollmentRepository.add() takes 3 positional arguments but 4 were given`).
+- Command: `uv run pytest tests/unit/test_validators.py -q` after adding the schema tests: `3 failed, 29 passed` (`KeyError: 'maxLength'` in the generated schema of `RegisterRequest`, `LoginRequest` and `EnrollmentRequest`).
+- After the implementation: full backend suite `488 passed` (479 + 4 repository tests + 3 schema tests + 1 behaviour-unchanged test).
+- Deviations from test-first order: none.

@@ -17,7 +17,7 @@
 - Notes: no flaky behaviour observed. The concurrency tests (8 parallel identical requests) passed on every run.
 
 ## Mutation Checks
-See `2026-10-28-mutation-checks.md`: 12 mutations of actor filters, ownership checks and the log defences, all killed.
+See `2026-10-28-mutation-checks.md`: 13 mutations of actor filters, ownership checks and the log defences, all killed.
 
 ## Database State Verification
 - Pre-test baseline:

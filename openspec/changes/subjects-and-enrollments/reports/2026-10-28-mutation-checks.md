@@ -21,6 +21,7 @@ Method: for each actor filter, the condition is temporarily replaced by a tautol
 | 9 | `EnrollmentService.enroll` | ownership check removed | KILLED | `test_enroll_links_the_registered_student_after_checking_ownership` |
 | 10 | `EnrollmentService.enroll` | non-student accounts accepted | KILLED | `test_unknown_and_non_student_emails_raise_the_same_error_without_the_email` |
 | 11 | `EnrollmentService.list_for_subject` | ownership check removed | KILLED | `test_list_returns_an_empty_list_for_an_owned_subject_and_not_found_otherwise` |
+| 12 | `EnrollmentRepository.add` | owner condition `Subject.teacher_id == teacher_id` removed from the `INSERT ... SELECT` (F6) | KILLED | 4 tests: `test_enrollment_add_refuses_a_teacher_who_does_not_own_the_subject`, `test_enrollment_add_refuses_a_missing_subject_and_a_student_account_as_actor`, `test_a_refused_enrollment_leaves_the_session_usable`, `test_concurrent_enrollments_by_owner_and_strangers_create_exactly_one_row` |
 
 ## Log protection (task 4.3)
 - Forcing a real PostgreSQL error on the lookup by email (`FROM users` renamed) and on `INSERT INTO subjects` returns the generic 500 and the captured log contains no email, name or description.
