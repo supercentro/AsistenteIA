@@ -57,7 +57,7 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 - **THEN** exactly `top_k` chunks of the requested subject are still returned and they equal the result of an exact (unindexed) search of that subject
 
 ### Requirement: Invalid query vectors and limits are rejected before the database
-`find_similar` MUST reject, with a controlled domain error and without executing any statement, a query embedding that is not exactly 384 finite numbers, that has zero norm, or a `top_k` outside the allowed range of 1 to 50.
+`find_similar` MUST reject, with a controlled domain error and without executing any statement, a query embedding that is not exactly 384 finite numbers, whose Euclidean norm (computed in double precision) is outside the reliable range `1e-6 <= norm <= 1e6` (zero included), or a `top_k` outside 1 to 50. The range is justified in `reports/2026-10-28-magnitude-experiment.md`.
 
 #### Scenario: Wrong dimension
 - **WHEN** the query embedding has 383, 385 or 0 components
@@ -70,6 +70,18 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 #### Scenario: NaN and infinity
 - **WHEN** the query embedding contains `NaN`, `+inf` or `-inf`
 - **THEN** a controlled error is raised
+
+#### Scenario: Magnitude outside the reliable range
+- **WHEN** the query embedding is a valid direction scaled so that its norm is `1e-7`, `1e-30`, `1e7` or `1e38`, or contains one component large enough to push the norm above `1e6`
+- **THEN** a controlled error is raised and no statement is executed
+
+#### Scenario: Magnitude at the edges of the range
+- **WHEN** the query embedding has a norm of exactly `1e-6` or `1e6`
+- **THEN** the search runs and returns finite similarities that match an exact double-precision computation within `1e-6`
+
+#### Scenario: Normalised vectors
+- **WHEN** the query embedding is a unit vector, or a unit vector rounded to single precision
+- **THEN** the search runs normally
 
 #### Scenario: Invalid limit
 - **WHEN** `top_k` is zero, negative or above 50
@@ -89,3 +101,7 @@ Concurrent searches by different actors on different subjects MUST each return o
 #### Scenario: Statement-level database error
 - **WHEN** the search statement fails at the database
 - **THEN** the application error is generic and the captured log contains neither the query embedding nor any chunk text
+
+#### Scenario: Real database error text is never forwarded
+- **WHEN** a real SQL exception whose message carries row data (a constraint violation with a `Failing row contains` detail, or a dimension error) is raised while the repository or the application handlers process a chunk statement
+- **THEN** the controlled error exposes no `exc.orig` text, SQL parameter or embedding value, and log spies attached to the root logger record none of them

@@ -22,7 +22,7 @@ Migration `0004` SHALL create the native enum `document_status` (`pending`, `pro
 - **THEN** the downgrade removes both tables and the `document_status` type, the `vector` extension is still installed, and the second upgrade succeeds
 
 ### Requirement: Embeddings have a fixed dimension of 384
-`document_chunks.embedding` SHALL be a mandatory `vector(384)` column, and the database MUST reject a chunk whose embedding is missing, has a different number of dimensions, or has zero norm.
+`document_chunks.embedding` SHALL be a mandatory `vector(384)` column, and the database MUST reject a chunk whose embedding is missing, has a different number of dimensions, or has a norm outside the reliable range `1e-6 <= vector_norm(embedding) <= 1e6` (zero included). The range is justified in `reports/2026-10-28-magnitude-experiment.md`.
 
 #### Scenario: Valid embedding
 - **WHEN** a chunk is inserted with 384 finite components and a non-zero norm
@@ -43,6 +43,14 @@ Migration `0004` SHALL create the native enum `document_status` (`pending`, `pro
 #### Scenario: Non-finite values
 - **WHEN** a chunk is inserted whose embedding contains `NaN` or infinity
 - **THEN** the database rejects the insert
+
+#### Scenario: Magnitude outside the reliable range
+- **WHEN** a chunk is inserted or updated with an embedding whose norm is below `1e-6` or above `1e6` (for example a unit vector scaled by `1e-30` or `1e38`)
+- **THEN** the database rejects the statement
+
+#### Scenario: Normalised and unnormalised model outputs
+- **WHEN** a chunk is inserted with a unit vector or with a vector whose norm is between `1e-6` and `1e6`
+- **THEN** the row is stored
 
 ### Requirement: A chunk can never belong to another subject than its document
 `documents` SHALL have a unique key on `(id, subject_id)` and `document_chunks (document_id, subject_id)` SHALL reference it, so the denormalized `document_chunks.subject_id` always equals the subject of the document it belongs to.
@@ -110,3 +118,14 @@ Failures while storing or reading documents and chunks MUST NOT write chunk text
 #### Scenario: Statement error on a chunk insert
 - **WHEN** an insert of a chunk fails at statement level (for example, a wrong dimension)
 - **THEN** the captured application log contains neither the chunk text nor any embedding value
+
+#### Scenario: Integrity violations carry row data in the database message
+- **WHEN** a real constraint violation on `documents` or `document_chunks` is raised (check, foreign key, unique, wrong dimension)
+- **THEN** the exception text from the database, which includes the failing row, is never written to a log or returned to a client, and the application handlers answer with a controlled error that names only the exception type
+
+### Requirement: Migration tests verify what Alembic does not compare
+Because `alembic check` does not compare index operator classes, index `WITH` options or CHECK constraints, the migration tests SHALL read the PostgreSQL catalog and assert them, in addition to `alembic check` reporting no drift.
+
+#### Scenario: Catalog assertions
+- **WHEN** the migration tests run against a database migrated to `0004`
+- **THEN** they assert from the catalog the hnsw access method with `vector_cosine_ops`, `m=16` and `ef_construction=64`, the definition of every CHECK constraint (including the norm range), the composite foreign key columns with `ON DELETE CASCADE`, the unique keys, the b-tree indexes and the enum labels, and a deliberately wrong index definition (for example `vector_l2_ops`) makes a test fail
