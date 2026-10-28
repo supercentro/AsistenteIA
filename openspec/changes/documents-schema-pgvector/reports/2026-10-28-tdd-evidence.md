@@ -41,3 +41,30 @@ Each mutation was applied to migration `0004` (restored afterwards; the file was
 `alembic check` was also run in the mutation of the operator class during the spike (not detected) and the same mutation is detected here only by the catalog test, which confirms the decision I1.
 
 Log-leak guard (I2): the middleware was temporarily changed to log `str(exc)`. The six parametrised cases of `test_application_never_logs_or_returns_database_error_text` failed (killed); the file was restored (`git diff` empty) and the tests pass again.
+
+## Group 4 - deterministic embedding helpers and fixture catalog
+
+### Failing run before the implementation
+- Command: `uv run pytest -q -p no:cacheprovider --continue-on-collection-errors tests/unit/test_embedding_fixtures.py tests/integration/test_fixture_catalog.py`
+- Result: **2 collection errors, 0 tests run** (`ModuleNotFoundError: No module named 'tests.embeddings'` and `'tests.catalog'`).
+- Tests written first: `tests/unit/test_embedding_fixtures.py` (17 cases) and `tests/integration/test_fixture_catalog.py` (8 tests). Production-side files added afterwards: `tests/embeddings.py` (standard library only) and `tests/catalog.py`.
+
+### Result after the implementation
+- First run: 24 passed, 1 failed. The failure was a wrong expectation of mine: unit vectors stored as single precision have a norm between 0.99999997 and 1.00000002, not exactly 1; the assertion now allows `1e-6`. Two `mypy --strict` annotations were added to the tests.
+- The pinned fingerprint of `deterministic_vector(7)` (`051e44ae9f471e7f`) was computed from the implementation once and is a regression guard, not an independent oracle; the cross-process test proves the value is identical under three different `PYTHONHASHSEED` values.
+- Full backend suite: **587 passed** (562 before; +25 new). Coverage of `app` 98 %. The seed tests (`test_cli.py`, `test_cli_process.py`) pass unchanged; the CLI seed was not modified.
+
+### Deviations from strict test-first order
+1. The pinned fingerprint is derived from the implementation (see above); it protects against later accidental change only.
+2. The catalog layout was refined while writing the tests (the best ready Algebra chunk is at 10 degrees, not on the query, so that Physics and Chemistry hold strictly nearer chunks): a test-design decision taken before the implementation.
+
+### Mutation spot-check of the helpers (all restored; files verified identical)
+| Mutation | Result |
+|---|---|
+| `at_angle`: sin replaced by cos | killed (`test_basis_and_angle_vectors_are_unit_length`) |
+| `negate` returns the same vector | killed (`...documented_cosine_similarity[opposite]`) |
+| deterministic vector not normalised | killed |
+| seed ignored | killed (`test_deterministic_vectors_repeat_for_a_seed_and_differ_between_seeds`) |
+| enrollment of `student_algebra` dropped | killed (`test_enrollments_cover_...`) |
+| `failed` document marked `ready` | killed (`test_documents_cover_every_status_...`) |
+| Physics document moved to the Algebra subject | killed |

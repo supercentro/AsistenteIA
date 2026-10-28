@@ -34,8 +34,8 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 4. Deterministic Test Fixtures (TDD)
 
-- [ ] 4.1 Write failing tests for the fixture helper itself (`backend/tests/`): embeddings are 384 finite non-zero floats, reproducible between runs, with the documented cosine similarity between named vectors (orthogonal, identical, opposite, 45 degrees); no model or network is used
-- [ ] 4.2 Implement the helper that inserts users, subjects, enrollments, documents and chunks by SQL for several subjects, teachers and students (no ORM write repositories, no change to the CLI seed); verify 4.1 passes and that the seed tests (`test_cli*.py`) still pass unchanged
+- [x] 4.1 Write failing tests for the fixture helper itself (`backend/tests/`): embeddings are 384 finite non-zero floats, reproducible between runs, with the documented cosine similarity between named vectors (orthogonal, identical, opposite, 45 degrees); no model or network is used
+- [x] 4.2 Implement the helper that inserts users, subjects, enrollments, documents and chunks by SQL for several subjects, teachers and students (no ORM write repositories, no change to the CLI seed); verify 4.1 passes and that the seed tests (`test_cli*.py`) still pass unchanged
 
 ## 5. Chunk Retrieval (TDD)
 
