@@ -19,7 +19,7 @@ subjects 1 --- * documents 1 --- * document_chunks
 
 `document_chunks`: `id` uuid pk, `document_id`, `subject_id`, `chunk_index integer`, `page_number integer` null, `content text`, `embedding vector(384)` not null, `created_at timestamptz`; `UNIQUE (document_id, chunk_index)`; composite FK above; `ix_document_chunks_subject_id` (b-tree); `ix_document_chunks_embedding` (`hnsw`, `vector_cosine_ops`, `m=16`, `ef_construction=64`, the pgvector defaults).
 
-Checks (names follow the `ck_` convention): `size_bytes >= 0`, `chunks_count >= 0`, `chunk_index >= 0`, `page_number >= 1`, `length(btrim(content)) > 0`, and the embedding norm-range check `vector_norm(embedding) BETWEEN 1e-6 AND 1e6` (D8). `status` is a native enum like `user_role`, created in `0004` and dropped in its `downgrade`. `content_type` is validated at upload (change 6, `docs/base-standards.md` 9.1) and gets no database check, so adding a supported type later does not need a migration.
+Checks (names follow the `ck_` convention): `size_bytes >= 0`, `chunks_count >= 0`, `chunk_index >= 0`, `page_number >= 1`, `content ~ '\S'` (a non-whitespace character; the first draft `length(btrim(content)) > 0` let tabs and newlines through, found by the tests), and the embedding norm-range check `vector_norm(embedding) BETWEEN 1e-6 AND 1e6` (D8). `status` is a native enum like `user_role`, created in `0004` and dropped in its `downgrade`. `content_type` is validated at upload (change 6, `docs/base-standards.md` 9.1) and gets no database check, so adding a supported type later does not need a migration.
 
 ## Decisions
 
