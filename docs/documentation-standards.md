@@ -18,6 +18,7 @@ alwaysApply: true
 | Setup and commands | `docs/development_guide.md` |
 | Change proposals, specs, tasks | `openspec/` |
 | Residual risks and accepted technical debt | `docs/technical-debt.md` |
+| Process lessons learned (problem, root cause, preventive measure, evidence) | `docs/lessons-learned.md` |
 
 Rules:
 - Link instead of copying. If information must appear in two places (e.g. the course requires it in `readme.md`), the `docs/` file is canonical and the copy is labelled as a summary.
@@ -39,9 +40,12 @@ Before any commit or push, review which documentation changes:
 | Library, tooling, env var, install step | `docs/*-standards.md`, `docs/development_guide.md`, `.env.example` |
 | Architecture or stack decision | `readme.md` (needs user approval) and the relevant standards |
 | Residual risk or known limitation accepted at merge | `docs/technical-debt.md` (add a row; update the status when resolved) |
+| Review finding, process deviation or practice worth repeating | `docs/lessons-learned.md` (append the next ID at review or archive time; the preventive rule goes to the owning standard, linked, not copied) |
 | Significant use of AI (new agent, skill, workflow, notable correction) | `prompts.md` (needs user approval; only real interactions) |
 
 Update in the same change as the code, in English (except the two Spanish files), keeping the existing structure.
+
+One home per item: a product or code risk accepted at merge lives only in `docs/technical-debt.md`; a process or tooling lesson lives only in `docs/lessons-learned.md`, which cites `TD-` IDs instead of restating them.
 
 ## `prompts.md` rules
 
