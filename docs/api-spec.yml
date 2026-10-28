@@ -505,6 +505,7 @@ components:
         expires_in: { type: integer, description: Seconds }
     User:
       type: object
+      required: [id, name, email, role, consent_version, consent_accepted_at]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -522,7 +523,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/SubjectCreate'
         - type: object
-          required: [id, teacher_id, created_at]
+          required: [id, description, teacher_id, created_at]
           properties:
             id: { type: string, format: uuid }
             teacher_id: { type: string, format: uuid }
