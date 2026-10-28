@@ -132,4 +132,22 @@ test.describe('real backend', () => {
       expect(response.status()).toBe(401)
     })
   })
+
+  // Last on purpose: it exhausts the login rate limit of this address for about a minute.
+  test('a real 429 states the wait: Retry-After is exposed through CORS', async ({
+    page,
+    request,
+  }) => {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await request.post(`${API}/auth/login`, {
+        data: { email: 'nobody@example.com', password: 'wrong-password-value' },
+      })
+    }
+    await page.goto('/login')
+    await page.getByLabel('Correo electrónico').fill(email)
+    await page.getByLabel('Contraseña').fill(password)
+    await page.getByRole('button', { name: 'Entrar' }).click()
+
+    await expect(page.getByRole('alert')).toContainText(/Espere \d+ segundos/)
+  })
 })

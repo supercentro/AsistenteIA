@@ -73,11 +73,7 @@ test('wrong credentials show one message and stay on the login screen', async ({
   await expect(page.getByText('server side text')).toHaveCount(0)
 })
 
-// The backend CORS configuration does not expose Retry-After to browsers (see the real-backend
-// report), so across origins the wait time is not readable and the generic message is shown.
-test('a rate limit shows the generic message when Retry-After is not readable', async ({
-  page,
-}) => {
+test('a rate limit states the wait from Retry-After', async ({ page }) => {
   await mockApi(page, {
     'POST /auth/login': () => ({
       status: 429,
@@ -89,7 +85,7 @@ test('a rate limit shows the generic message when Retry-After is not readable', 
 
   await signIn(page, 'ana@example.com')
 
-  await expect(page.getByRole('alert')).toContainText('Espere un momento')
+  await expect(page.getByRole('alert')).toContainText('Espere 17 segundos')
 })
 
 test('reloading the page ends the session: the login screen is shown again', async ({ page }) => {

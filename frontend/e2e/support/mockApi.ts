@@ -63,6 +63,8 @@ const CORS = {
   'access-control-allow-origin': APP_ORIGIN,
   'access-control-allow-headers': 'authorization,content-type',
   'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
+  // Mirrors the backend CORS configuration (TD-021 resolved): browsers may read Retry-After.
+  'access-control-expose-headers': 'Retry-After',
 }
 
 /** Handlers are keyed by `METHOD /path` (without the API prefix), e.g. `POST /auth/login`. */
