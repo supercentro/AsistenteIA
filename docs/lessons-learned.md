@@ -83,7 +83,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Problem:** the plan found the user story HU-3 using 403 where the contract says 404 and a ticket declaring no dependencies despite one; during auth the login `maxLength` was missing from `docs/api-spec.yml` (F6) and a spec said "repeats a single character" while the code required eight distinct ones. Later, `readme.md` HU-1 said 403 for another teacher's subject while the decision was 404.
 - **Root cause:** decisions and constants were copied by hand across `readme.md`, `docs/api-spec.yml`, specs, tests and code, and verification was manual.
 - **Impact / repetition risk:** high; each new endpoint multiplies the places that must agree.
-- **Solution applied:** manual reconciliation at planning and before archive; the HU-1 wording is corrected on the change branch `feature/subjects-and-enrollments` (`db676a5`).
+- **Solution applied:** manual reconciliation at planning and before archive; the HU-1 wording was corrected in `readme.md` with the planning of the `subjects-and-enrollments` change (see its proposal).
 - **Preventive measure:** section 9.8 requires traceability between specs, contract, tests and behaviour before archive. Pending: an automated test comparing the app's OpenAPI with `docs/api-spec.yml` (paths, methods, status codes).
 - **Evidence:** `prompts.md` section 11.1; `AR/2026-10-27-adversarial-review.md` (Spec finding); `AR/2026-10-27-independent-review.md` (F6).
 
