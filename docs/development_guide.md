@@ -60,6 +60,8 @@ docker compose up --build
 
 Services: `db` (PostgreSQL 15 + pgvector, published on `127.0.0.1:5442`), `backend` (FastAPI on 127.0.0.1:8000, docs at `/docs`, auto-reload), `frontend` (Vite on 127.0.0.1:5173; file polling is enabled inside compose because bind mounts on Windows do not emit change events).
 
+The database image is pinned to `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15 with pgvector 0.8.7) in `docker-compose.yml` and in the CI service, so the extension version no longer changes silently; the digest of this tag was identical to the previous floating `pg15` tag when it was pinned, so existing data volumes keep working. To move to a newer pgvector, change the tag in both files together, rerun the magnitude experiment in `openspec/changes/documents-schema-pgvector/reports/` (or its archived copy) because the valid vector range depends on the pgvector version, and run `ALTER EXTENSION vector UPDATE;` in each database after the new container starts.
+
 `db` creates two databases on first start: `asistenteia` (development) and `asistenteia_test` (integration tests only). The init script runs only when the data volume is created; if the volume already existed, run `docker compose down -v` (deletes data) or `docker compose exec db createdb -U <POSTGRES_USER> asistenteia_test`.
 
 _(planned)_ The first build of the ingestion change downloads the embedding model into a Docker volume (large image, several minutes).
@@ -145,7 +147,7 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 
 ## 7. Troubleshooting
 
-- `extension "vector" is not available`: the database image must be a pgvector-enabled image (e.g. `pgvector/pgvector:pg15`).
+- `extension "vector" is not available`: the database image must be a pgvector-enabled image (the pinned `pgvector/pgvector:0.8.7-pg15`).
 - `port is already allocated` on 5432: the compose database is published on `127.0.0.1:5442` to avoid clashes with other local PostgreSQL instances; change the mapping in `docker-compose.yml` and `TEST_DATABASE_URL` together if 5442 is taken.
 - Integration tests hang or time out connecting: use `127.0.0.1`, not `localhost`, in `TEST_DATABASE_URL`.
 - Integration tests abort with `TEST_DATABASE_URL is required` or `Refusing to use database`: set a dedicated `*_test` database (see §3).
