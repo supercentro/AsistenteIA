@@ -118,10 +118,17 @@ Frontend (from `frontend/`):
 ```bash
 npm ci
 npm run lint && npm run format:check && npm run typecheck
-npm test
+npm run test:coverage              # Vitest with the 70 % thresholds on components and hooks
+npm run check:api-types            # fails when src/types/api.generated.ts is stale
+npm run generate:api               # regenerate it from docs/api-spec.yml after a contract change
 npx playwright install chromium    # once
-npm run test:e2e                   # Playwright Test (committed suite); reuses the frontend on :5173 or starts it
+npm run test:e2e                   # mocked browser suite (no backend); reuses the frontend on :5173 or starts it
+# Against the real stack (docker compose up) - creates one student per run, see the header of the spec:
+E2E_REAL_BACKEND=1 npm run test:e2e -- real-backend
 ```
+
+After adding or upgrading frontend dependencies the compose frontend keeps its old `node_modules` volume: run `docker compose up -d --build -V frontend` (renews the anonymous volume).
+The expiry checks need a backend with `JWT_EXPIRE_MINUTES=1`. Run it as a separate process against the `*_test` database with the settings in the process environment (never in a committed file), stop the compose backend meanwhile and start it again afterwards.
 
 _(planned)_ `npm run test:e2e` will start the backend with `LLM_PROVIDER=fake` and a fake embedder when the main flow exists. Automated tests always use fake LLM and embedding providers.
 
@@ -143,4 +150,5 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 - Integration tests hang or time out connecting: use `127.0.0.1`, not `localhost`, in `TEST_DATABASE_URL`.
 - Integration tests abort with `TEST_DATABASE_URL is required` or `Refusing to use database`: set a dedicated `*_test` database (see §3).
 - Startup error `Invalid configuration - CORS_ORIGINS ...`: set explicit origins in production and never use `*`.
+- Frontend page blank or `Failed to resolve import` after a dependency change: renew the container volume (`docker compose up -d --build -V frontend`).
 - _(planned)_ Gemini 429/blocked responses locally: switch `LLM_PROVIDER=fake` to keep developing without the API.

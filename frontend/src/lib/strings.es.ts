@@ -1,11 +1,106 @@
 /** Single location for all user-facing (Spanish) copy. Do not hardcode UI strings in JSX. */
 export const strings = {
-  home: {
-    title: 'AsistenteIA',
-    subtitle: 'Tu asistente académico basado en el material de cada asignatura.',
+  app: {
+    name: 'AsistenteIA',
+    tagline: 'Tu asistente académico basado en el material de cada asignatura.',
   },
   notFound: {
     title: 'Página no encontrada',
     backHome: 'Volver al inicio',
+  },
+  forbidden: {
+    title: 'Acceso no permitido',
+    body: 'La cuenta no tiene acceso a esta sección.',
+    backHome: 'Volver al inicio',
+  },
+  nav: {
+    label: 'Navegación principal',
+    subjects: 'Asignaturas',
+    signOut: 'Cerrar sesión',
+    signedInAs: (name: string) => `Sesión de ${name}`,
+  },
+  auth: {
+    login: {
+      title: 'Iniciar sesión',
+      email: 'Correo electrónico',
+      password: 'Contraseña',
+      submit: 'Entrar',
+      submitting: 'Entrando…',
+      createAccount: 'Crear una cuenta',
+    },
+    register: {
+      title: 'Crear cuenta de estudiante',
+      name: 'Nombre',
+      email: 'Correo electrónico',
+      password: 'Contraseña',
+      passwordHint: 'Entre 10 y 128 caracteres.',
+      submit: 'Crear cuenta',
+      submitting: 'Creando cuenta…',
+      haveAccount: 'Iniciar sesión',
+    },
+    notices: {
+      registered: 'La cuenta se creó correctamente. Ya se puede iniciar sesión.',
+      expired: 'La sesión expiró. Es necesario iniciar sesión de nuevo.',
+      unauthorized: 'La sesión ya no es válida. Es necesario iniciar sesión de nuevo.',
+      signedOut: 'La sesión se cerró correctamente.',
+      loginFailed: 'No se pudo completar el inicio de sesión. Inténtelo de nuevo.',
+    },
+    errors: {
+      invalidCredentials: 'Correo o contraseña incorrectos.',
+      emailTaken: 'Ya existe una cuenta con ese correo electrónico.',
+      loginIncomplete: 'No se pudo completar el inicio de sesión. Inténtelo de nuevo.',
+    },
+    validation: {
+      required: 'Este campo es obligatorio.',
+      emailInvalid: 'Ingrese un correo electrónico válido.',
+      emailAscii: 'El correo electrónico solo puede contener caracteres ASCII.',
+      emailTooLong: 'El correo electrónico no puede superar los 255 caracteres.',
+      nameTooLong: 'El nombre no puede superar los 100 caracteres.',
+      passwordTooShort: 'La contraseña debe tener al menos 10 caracteres.',
+      passwordTooLong: 'La contraseña no puede superar los 128 caracteres.',
+      formInvalid: 'Revise los campos marcados.',
+    },
+  },
+  subjects: {
+    titleStudent: 'Mis asignaturas',
+    titleTeacher: 'Asignaturas a mi cargo',
+    loading: 'Cargando asignaturas…',
+    emptyStudent: 'Todavía no hay asignaturas en las que la cuenta esté inscrita.',
+    emptyTeacher: 'Todavía no hay asignaturas a cargo de esta cuenta.',
+    loadError: 'No se pudieron cargar las asignaturas.',
+    listLabel: 'Lista de asignaturas',
+  },
+  states: {
+    loading: 'Cargando…',
+    retry: 'Reintentar',
+    dismiss: 'Cerrar aviso',
+  },
+  errors: {
+    byCode: {
+      UNAUTHORIZED: 'La sesión no es válida. Inicie sesión de nuevo.',
+      FORBIDDEN: 'No hay permiso para realizar esta acción.',
+      NOT_FOUND: 'No se encontró lo solicitado.',
+      CONFLICT: 'La operación entra en conflicto con los datos existentes.',
+      VALIDATION_ERROR: 'Los datos enviados no son válidos. Revise los campos.',
+      INVALID_CREDENTIALS: 'Correo o contraseña incorrectos.',
+      RATE_LIMITED: 'Se realizaron demasiados intentos. Espere un momento e inténtelo de nuevo.',
+      SERVICE_UNAVAILABLE:
+        'El servicio no está disponible en este momento. Inténtelo de nuevo más tarde.',
+    },
+    byStatus: {
+      unauthorized: 'La sesión no es válida. Inicie sesión de nuevo.',
+      forbidden: 'No hay permiso para realizar esta acción.',
+      notFound: 'No se encontró lo solicitado.',
+      conflict: 'La operación entra en conflicto con los datos existentes.',
+      validation: 'Los datos enviados no son válidos. Revise los campos.',
+      rateLimited: 'Se realizaron demasiados intentos. Espere un momento e inténtelo de nuevo.',
+      server: 'El servicio no está disponible en este momento. Inténtelo de nuevo más tarde.',
+      client: 'No se pudo completar la solicitud. Inténtelo de nuevo.',
+    },
+    network: 'No se pudo conectar con el servidor. Compruebe la conexión e inténtelo de nuevo.',
+    timeout: 'El servidor tardó demasiado en responder. Inténtelo de nuevo.',
+    unknown: 'Ocurrió un error inesperado. Inténtelo de nuevo.',
+    rateLimitedIn: (seconds: number) =>
+      `Se realizaron demasiados intentos. Espere ${seconds} segundos e inténtelo de nuevo.`,
   },
 } as const
