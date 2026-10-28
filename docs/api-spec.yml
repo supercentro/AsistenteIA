@@ -517,7 +517,7 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 150, description: Trimmed single-line text without control or direction characters; unique per teacher (case-sensitive) }
-        description: { type: string, nullable: true, maxLength: 2000, description: Plain text; line breaks and tabs allowed, other control characters rejected }
+        description: { type: string, nullable: true, maxLength: 2000, description: Plain text, trimmed; a blank value is stored as null; line breaks and tabs allowed, other control characters rejected }
     Subject:
       allOf:
         - $ref: '#/components/schemas/SubjectCreate'
