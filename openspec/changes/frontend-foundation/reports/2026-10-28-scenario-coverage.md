@@ -58,3 +58,7 @@ Map of every scenario of the delta specs to the automated check that covers it (
 | Return target resolving to the authentication screens (case, dot segments, encoding, trailing slash) | `reviewFixes.test.ts` (7 rejected forms, 3 accepted forms) |
 | Late 401 for an earlier session | `reviewFixes.test.ts` "a late 401 for an earlier session" (mutation-verified) |
 | Keyboard use | `reviewFixes.test.tsx` "keyboard use" (login, sign-out, registration) |
+
+| Scenario | Automated check |
+|---|---|
+| Too many attempts with a readable `Retry-After` (real server) | `backend/tests/integration/test_cors_retry_after.py`; gated spec "a real 429 states the wait"; mocked E2E "states the wait from Retry-After"; step 12 addendum |

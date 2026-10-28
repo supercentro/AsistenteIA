@@ -150,6 +150,5 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 - Integration tests hang or time out connecting: use `127.0.0.1`, not `localhost`, in `TEST_DATABASE_URL`.
 - Integration tests abort with `TEST_DATABASE_URL is required` or `Refusing to use database`: set a dedicated `*_test` database (see §3).
 - Startup error `Invalid configuration - CORS_ORIGINS ...`: set explicit origins in production and never use `*`.
-- The frontend shows a rate-limit message without a number of seconds: the backend CORS configuration does not expose `Retry-After` to browsers (see TD-021).
 - Frontend page blank or `Failed to resolve import` after a dependency change: renew the container volume (`docker compose up -d --build -V frontend`).
 - _(planned)_ Gemini 429/blocked responses locally: switch `LLM_PROVIDER=fake` to keep developing without the API.

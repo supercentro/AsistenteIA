@@ -89,3 +89,29 @@ Per the owner's instruction, JWT settings were changed only in an isolated proce
 - `POST /auth/login` returned `expires_in=60`; `GET /users/me` with that token: 200 before expiry, 200 at 58 s, **401 `UNAUTHORIZED` at 64 s**.
 - A token issued with secret one, after restarting the isolated server with secret two: **401 `UNAUTHORIZED`** (the same token answered 200 before the restart).
 - Cleanup: both isolated servers stopped, the test database emptied (`drop_everything`), the compose backend started again and verified (`health=200`, configuration unchanged).
+
+## Addendum: TD-021 resolved (backend rebuilt with `expose_headers=["Retry-After"]`, commit `1d65ac1`)
+
+```
+== 429 with allowed Origin
+HTTP/1.1 429 Too Many Requests
+retry-after: 57
+access-control-allow-credentials: true
+access-control-expose-headers: Retry-After
+access-control-allow-origin: http://localhost:5173
+
+== 429 with disallowed Origin (no access-control-allow-origin, so a browser grants nothing)
+HTTP/1.1 429 Too Many Requests
+retry-after: 57
+access-control-allow-credentials: true
+access-control-expose-headers: Retry-After
+
+== preflight allowed (unchanged)
+HTTP/1.1 200 OK
+access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, QUERY
+access-control-allow-credentials: true
+access-control-allow-origin: http://localhost:5173
+access-control-allow-headers: authorization,content-type
+```
+
+Finding 1 above is therefore closed. The development database was cleaned again (`users=0 subjects=0 enrollments=0 alembic=0003`).

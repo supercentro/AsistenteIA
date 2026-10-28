@@ -16,6 +16,11 @@
 | Constraints | Backend, `readme.md`, `prompts.md`, skills, agents, original OpenSpec/SpecBoot components and archived specs untouched; no deployment; no branch deleted | PASS |
 
 Open items for the owner (not blockers):
-1. **TD-021**: the backend CORS configuration does not expose `Retry-After`, so browsers cannot show the wait time. Decide whether to add `expose_headers=["Retry-After"]` (a one-line backend change outside this change's scope).
+1. **TD-021 resolved** after the owner's approval: `expose_headers=["Retry-After"]` (commit `1d65ac1`), tested and verified in a real browser; see the addendum below.
 2. TD-019 (session lost on reload, XSS exposure of an in-memory token), TD-020 (mocked E2E drift).
 3. The merge, `/opsx:archive` and the `prompts.md` entry need approval.
+
+## Addendum after the TD-021 approval
+- Backend: `494 passed`, coverage 98 %, `ruff`, `ruff format --check`, `mypy --strict`, `pip-audit` clean; only `backend/app/main.py` (one line plus a comment) and a new test file changed; authentication, registration and rate-limit suites pass unchanged.
+- Frontend: `236 passed`, lint, Prettier, `tsc`, `check:api-types`, build, `npm audit` clean; mocked E2E 11 passed; gated real-backend spec 5 passed (+1 expiry case verified earlier).
+- `openspec validate --all --strict`: 10/10. The focused independent review of the CORS change is in `2026-10-28-independent-review.md`.

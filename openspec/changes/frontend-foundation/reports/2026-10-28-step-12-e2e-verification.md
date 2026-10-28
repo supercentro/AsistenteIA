@@ -37,3 +37,9 @@
 ## Deviations and notes
 - Task 8.1 listed a "wrong-role view" browser case: no role-exclusive production route exists in this change, so that behaviour is covered by the component tests with a role-exclusive test route (`App.test.tsx`).
 - The generic (secondless) rate-limit message in a real browser is a finding for the owner, not a defect of the frontend.
+
+## Addendum: TD-021 verification in a real browser
+- With the rebuilt backend, after reaching the login limit, signing in through the UI showed `Se realizaron demasiados intentos. Espere 47 segundos e inténtelo de nuevo.` (Playwright MCP, Chrome).
+- A `fetch` executed in the page context to the API read `Retry-After` = `38` (status 429), which was `null`/unreadable before the fix.
+- The gated spec `E2E_REAL_BACKEND=1 npx playwright test real-backend` against the compose stack: 5 passed, 1 skipped (token expiry needs `E2E_SHORT_TOKEN=1` and was verified earlier in the isolated environment), including the new `a real 429 states the wait` case. The mocked suite now mirrors the real header and expects `Espere 17 segundos` (11 passed).
+- Cleanup: the user created by the gated spec was deleted; development database `users=0 subjects=0 enrollments=0`.

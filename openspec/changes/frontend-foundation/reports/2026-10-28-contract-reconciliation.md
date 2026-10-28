@@ -25,4 +25,4 @@ No incompatibility that would require changing the approved contract or the back
 | `Subject` fields | five required (corrected) | subject list | n/a | `Subject` | `SubjectsPage.test.tsx` | exactly the five fields (curl) |
 | Error body | `code`, `message`, `details` | api-client | n/a | `Error` | `apiError.test.ts` | matches (curl); frontend ignores `message` and `details` |
 | 401 / 429 | documented | session-auth, api-client | n/a | n/a | client and page tests | 401 `UNAUTHORIZED`; 429 with `retry-after` |
-| `Retry-After` readable by a browser | "Seconds until another attempt is allowed" | api-client (wait stated when present) | n/a | n/a | unit tests; browser run | **Divergence**: not exposed through CORS (TD-021); reported, backend not changed |
+| `Retry-After` readable by a browser | "Seconds until another attempt is allowed" | api-client (wait stated when readable) | n/a | n/a | unit tests; `test_cors_retry_after.py`; browser run | Resolved: exposed through CORS (TD-021, commit `1d65ac1`) |
