@@ -34,8 +34,12 @@ The interface SHALL provide a login screen that sends the credentials to `POST /
 - **THEN** the submit control is disabled and only one request is sent
 
 #### Scenario: Too many attempts
-- **WHEN** the API answers 429 with a `Retry-After` header
+- **WHEN** the API answers 429 and the browser can read a valid `Retry-After` header
 - **THEN** the screen shows a Spanish message with the number of seconds to wait, without exposing any server text
+
+#### Scenario: Too many attempts when the wait time is not readable
+- **WHEN** the API answers 429 and `Retry-After` is missing, invalid or not exposed to the browser by the server's cross-origin configuration (TD-021)
+- **THEN** the screen shows the generic Spanish rate-limit message without a number
 
 #### Scenario: Server unavailable
 - **WHEN** the API answers 503 or cannot be reached
@@ -66,7 +70,7 @@ The interface SHALL provide a registration screen for students that sends name, 
 
 #### Scenario: Too many registrations
 - **WHEN** the API answers 429
-- **THEN** the form shows the wait time from `Retry-After` as for login
+- **THEN** the form shows the wait time from `Retry-After` when it is readable, and the generic rate-limit message otherwise, as for login
 
 ### Requirement: The session lives only in memory
 The access token and the user profile SHALL be held in one in-memory store. They MUST NOT be written to `localStorage`, `sessionStorage`, cookies, IndexedDB or the URL, and reloading the page SHALL return the user to the login screen. Signing out SHALL clear the token, the profile and every cached server response.
@@ -109,6 +113,10 @@ When the API answers 401 to a request that carried a token, the interface SHALL 
 - **WHEN** a protected request is answered with 401
 - **THEN** the session is cleared once, the login screen is shown with a notice and no further protected requests are sent
 
+#### Scenario: Late 401 for an earlier session
+- **WHEN** a request sent with one user's token is answered with 401 after that user signed out and another user signed in
+- **THEN** the new session is not affected
+
 #### Scenario: Concurrent 401 answers
 - **WHEN** several protected requests are answered with 401 at the same time
 - **THEN** the session is cleared once and the navigation to the login screen happens once
@@ -139,8 +147,12 @@ Protected routes SHALL render only for a signed-in user, and role-restricted rou
 - **WHEN** a visitor was redirected to login from an internal route and signs in
 - **THEN** the interface returns to that route
 
+#### Scenario: No return to the previous user's page after sign-out
+- **WHEN** a user signs out deliberately
+- **THEN** the login screen does not remember the page they were on, so the next person to sign in lands on the default home
+
 #### Scenario: Unsafe return target
-- **WHEN** the stored return target is an absolute URL, a protocol-relative URL (`//host`), or points to the login or registration routes
+- **WHEN** the stored return target is an absolute URL, a protocol-relative URL (`//host`), or resolves to the login or registration routes (also through a different letter case, dot segments, a trailing slash or percent-encoding)
 - **THEN** it is ignored and the user goes to the default home
 
 #### Scenario: Wrong role

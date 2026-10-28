@@ -49,3 +49,12 @@ Map of every scenario of the delta specs to the automated check that covers it (
 | Types stale | CI step `npm run check:api-types` (stale run proven locally, see TDD evidence) |
 | Coverage below threshold | `vite.config.ts` thresholds; proven failing at 100 % (TDD evidence) |
 | Mocked browser flows | CI step `npm run test:e2e`; no backend or database in the job |
+
+## Added after the independent review
+| Scenario | Automated check |
+|---|---|
+| Too many attempts when the wait time is not readable | `LoginPage.test.tsx` "generic rate limit message when Retry-After is not trustworthy"; E2E "rate limit shows the generic message"; browser run (step 12) |
+| No return to the previous user's page after sign-out | `reviewFixes.test.tsx` "does not carry the previous user page after a deliberate sign-out" and "keeps the page when the session ended by itself" |
+| Return target resolving to the authentication screens (case, dot segments, encoding, trailing slash) | `reviewFixes.test.ts` (7 rejected forms, 3 accepted forms) |
+| Late 401 for an earlier session | `reviewFixes.test.ts` "a late 401 for an earlier session" (mutation-verified) |
+| Keyboard use | `reviewFixes.test.tsx` "keyboard use" (login, sign-out, registration) |

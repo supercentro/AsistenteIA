@@ -18,7 +18,7 @@ Requests to the configured API base URL SHALL carry `Authorization: Bearer <toke
 - **THEN** the request carries no `Authorization` header, even if a stale session exists
 
 #### Scenario: Other origins
-- **WHEN** a request targets a URL outside the API base URL
+- **WHEN** a request targets a URL whose origin is not the origin of the API base URL
 - **THEN** no token is attached
 
 ### Requirement: Errors are classified and explained in Spanish by code

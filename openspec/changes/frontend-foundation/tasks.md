@@ -91,19 +91,19 @@ Reports go to `openspec/changes/frontend-foundation/reports/` (pattern `YYYY-MM-
 
 ## 14. Adversarial Review (required: authentication and session handling)
 
-- [ ] 14.1 Run an independent adversarial review with the `adversarial-review` skill, executed by a separate subagent or a clean-context session (not the implementing session), read-only on the repository: token exposure (storage, URL, logs, DOM), session lifecycle (expiry, concurrent 401, sign-out, second user), open redirect, error-message leakage, extreme inputs, role confusion, cache isolation, interceptor edge cases, generated-type drift and CI definitions
-- [ ] 14.2 Record findings, fixes (tests first), accepted residual risks and the final verdict in `reports/YYYY-MM-DD-independent-review.md`; fix every blocker and major finding and re-review the fixes with a focused pass when any non-trivial fix is made
-- [ ] 14.3 Register accepted residual risks in `docs/technical-debt.md`
+- [x] 14.1 Run an independent adversarial review with the `adversarial-review` skill, executed by a separate subagent or a clean-context session (not the implementing session), read-only on the repository: token exposure (storage, URL, logs, DOM), session lifecycle (expiry, concurrent 401, sign-out, second user), open redirect, error-message leakage, extreme inputs, role confusion, cache isolation, interceptor edge cases, generated-type drift and CI definitions
+- [x] 14.2 Record findings, fixes (tests first), accepted residual risks and the final verdict in `reports/YYYY-MM-DD-independent-review.md`; fix every blocker and major finding and re-review the fixes with a focused pass when any non-trivial fix is made
+- [x] 14.3 Register accepted residual risks in `docs/technical-debt.md`
 
 ## 15. Final Verification of MUST Quality Gates (`docs/base-standards.md` section 9)
 
-- [ ] 15.1 Section 9.1 typing: `npm run typecheck` strict, no `any` without a justified comment, Zod and generated types on every payload, backend `mypy` unaffected
-- [ ] 15.2 Section 9.2 testing: component tests for every scenario, mocked E2E in CI, real-backend verification reports (authentication, CORS, `Authorization`, 401 and expiry), tests of expiry, session cleanup and absence of tokens in logs, TDD evidence per group, mutation checks for deviations, negative and extreme-input cases, no sensitive data in logs
-- [ ] 15.3 Section 9.3 secrets and dependencies: no secrets, `.env.example` unchanged or documented, lock file committed, `npm audit` reviewed
-- [ ] 15.4 Section 9.4 authorization: confirm the UI adds no authority (backend remains the source), guards tested, cache isolation tested
-- [ ] 15.5 Section 9.6 and 9.8: ESLint and Prettier clean, conventional commits one per responsibility, documentation and traceability complete, adversarial review closed without blocker or major
-- [ ] 15.6 Section 9.7 reproducibility: `docker compose up --build` starts the stack after the dependency change and the frontend responds
-- [ ] 15.7 Write `reports/YYYY-MM-DD-final-verification.md` with the result of every gate and the open items
+- [x] 15.1 Section 9.1 typing: `npm run typecheck` strict, no `any` without a justified comment, Zod and generated types on every payload, backend `mypy` unaffected
+- [x] 15.2 Section 9.2 testing: component tests for every scenario, mocked E2E in CI, real-backend verification reports (authentication, CORS, `Authorization`, 401 and expiry), tests of expiry, session cleanup and absence of tokens in logs, TDD evidence per group, mutation checks for deviations, negative and extreme-input cases, no sensitive data in logs
+- [x] 15.3 Section 9.3 secrets and dependencies: no secrets, `.env.example` unchanged or documented, lock file committed, `npm audit` reviewed
+- [x] 15.4 Section 9.4 authorization: confirm the UI adds no authority (backend remains the source), guards tested, cache isolation tested
+- [x] 15.5 Section 9.6 and 9.8: ESLint and Prettier clean, conventional commits one per responsibility, documentation and traceability complete, adversarial review closed without blocker or major
+- [x] 15.6 Section 9.7 reproducibility: `docker compose up --build` starts the stack after the dependency change and the frontend responds
+- [x] 15.7 Write `reports/YYYY-MM-DD-final-verification.md` with the result of every gate and the open items
 
 ## 16. Workflow follow-up (no merge, no archive without approval)
 
