@@ -1,6 +1,7 @@
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from app.schemas.subject import SubjectCreate
 from app.schemas.validators import (
     Description,
     Email,
@@ -74,8 +75,18 @@ def test_description_allows_line_breaks_and_tabs_and_keeps_them() -> None:
     assert DescriptionModel(description=text).description == text
 
 
-def test_description_is_optional_and_may_be_empty_text_after_trimming_is_kept_valid() -> None:
+def test_description_is_optional_and_defaults_to_none() -> None:
     assert DescriptionModel().description is None
+
+
+def test_description_is_trimmed_at_both_ends_but_keeps_inner_line_breaks() -> None:
+    assert DescriptionModel(description="\n a\nb \t").description == "a\nb"
+
+
+def test_subject_create_turns_a_blank_description_into_none() -> None:
+    assert SubjectCreate(name="A", description="  \n ").description is None
+    assert SubjectCreate(name="A", description="").description is None
+    assert SubjectCreate(name="A", description=" text ").description == "text"
 
 
 @pytest.mark.parametrize(

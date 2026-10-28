@@ -146,6 +146,18 @@ def test_description_with_line_breaks_and_tabs_is_kept(
     assert response.json()["description"] == text_value
 
 
+def test_description_is_trimmed_and_a_blank_description_becomes_null(
+    client: TestClient, teacher: TestUser
+) -> None:
+    trimmed = create(client, teacher, name="One", description="\n  hello\tworld \t")
+    blank = create(client, teacher, name="Two", description="   \n ")
+
+    assert trimmed.status_code == 201
+    assert trimmed.json()["description"] == "hello\tworld"
+    assert blank.status_code == 201
+    assert blank.json()["description"] is None
+
+
 def odd_text() -> list[str]:
     return [
         chr(0),

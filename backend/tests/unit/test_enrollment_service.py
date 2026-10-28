@@ -9,7 +9,7 @@ from app.models.user import User, UserRole
 from app.repositories.enrollment_repository import EnrollmentRepository, EnrollmentRow
 from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
-from app.services.enrollment_service import EnrollmentService
+from app.services.enrollment_service import STUDENT_NOT_FOUND_MESSAGE, EnrollmentService
 from app.services.subject_service import SUBJECT_NOT_FOUND_MESSAGE
 
 
@@ -88,14 +88,17 @@ def test_unknown_and_non_student_emails_raise_the_same_error_without_the_email(
     fx.enrollments.add.assert_not_called()  # type: ignore[attr-defined]
 
 
-def test_vanished_student_race_is_propagated_as_not_found(fx: Fixture) -> None:
+def test_vanished_student_race_gets_the_same_not_found_as_an_unknown_email(fx: Fixture) -> None:
     student = make_user(UserRole.STUDENT)
     fx.subjects.get_for_teacher.return_value = fx.subject  # type: ignore[attr-defined]
     fx.users.get_by_email.return_value = student  # type: ignore[attr-defined]
     fx.enrollments.add.side_effect = NotFoundError("Resource not found")  # type: ignore[attr-defined]
 
-    with pytest.raises(NotFoundError):
+    with pytest.raises(NotFoundError) as exc:
         fx.service.enroll(fx.teacher, fx.subject.id, student.email)
+
+    assert exc.value.message == STUDENT_NOT_FOUND_MESSAGE
+    assert exc.value.details is None
 
 
 def test_list_returns_an_empty_list_for_an_owned_subject_and_not_found_otherwise(

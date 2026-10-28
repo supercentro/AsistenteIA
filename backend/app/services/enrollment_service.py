@@ -39,7 +39,11 @@ class EnrollmentService:
         student = self._users.get_by_email(student_email)
         if student is None or student.role is not UserRole.STUDENT:
             raise NotFoundError(STUDENT_NOT_FOUND_MESSAGE)
-        enrollment = self._enrollments.add(owned_id, student.id)
+        try:
+            enrollment = self._enrollments.add(owned_id, student.id)
+        except NotFoundError:
+            # Deleted after the lookups: answer like an unknown email.
+            raise NotFoundError(STUDENT_NOT_FOUND_MESSAGE) from None
         logger.info("student enrolled subject=%s student=%s", owned_id, student.id)
         return EnrollmentRow(enrollment, student.email)
 
