@@ -14,5 +14,7 @@ export default defineConfig({
     command: 'npm run dev',
     url: baseURL,
     reuseExistingServer: true,
+    // The mocked suite stubs this origin with page.route; no backend is started.
+    env: { VITE_API_URL: process.env.VITE_API_URL ?? 'http://localhost:8000/api/v1' },
   },
 })

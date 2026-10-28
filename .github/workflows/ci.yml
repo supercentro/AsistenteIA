@@ -73,10 +73,16 @@ jobs:
         run: npm run format:check
       - name: Type check
         run: npm run typecheck
-      - name: Unit tests
-        run: npm test
+      - name: API types match docs/api-spec.yml
+        run: npm run check:api-types
+      - name: Unit and component tests with coverage thresholds
+        run: npm run test:coverage
       - name: Build
         run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests against mocked API responses (no backend)
+        run: npm run test:e2e
       - name: Dependency audit (non-blocking)
         run: npm audit
         continue-on-error: true
