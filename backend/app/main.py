@@ -39,6 +39,8 @@ def create_app(
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Browsers only expose safelisted headers: the frontend needs Retry-After of a 429 (TD-021).
+        expose_headers=["Retry-After"],
     )
     app.add_middleware(UnhandledErrorMiddleware)  # added last: outermost
     register_exception_handlers(app)
