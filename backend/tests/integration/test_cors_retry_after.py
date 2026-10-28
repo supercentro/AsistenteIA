@@ -95,7 +95,9 @@ def test_the_rest_of_the_cors_policy_is_unchanged(limited_client: TestClient) ->
     assert allowed.status_code == 200
     assert allowed.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
     assert allowed.headers["access-control-allow-credentials"] == "true"
-    assert "POST" in allowed.headers["access-control-allow-methods"]
+    methods = {m.strip() for m in allowed.headers["access-control-allow-methods"].split(",")}
+    assert methods == {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "QUERY"}
+    assert allowed.headers["access-control-max-age"] == "600"
     assert allowed.headers["access-control-allow-headers"] == "authorization,content-type"
     assert refused.status_code == 400
     assert "access-control-allow-origin" not in refused.headers
