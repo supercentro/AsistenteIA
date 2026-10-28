@@ -16,9 +16,26 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Same origin as the mocked API so jsdom does not run CORS preflights; CORS is verified against the real backend.
+    environmentOptions: { jsdom: { url: 'http://localhost:8000/' } },
     globals: true,
     setupFiles: ['./src/tests/setup.ts'],
+    env: { VITE_API_URL: 'http://localhost:8000/api/v1' },
     include: ['src/**/*.test.{ts,tsx}'],
-    coverage: { provider: 'v8', include: ['src/**'], exclude: ['src/tests/**'] },
+    coverage: {
+      provider: 'v8',
+      include: ['src/**'],
+      exclude: [
+        'src/tests/**',
+        'src/types/api.generated.ts',
+        'src/main.tsx',
+        'src/**/*.test.{ts,tsx}',
+      ],
+      // Thresholds of docs/frontend-standards.md section 6 (components and hooks).
+      thresholds: {
+        'src/components/**': { lines: 70, statements: 70, functions: 70, branches: 70 },
+        'src/hooks/**': { lines: 70, statements: 70, functions: 70, branches: 70 },
+      },
+    },
   },
 })
