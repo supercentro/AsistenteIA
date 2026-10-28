@@ -40,6 +40,22 @@ The subject name SHALL be trimmed, 1 to 150 characters, single-line plain text w
 - **WHEN** a teacher sends the name "  Algebra  "
 - **THEN** the stored and returned name is "Algebra"
 
+#### Scenario: Name length boundary
+- **WHEN** a teacher sends a name of exactly 150 characters and then one of 151 characters
+- **THEN** the first response is 201 and the second is 422
+
+#### Scenario: Invalid description
+- **WHEN** a teacher sends a description longer than 2000 characters, or containing NUL or another control character other than a line break
+- **THEN** the response is 422 and nothing is stored
+
+#### Scenario: Description with line breaks
+- **WHEN** a teacher sends a description containing line breaks and a tab
+- **THEN** the response is 201 and the description is returned unchanged
+
+#### Scenario: Odd text never causes a server error
+- **WHEN** a name or description contains lone UTF-16 surrogates, NUL, bidirectional controls or line separators
+- **THEN** the response is a 4xx validation error and never a 5xx
+
 ### Requirement: Subject names are unique per teacher
 The system SHALL reject a second subject with the same trimmed, case-sensitive name for the same teacher with 409 `CONFLICT`, while different teachers MAY use the same name.
 

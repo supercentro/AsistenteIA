@@ -14,7 +14,8 @@ Teachers cannot yet organise material and students cannot be linked to a course:
   - An unknown email and the email of a non-student user answer the same **404**; a duplicate enrollment and a duplicate subject name per teacher answer **409**; removing a missing enrollment answers **404**.
 - Contract corrections in `docs/api-spec.yml` (403 for non-owners becomes 404, missing 401/422 responses, field limits, nullable description) and details in `docs/data-model.md`.
 - Behaviour-preserving extraction of the shared name and email validators into a neutral schema module, so subject schemas reuse them without importing `schemas/auth.py`.
-- Technical debt TD-016 (unpaginated listings) registered in `docs/technical-debt.md`.
+- Technical debt registered in `docs/technical-debt.md`: TD-016 (unpaginated listings) and TD-017 (accepted risk: enrollment by email lets a teacher tell registered students from other emails).
+- Verification controls from `docs/lessons-learned.md` and `docs/base-standards.md` (TDD evidence, independent adversarial review, `alembic check`, contract reconciliation, explicit `update-docs` and AI usage notes); they add tasks and test scenarios only, no functional scope.
 
 Out of scope (not added): pagination, update or rename of subjects, self-enrollment, bulk or pre-enrollment of unregistered emails, student or teacher account deletion, documents, conversations, chat enforcement, any frontend screen (change 4 and later), new rate limits.
 

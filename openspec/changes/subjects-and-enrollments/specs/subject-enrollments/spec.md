@@ -21,6 +21,10 @@ Listing, adding and removing enrollments SHALL answer 401 to anonymous clients, 
 - **WHEN** a request without a valid token calls an enrollment endpoint
 - **THEN** the response is 401
 
+#### Scenario: Malformed identifiers
+- **WHEN** the owner calls an enrollment endpoint with a `subject_id` or `student_id` that is not a UUID
+- **THEN** the response is 422 `VALIDATION_ERROR` and never a 5xx
+
 ### Requirement: Teachers enroll registered students by email
 `POST /subjects/{subject_id}/enrollments` SHALL accept `student_email` using the same ASCII and lowercase email rules as registration, link the existing student account to the subject and answer 201 with the enrollment (`id`, `subject_id`, `student_id`, `student_email`, `created_at`).
 
@@ -35,6 +39,10 @@ Listing, adding and removing enrollments SHALL answer 401 to anonymous clients, 
 #### Scenario: Missing field
 - **WHEN** the body has no `student_email`
 - **THEN** the response is 422
+
+#### Scenario: Odd characters in the email
+- **WHEN** the email contains NUL, lone surrogates or control characters
+- **THEN** the response is 422 and never a 5xx
 
 ### Requirement: Unknown and non-student emails are indistinguishable
 Enrolling an email that belongs to no account, or to a teacher, SHALL answer the same 404 `NOT_FOUND` with a fixed message that does not repeat the submitted email, and the system MUST NOT create a pre-enrollment for unregistered emails.
