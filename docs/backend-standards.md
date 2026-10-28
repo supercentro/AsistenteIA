@@ -37,7 +37,7 @@ backend/app/
   services/           # Business logic and orchestration (RAGService, SubjectService, ...)
   repositories/       # All data access (SQLAlchemy + pgvector queries)
   models/             # SQLAlchemy entities
-  schemas/            # Pydantic request/response models
+  schemas/            # Pydantic request/response models (shared field rules in `validators.py`: names, descriptions, emails)
   core/               # config, security (jwt/hash), logging, errors
   rag/                # Pipeline pieces: loaders, chunker, embedder, prompt, llm client
   main.py
@@ -71,7 +71,7 @@ External providers (LLM, embeddings) are accessed through small interfaces (`LLM
 - MUST: emails are ASCII only and lowercased by one shared validator (registration, login, CLI) and by database checks; names reject control, line-separator and bidirectional characters.
 - MUST: passwords hashed with Argon2id; length 10-128; never logged or returned; unknown-email logins verify against a dummy hash.
 - MUST: JWT HS256 signed with `JWT_SECRET` (≥ 32 bytes, placeholders rejected in every environment), claims `sub`, `iat`, `exp`, `iss`, `aud` all required and validated, short expiry (default 60 min); `sub` = user id, `role` re-read from the database on every request (no role claim is issued or trusted).
-- MUST: role guards as dependencies (`require_teacher`, `require_student`). Ownership/enrolment checks live in services (`SubjectService.assert_teacher_owns`, `assert_student_enrolled`).
+- MUST: role guards as dependencies (`require_teacher`, `require_student`). Ownership/enrolment is enforced by actor-scoped repository methods (`SubjectRepository.get_for_teacher`, `get_for_student`, `delete_for_teacher`, `EnrollmentRepository.list_for_teacher_subject`, ...) that take the acting user, so no unscoped read exists on request paths; services turn a missing result into the same 404 for "does not exist" and "not accessible" (`SubjectService`, `EnrollmentService`).
 - MUST: public registration creates only students; teacher accounts come from a seed/CLI command.
 - MUST: `/chat` requires recorded consent (`consent_accepted_at` not null).
 

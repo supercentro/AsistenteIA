@@ -211,6 +211,7 @@ paths:
               schema: { $ref: '#/components/schemas/Subject' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
   /subjects/{subject_id}:
@@ -218,7 +219,7 @@ paths:
       - $ref: '#/components/parameters/SubjectId'
     get:
       tags: [Subjects]
-      summary: Get a subject (owner teacher or enrolled student)
+      summary: Get a subject (owner teacher or enrolled student; any other caller gets 404)
       responses:
         '200':
           description: Subject
@@ -227,21 +228,23 @@ paths:
               schema: { $ref: '#/components/schemas/Subject' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     delete:
       tags: [Subjects]
-      summary: Delete a subject with its documents, chunks, enrollments and conversations (owner teacher)
+      summary: Delete a subject with its documents, chunks, enrollments and conversations (role teacher, owner; another teacher gets 404)
       responses:
         '204': { description: Subject deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /subjects/{subject_id}/enrollments:
     parameters:
       - $ref: '#/components/parameters/SubjectId'
     get:
       tags: [Enrollments]
-      summary: List enrolled students (owner teacher)
+      summary: List enrolled students, ordered by creation time (role teacher, owner)
       responses:
         '200':
           description: Enrollments
@@ -250,11 +253,16 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Enrollment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     post:
       tags: [Enrollments]
-      summary: Enroll a student by email (owner teacher)
+      summary: Enroll a registered student by email (role teacher, owner)
+      description: |
+        An email that belongs to no account, or to a teacher, answers the same 404 (no pre-enrollment).
+        Enrolling a student twice answers 409.
       requestBody:
         required: true
         content:
@@ -263,21 +271,23 @@ paths:
               type: object
               required: [student_email]
               properties:
-                student_email: { type: string, format: email }
+                student_email: { type: string, format: email, maxLength: 255, description: ASCII only (non-ASCII is rejected with 422); stored and matched in lowercase }
       responses:
         '201':
           description: Student enrolled
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Enrollment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /subjects/{subject_id}/enrollments/{student_id}:
     delete:
       tags: [Enrollments]
-      summary: Remove a student from a subject (owner teacher)
+      summary: Remove a student from a subject (role teacher, owner)
       parameters:
         - $ref: '#/components/parameters/SubjectId'
         - name: student_id
@@ -286,8 +296,10 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '204': { description: Enrollment removed }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /subjects/{subject_id}/documents:
     parameters:
@@ -452,10 +464,10 @@ components:
       description: Missing or invalid token
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Forbidden:
-      description: Authenticated but not allowed (wrong role, not the owner, not enrolled, consent missing)
+      description: Authenticated but not allowed (wrong role; for chat also not enrolled or consent missing)
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     NotFound:
-      description: Resource does not exist or is not visible to the caller
+      description: Resource does not exist or is not visible to the caller (including another user's resources); the body is identical in both cases
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Conflict:
       description: Resource already exists or state conflict
@@ -504,18 +516,20 @@ components:
       type: object
       required: [name]
       properties:
-        name: { type: string, maxLength: 150 }
-        description: { type: string, maxLength: 2000 }
+        name: { type: string, minLength: 1, maxLength: 150, description: Trimmed single-line text without control or direction characters; unique per teacher (case-sensitive) }
+        description: { type: string, nullable: true, maxLength: 2000, description: Plain text; line breaks and tabs allowed, other control characters rejected }
     Subject:
       allOf:
         - $ref: '#/components/schemas/SubjectCreate'
         - type: object
+          required: [id, teacher_id, created_at]
           properties:
             id: { type: string, format: uuid }
             teacher_id: { type: string, format: uuid }
             created_at: { type: string, format: date-time }
     Enrollment:
       type: object
+      required: [id, subject_id, student_id, student_email, created_at]
       properties:
         id: { type: string, format: uuid }
         subject_id: { type: string, format: uuid }

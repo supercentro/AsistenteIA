@@ -30,9 +30,11 @@ Change numbers refer to the approved 13-change plan (`3` subjects-and-enrollment
 | TD-013 | The test-database isolation guard is a naming and environment convention, not a privilege boundary; it does not stop a manual `alembic downgrade` against the development database | Low | Developer mistake can reset development data | Guard rejects unsafe configurations before opening connections; the test database is a separate database | none | accepted |
 | TD-014 | The 5 second PostgreSQL connect timeout bounds only connection establishment, not query duration | Low | A slow query can still hold a request | `/health` returns 503 when the database does not answer | Change 12 (revisit with load evidence) | open |
 | TD-015 | ESLint is pinned to major version 9 (deprecated) because ESLint 10 conflicts with `eslint-plugin-jsx-a11y`; backend dependencies use `>=` ranges pinned only by `uv.lock` | Low | Future tooling upgrades need a dedicated change | Lock files committed; `pip-audit` and `npm audit` run in CI (non-blocking) | Change 12 (review before delivery) | open |
+| TD-016 | `GET /subjects` and `GET /subjects/{id}/enrollments` return plain arrays without pagination or a result cap | Low | A teacher with very many subjects or students receives large responses | Plain ordered arrays sized for the MVP; indexes on the filtered columns | Future feature (adding `limit`/`offset` is a contract change that needs approval) | open |
+| TD-017 | Enrolling by email lets a teacher tell whether an email belongs to a registered student (201 versus 404) | Low | Account enumeration limited to teachers, who are created only by an administrator | Unknown and non-student emails get the same 404 without echoing the email; responses expose only ids and the student email; no email in logs (tested) | none (accepted MVP risk, user decision) | accepted |
 
 ## Related documents
 
 - Security design and rate-limit limits: `docs/backend-standards.md`, `docs/development_guide.md`.
-- Archived origin of each item: `openspec/changes/archive/2026-10-27-project-scaffold/` (TD-013 to TD-015) and `openspec/changes/archive/2026-10-27-auth-and-roles/` (TD-001 to TD-012).
+- Origin of each item: `openspec/changes/archive/2026-10-27-project-scaffold/` (TD-013 to TD-015), `openspec/changes/archive/2026-10-27-auth-and-roles/` (TD-001 to TD-012) and the change `subjects-and-enrollments` (TD-016, TD-017).
 - AI-usage record of both changes: `prompts.md` sections 10 and 11.

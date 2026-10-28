@@ -71,6 +71,8 @@ docker compose exec backend alembic upgrade head      # apply migrations (manual
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
 
+Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
+
 ### Administrative commands (teacher accounts and demo data)
 
 Teacher accounts can only be created from the command line; no HTTP endpoint creates teachers or changes roles.
