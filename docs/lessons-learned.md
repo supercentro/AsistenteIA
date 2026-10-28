@@ -170,3 +170,12 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Solution applied:** files with such literals were scanned for non-ASCII characters and rebuilt with `chr()`/explicit code points; the migration was applied from the host and the container image was rebuilt; `docs/development_guide.md` now says a new migration needs a rebuild or a host run.
 - **Preventive measure (pending):** when a test needs special characters, build them with `chr()`, then assert the file is ASCII-only; check `alembic current` before any `downgrade`.
 - **Evidence:** `openspec/changes/subjects-and-enrollments/reports/2026-10-28-ai-usage-notes.md`; `docs/development_guide.md` (database section).
+
+### L16. Mocks hid a server header and a layout defect; dependency changes need a new container volume
+- **Origin:** frontend-foundation.
+- **Problem:** (1) the mocked browser suite was first written with a readable `Retry-After`, but the real backend does not expose it through CORS, so a real browser never sees it (found by the first mocked E2E run and confirmed with curl and Playwright MCP); (2) a 140-character unbroken subject name widened the list grid and caused horizontal scrolling at 320 px, invisible in jsdom (found by the browser test); (3) after adding npm packages the compose frontend kept its anonymous `node_modules` volume and failed with `Failed to resolve import`.
+- **Root cause:** component tests cannot see CORS exposure or real layout; the container reuses its anonymous volume on recreation.
+- **Impact / repetition risk:** behaviour that works in tests and fails in the browser. Medium.
+- **Solution applied:** the mocks mirror the real headers and the UI degrades gracefully (TD-021 records the backend decision); the list grid is a single explicit column and a 320 px browser test guards it; the guide documents `docker compose up -d --build -V frontend`.
+- **Preventive measure:** verify headers, CORS and layout in a real browser against the running stack for every change that adds a screen (now in `docs/frontend-standards.md` section 6); derive mocks from observed responses, not from the contract text alone.
+- **Evidence:** `openspec/changes/frontend-foundation/reports/` (`tdd-evidence`, `step-11`, `step-12`).
