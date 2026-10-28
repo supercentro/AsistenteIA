@@ -1,17 +1,22 @@
 """Shared helpers for HTTP-level integration tests."""
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.database import create_db_engine, create_session_factory
 from app.core.security import PasswordService
 from app.main import create_app
+from app.models.subject import Subject
 from app.models.user import User, UserRole
+from app.repositories.enrollment_repository import EnrollmentRepository
+from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
 from tests.constants import TEST_JWT_SECRET
 
@@ -85,3 +90,35 @@ def login_token(client: TestClient, email: str, password: str = DEFAULT_PASSWORD
 
 def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def insert_subject(
+    database_url: str, teacher_id: str, name: str = "Algebra", description: str | None = None
+) -> str:
+    """Insert a subject directly in the database (bypasses the API); returns its id."""
+    engine = create_db_engine(database_url)
+    session: Session = create_session_factory(engine)()
+    try:
+        subject = SubjectRepository(session).add(
+            Subject(name=name, description=description, teacher_id=uuid.UUID(teacher_id))
+        )
+        session.commit()
+        return str(subject.id)
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def insert_enrollment(database_url: str, subject_id: str, student_id: str) -> None:
+    """Enrol a student directly in the database (bypasses the API)."""
+    engine = create_db_engine(database_url)
+    session: Session = create_session_factory(engine)()
+    try:
+        teacher_id = session.execute(
+            select(Subject.teacher_id).where(Subject.id == uuid.UUID(subject_id))
+        ).scalar_one()
+        EnrollmentRepository(session).add(uuid.UUID(subject_id), teacher_id, uuid.UUID(student_id))
+        session.commit()
+    finally:
+        session.close()
+        engine.dispose()

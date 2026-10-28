@@ -99,11 +99,18 @@ erDiagram
 - Created by migration `0002` (downgrade drops the table, then the `user_role` type).
 
 ### subjects
-- `teacher_id` FK → users (must have role `teacher`, enforced in the service layer). Unique `(teacher_id, name)`.
+- `teacher_id` FK → users (must have role `teacher`, enforced in the service layer), `ON DELETE RESTRICT`. Unique `(teacher_id, name)`; names are compared exactly (case-sensitive) after trimming.
+- `name` is `varchar(150)`, `description` is nullable `text` (API limit 2000 characters); input rules (single-line trimmed name, no control or direction characters) are enforced at the API layer.
+- Listings are ordered by `name`, then `id`, and are not paginated in the MVP (TD-016 in `technical-debt.md`).
+- Created by migration `0003` (downgrade drops `enrollments`, then `subjects`).
 
 ### enrollments
 - Links a student to a subject. Unique `(subject_id, student_id)`. The student must have role `student` (service layer).
-- Created by the subject's teacher (by student email). Self-enrolment is not part of the MVP.
+- Created by the subject's teacher (by student email; an unknown email or a non-student account is a 404, there is no pre-enrollment). Self-enrolment is not part of the MVP.
+- Index `ix_enrollments_student_id` serves the student's subject listing and the later erasure of a student's data.
+- `created_at` defaults to `clock_timestamp()` (not `now()`), so enrollments created in one transaction keep their insertion order; listings are ordered by `created_at`, then `id`.
+- Both foreign keys are `ON DELETE CASCADE`: deleting a subject or a student account removes the enrollments (not the other party).
+- Created by migration `0003`.
 
 ### documents
 - One row per uploaded **original file**. The original binary is not stored in the database (see backend standards, "File handling"); only metadata and extracted chunks are.

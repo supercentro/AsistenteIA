@@ -30,6 +30,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 | L12 | Unsafe defaults left for the deployment change | auth-and-roles | pending (change 13) |
 | L13 | A rate-limit test depends on a real sleep | auth-and-roles | accepted |
 | L14 | Practices that worked and should be repeated | both | implemented |
+| L15 | Editing tools collapsed backslash escapes; the dev container did not see a new migration | subjects-and-enrollments | implemented (guide), pending (tooling note) |
 
 ## Lessons
 
@@ -160,3 +161,12 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
   - Design decisions approved by the user before implementation and artifacts updated when the review changed the scope (`prompts.md` sections 10 and 11).
   - Squash-merge Pull Requests with green CI and a separate archive commit (`e0e115a`, `d63efd5`, `2e87864`, `3ca9b6b`).
 - **Status:** implemented; concurrency and mutation checks are part of the section 9.2 requirements.
+
+### L15. Editing tools collapsed backslash escapes; the dev container did not see a new migration
+- **Origin:** subjects-and-enrollments.
+- **Problem:** Unicode and newline escapes (`U+2028`, `\n`) written through the file-editing tools or shell heredocs reached the files as real invisible characters or real newlines (a bidi control inside a test file, `SyntaxError` at collection); heredocs containing an apostrophe failed to parse. Separately, `alembic check` run inside the compose backend container reported `0002 (head)` because only `backend/app` is mounted, and a `downgrade -1` there reverted `0002` on the development database (no data lost: 0 users).
+- **Root cause:** escape handling of the tooling layer and an assumption that the container mirrors the working tree.
+- **Impact / repetition risk:** invisible characters in source files (trojan-source style) and migrations run against the wrong revision. Medium.
+- **Solution applied:** files with such literals were scanned for non-ASCII characters and rebuilt with `chr()`/explicit code points; the migration was applied from the host and the container image was rebuilt; `docs/development_guide.md` now says a new migration needs a rebuild or a host run.
+- **Preventive measure (pending):** when a test needs special characters, build them with `chr()`, then assert the file is ASCII-only; check `alembic current` before any `downgrade`.
+- **Evidence:** `openspec/changes/subjects-and-enrollments/reports/2026-10-28-ai-usage-notes.md`; `docs/development_guide.md` (database section).

@@ -545,7 +545,7 @@ Escenario: Carga exitosa de material
 Escenario: Intento de carga en asignatura ajena
   Dado que soy un docente autenticado que no es titular de la asignatura "Cálculo II"
   Cuando intento subir un documento a esa asignatura
-  Entonces el sistema rechaza la operación con un error 403
+  Entonces el sistema rechaza la operación con un error 404
 
 Escenario: Formato de archivo no soportado
   Dado que soy un docente autenticado y titular de la asignatura

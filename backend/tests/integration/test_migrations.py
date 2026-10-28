@@ -63,12 +63,12 @@ def test_users_table_and_role_type_exist_after_upgrade_and_vanish_after_downgrad
     assert users_table_and_type(test_db_url) == (True, True)
 
 
-def test_users_migration_downgrades_one_step_to_the_vector_revision(test_db_url: str) -> None:
+def test_users_migration_downgrades_to_the_vector_revision(test_db_url: str) -> None:
     drop_everything(test_db_url)
     config = alembic_config(test_db_url)
     command.upgrade(config, "head")
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0001")
 
     assert users_table_and_type(test_db_url) == (False, False)
     assert vector_installed(test_db_url)
