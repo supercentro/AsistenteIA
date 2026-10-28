@@ -49,8 +49,12 @@ The subject name SHALL be trimmed, 1 to 150 characters, single-line plain text w
 - **THEN** the response is 422 and nothing is stored
 
 #### Scenario: Description with line breaks
-- **WHEN** a teacher sends a description containing line breaks and a tab
-- **THEN** the response is 201 and the description is returned unchanged
+- **WHEN** a teacher sends a description containing line breaks and a tab between words
+- **THEN** the response is 201 and the inner line breaks and tabs are kept
+
+#### Scenario: Description whitespace
+- **WHEN** a teacher sends a description with leading or trailing whitespace, or one that is blank
+- **THEN** surrounding whitespace is trimmed and a blank description is stored and returned as null
 
 #### Scenario: Odd text never causes a server error
 - **WHEN** a name or description contains lone UTF-16 surrogates, NUL, bidirectional controls or line separators

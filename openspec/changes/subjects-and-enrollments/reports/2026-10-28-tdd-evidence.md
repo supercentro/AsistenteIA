@@ -29,3 +29,7 @@ Failing run of each functional group before its implementation (`docs/base-stand
 
 ## Deviations from test-first order (task 5.1)
 None. In every group the tests were written and run (failing) before the implementation. Two caveats, both recorded above: a few tests that expect a 404 or an absent log entry pass before the routes exist (they are backed by success-path tests and mutation checks), and the tests of group 3 for lone surrogates first failed because of the HTTP client (it cannot UTF-8 encode them), which was fixed in the test helper, not in the application.
+
+## Review follow-ups (task 10.2)
+- Tests added before the fixes: `uv run pytest tests/unit/test_validators.py tests/unit/test_enrollment_service.py tests/integration/test_subjects_api.py -q` gave `3 failed, 77 passed` (`test_subject_create_turns_a_blank_description_into_none`, `test_vanished_student_race_gets_the_same_not_found_as_an_unknown_email`, `test_description_is_trimmed_and_a_blank_description_becomes_null`). After the fixes the full suite gives `479 passed`.
+- Caveat: the first version of these tests was written through a tool that collapsed `\n` escapes into real newlines (SyntaxError at collection); the escapes were rebuilt with explicit characters before the failing run above.

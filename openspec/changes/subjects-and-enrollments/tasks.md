@@ -64,18 +64,18 @@ Reports required by `docs/openspec-tasks-mandatory-steps.md` are saved in `opens
 
 ## 10. Adversarial Review (required for authorization and data isolation)
 
-- [ ] 10.1 Run an independent adversarial review with the `adversarial-review` skill, executed by a separate subagent or a clean-context session (not the implementing session), read-only on the repository and probing only the isolated test database or the live stack; cover isolation between teachers and students, enumeration through status codes, message and log leakage of emails, race conditions on duplicates, cascade and RESTRICT behaviour, validators extraction regressions and odd inputs; save `reports/YYYY-MM-DD-independent-review.md` with findings, severity, fixes and a final verdict
-- [ ] 10.2 Fix findings related to this change (tests first) and re-run affected tests; the change is not closed while a blocker or major finding is open; record accepted risks as rows in `docs/technical-debt.md` with the user's agreement and, only for relevant findings or process deviations, append a lesson to `docs/lessons-learned.md`
+- [x] 10.1 Run an independent adversarial review with the `adversarial-review` skill, executed by a separate subagent or a clean-context session (not the implementing session), read-only on the repository and probing only the isolated test database or the live stack; cover isolation between teachers and students, enumeration through status codes, message and log leakage of emails, race conditions on duplicates, cascade and RESTRICT behaviour, validators extraction regressions and odd inputs; save `reports/YYYY-MM-DD-independent-review.md` with findings, severity, fixes and a final verdict
+- [x] 10.2 Fix findings related to this change (tests first) and re-run affected tests; the change is not closed while a blocker or major finding is open; record accepted risks as rows in `docs/technical-debt.md` with the user's agreement and, only for relevant findings or process deviations, append a lesson to `docs/lessons-learned.md`
 
 ## 11. Final Verification of MUST Quality Gates (`docs/base-standards.md` section 9)
 
-- [ ] 11.1 Section 9.1 typing and validation: `uv run mypy --strict app tests`; Pydantic schemas on every request and response; no raw `dict` crossing the API layer
-- [ ] 11.2 Section 9.2 testing: unit and integration green; every authorization rule has a negative test; no external services called; the TDD evidence report is complete; state in the final report why real-server tests do not apply (this change adds no behaviour that depends on Uvicorn, headers, proxies or transport)
-- [ ] 11.3 Section 9.3 and 9.4 security and isolation: reads scoped by actor in repositories, no secrets in repo or logs, dependencies unchanged, `pip-audit` clean
-- [ ] 11.4 Section 9.6 lint and format: `ruff check`, `ruff format --check`; frontend lint, format, typecheck and tests still green
-- [ ] 11.5 Section 9.7 migrations: `0003` upgrade and downgrade on a clean database, `alembic check` clean, `0003` not edited after its first commit; `docker compose up --build` still starts the stack following the guide
-- [ ] 11.6 Section 9.8 documentation and traceability updated in this change; conventional commits prepared (commits, push and Pull Request only when the user asks)
-- [ ] 11.7 Run `openspec validate subjects-and-enrollments --strict` and tick this change's tasks only after all items above pass
+- [x] 11.1 Section 9.1 typing and validation: `uv run mypy --strict app tests`; Pydantic schemas on every request and response; no raw `dict` crossing the API layer
+- [x] 11.2 Section 9.2 testing: unit and integration green; every authorization rule has a negative test; no external services called; the TDD evidence report is complete; state in the final report why real-server tests do not apply (this change adds no behaviour that depends on Uvicorn, headers, proxies or transport)
+- [x] 11.3 Section 9.3 and 9.4 security and isolation: reads scoped by actor in repositories, no secrets in repo or logs, dependencies unchanged, `pip-audit` clean
+- [x] 11.4 Section 9.6 lint and format: `ruff check`, `ruff format --check`; frontend lint, format, typecheck and tests still green
+- [x] 11.5 Section 9.7 migrations: `0003` upgrade and downgrade on a clean database, `alembic check` clean, `0003` not edited after its first commit; `docker compose up --build` still starts the stack following the guide
+- [x] 11.6 Section 9.8 documentation and traceability updated in this change; conventional commits prepared (commits, push and Pull Request only when the user asks)
+- [x] 11.7 Run `openspec validate subjects-and-enrollments --strict` and tick this change's tasks only after all items above pass
 
 ## Workflow follow-up
 
