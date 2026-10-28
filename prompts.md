@@ -459,3 +459,90 @@ prueba automatizada.
 - El guard de aislamiento es una convención de nombres y entorno, no una barrera de privilegios, y no frena un `alembic downgrade` manual contra la base de desarrollo.
 - El timeout acota solo el establecimiento de la conexión, no la duración de las consultas.
 - ESLint 9 está en desuso; las dependencias del backend usan rangos `>=` fijados por `uv.lock`.
+
+## 12. Asignaturas e inscripciones (`subjects-and-enrollments`, cambio OpenSpec 3 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, con el flujo OpenSpec del repositorio (`/opsx:explore`, `/opsx:propose`, `/opsx:update`, `/opsx:apply`, `/opsx:archive`). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md`, `docs/lessons-learned.md` y `docs/technical-debt.md`. Esta sección se agregó con aprobación explícita del usuario.
+
+**Skills y subagentes usados:**
+- Skills de OpenSpec `opsx:propose`, `opsx:update`, `opsx:apply` y `opsx:archive`.
+- Skill `update-docs`, invocado explícitamente durante la implementación.
+- **Dos subagentes** de Claude Code (tipo `general-purpose`, lanzados con `model=opus`), con contexto limpio y de solo lectura, como revisiones adversariales independientes: la primera sobre todo el cambio y la segunda, focalizada en la corrección de F6 y del contrato OpenAPI. Probaron únicamente contra la base de pruebas aislada `asistenteia_test`.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de mensajes del usuario en la sesión; los marcados *(resumido, no textual)* son resúmenes. No se reconstruyó ninguna conversación. Las notas de trabajo están en `openspec/changes/archive/2026-10-28-subjects-and-enrollments/reports/2026-10-28-ai-usage-notes.md`.
+
+### 12.1 Prompts y decisiones del usuario
+
+**Prompt 1 — aprobación del plan, decisiones D1–D12 (fragmentos textuales):**
+
+```
+D1: devolver 404 para asignaturas de otros docentes; 403 para roles incorrectos.
+D8: mantener listados sin paginacion durante el MVP y registrar TD-016 como deuda tecnica.
+```
+
+**Prompt 2 — condiciones sobre los artefactos (fragmentos textuales):**
+
+```
+Mantener nombres de asignaturas sensibles a mayusculas, segun el modelo aprobado.
+Aceptar como riesgo residual del MVP que la inscripcion por email permite distinguir estudiantes registrados.
+```
+
+**Prompt 3 — resumido, no textual:** el usuario aprobó los ajustes B1–B10 derivados de `docs/lessons-learned.md` (evidencia TDD, revisión independiente, pruebas con entradas extremas y protección de logs, trazabilidad entre especificaciones y contrato), y que la corrección de la ruta de los informes de OpenSpec se publicara en un PR aparte antes de implementar.
+
+**Prompt 4 — autorización de implementación (fragmento textual, más resumen):**
+
+```
+Apruebo iniciar la implementacion de `subjects-and-enrollments` mediante el workflow oficial de OpenSpec y los estandares del proyecto.
+```
+
+*(Resumido, no textual:)* pidió TDD con evidencia de las pruebas fallidas, pruebas negativas y de concurrencia, protección de datos sensibles en errores y logs, revisión independiente, actualización del PR #5, y detenerse antes de pedir el merge.
+
+**Prompt 5 — revisión final del PR #5 (fragmento textual, más resumen):**
+
+```
+Apruebo realizar una última corrección antes del merge.
+```
+
+*(Resumido, no textual:)* resolver F6 pasando `teacher_id` al repositorio con una restricción de titularidad en el SQL, mantener TD-018 abierto sin tocar el validador compartido, investigar la ausencia de `maxLength` del email en el OpenAPI generado y repetir una revisión independiente focalizada.
+
+**Prompt 6 — cierre (fragmentos textuales):**
+
+```
+Autorizo el cierre de la feature 3.
+Autorizo finalizar la publicación del archivado y preparar la actualización de prompts.md.
+```
+
+**Prompt de la IA a los subagentes revisores (resumido, no textual):** alcance del diff, fuentes a leer, áreas a atacar (aislamiento entre docentes y estudiantes, 404 idénticos, entradas extremas, concurrencia, migración, fugas en logs), prohibición de editar el repositorio y de tocar la base de desarrollo, y formato del informe con severidades y veredicto.
+
+### 12.2 Decisiones técnicas principales
+- Repositorios con alcance por actor: ninguna lectura ni borrado sin el usuario autenticado; el rol se comprueba antes que la titularidad (403 antes que 404) y una asignatura ajena responde el mismo 404 que una inexistente.
+- Un email desconocido y el de una cuenta que no es estudiante devuelven el mismo 404 sin eco del email; no hay preinscripción.
+- 409 para nombre de asignatura duplicado por docente (sensible a mayúsculas) y para inscripción duplicada; savepoints que convierten las violaciones únicas y de clave foránea en errores controlados.
+- Migración `0003`: `ON DELETE CASCADE` en las inscripciones y `RESTRICT` para el docente con asignaturas.
+- Validadores de nombre, descripción y email extraídos a `schemas/validators.py` sin cambiar el comportamiento de registro, login ni CLI.
+- Listados sin paginación (TD-016); la inscripción por email revela qué emails son estudiantes (TD-017, riesgo aceptado).
+
+### 12.3 Correcciones, desviaciones y hallazgos
+- **Evidencia TDD:** se registró la ejecución fallida de cada grupo antes de implementar (`reports/2026-10-28-tdd-evidence.md`). No hubo desviaciones del orden. Hubo pruebas que pasaban antes de implementar porque esperaban un 404 (2 en las asignaturas y 7 en las inscripciones), y se compensaron con las pruebas de éxito y con comprobaciones por mutación.
+- **Primera revisión independiente (PASS WITH GAPS, sin bloqueantes ni mayores):** F1 (menor) la carrera de borrado devolvía "Resource not found" en vez de "Student not found", corregido; F2 (menor) una descripción en blanco se guardaba como cadena vacía, ahora se recorta y pasa a null; F3 y F4 (menores) el validador compartido recorta espacios Unicode antes de comprobar ASCII y la lista bidi omite U+061C, registrados como TD-018 y sin tocar; F5 (menor) código muerto en un test, eliminado; F6 (pregunta) `EnrollmentRepository.add` no recibía el actor.
+- **Corrección final de F6 (decisión del usuario):** `add(subject_id, teacher_id, student_id)` inserta con `INSERT ... SELECT` desde la asignatura del docente titular; el servicio conserva su comprobación. Tests escritos antes (13 fallos iniciales), una prueba de concurrencia con 12 hilos (1 creada, 6 respuestas 404, 5 conflictos) y una mutación detectada por 4 pruebas.
+- **Contrato OpenAPI:** el `maxLength: 255` del email faltaba porque el límite vive en un validador. Se añadió a `json_schema_extra`, que solo afecta al esquema generado. Una prueba confirma que la validación no cambia.
+- **Segunda revisión independiente (focalizada en F6 y el contrato):** PASS, sin hallazgos mayores ni bloqueantes; dos observaciones menores aceptadas y un test adicional de reutilización de sesión.
+- **Incidentes de herramientas y de proceso (reconocidos por la IA):**
+  - Las secuencias de escape Unicode y los saltos de línea escritos con barra invertida se colapsaron en heredocs y en la herramienta de escritura; se detectó escaneando caracteres no ASCII y se reconstruyó con puntos de código explícitos.
+  - El contenedor de desarrollo ejecutó un `alembic downgrade -1` porque su imagen no incluía la migración `0003`; la base tenía 0 usuarios y no se perdieron datos. Quedó documentado en la guía de desarrollo y en la lección L15.
+  - Una prueba de protección de logs pasaba en vacío por un marcador mal elegido; se corrigió y se comprobó que solo falla si se quitan a la vez `hide_parameters` y el middleware que oculta el traceback.
+  - Se actualizaron dos pruebas existentes (seed y downgrade de `0002`) por la aparición de las nuevas tablas, manteniendo su intención.
+
+### 12.4 Resultados de validación
+- 488 pruebas de backend (344 antes del cambio), cobertura 98 % (servicios 100 %), `ruff`, `ruff format --check` y `mypy --strict` limpios, `alembic check` limpio, `pip-audit` y `npm audit` sin vulnerabilidades.
+- 13 mutaciones sobre filtros por actor y comprobaciones de titularidad, todas detectadas.
+- 40 casos con curl contra la pila real de Docker Compose y regresión del frontend (3 de Vitest, 2 de Playwright).
+- `openspec validate --all --strict`: 9 de 9.
+- Entrega: PR #5 con CI en verde, squash merge `9e50724` y archivado `2e25ddf` publicado en `main`.
+
+### 12.5 Riesgos residuales
+- TD-016: listados sin paginación.
+- TD-017: la inscripción por email permite a un docente distinguir estudiantes registrados.
+- TD-018: el validador compartido recorta espacios Unicode antes de comprobar ASCII y omite U+061C; pendiente de aprobación, porque afecta a registro y login.
+- `alembic check` sigue siendo un paso manual, fuera de la CI.
