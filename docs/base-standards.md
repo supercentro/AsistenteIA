@@ -52,6 +52,8 @@ Rules:
 - [Academic Requirements](./academic-requirements.md) — summary of the LIDR course requirements
 - [Development Guide](./development_guide.md) — local setup, commands, reproducibility
 - [OpenSpec Tasks Mandatory Steps](./openspec-tasks-mandatory-steps.md) — required checklist when creating or updating OpenSpec `tasks.md`
+- [Lessons Learned](./lessons-learned.md) — process lessons with evidence; read before proposing a change
+- [Technical Debt](./technical-debt.md) — register of accepted residual risks
 
 ## 4. Project Skills
 
@@ -114,6 +116,9 @@ Legend: **MUST** = blocks merge/delivery. **SHOULD** = recommended; deviations n
 - MUST: unit tests for services (LLM, embeddings and repositories mocked); integration tests for endpoints against a real PostgreSQL+pgvector test database; at least one automated end-to-end test of the main flow (teacher uploads → student asks → answer with citation) written with **Playwright Test** (`@playwright/test`, committed and run in `npm run test:e2e`) before final delivery. **Playwright MCP** is a different thing: the agent's browser tools for manual verification during `/opsx:apply` (see `openspec-tasks-mandatory-steps.md`); it does not replace the committed suite. Playwright CLI is an accepted alternative to MCP when the MCP server is unavailable.
 - MUST: external services (Gemini) are never called in CI; use fakes/recorded fixtures.
 - MUST: every authorization rule has a negative test (wrong role, other teacher's subject, non-enrolled student, other student's conversation).
+- MUST: TDD evidence per functional group: run the new tests before the implementation and record the failing run (command and failure summary) in the change report or PR. Record every deviation with its justification and compensate it with a mutation check (temporarily remove the guarded code and show a test fails).
+- MUST: behaviour that depends on Uvicorn, HTTP headers, proxies, transport or server configuration is tested against a real server process started with the production arguments; `TestClient` alone is not sufficient.
+- MUST: negative and extreme-input cases proportional to the change (control characters, oversize, malformed identifiers, duplicates under concurrency) never produce a 500; errors and captured logs of new endpoints never expose passwords, hashes, tokens, emails or SQL parameters (see `backend-standards.md`).
 - SHOULD: backend coverage ≥ 80% on `services/` and `repositories/`; frontend ≥ 70% on components/hooks.
 
 ### 9.3 Security and secrets
@@ -137,13 +142,16 @@ Legend: **MUST** = blocks merge/delivery. **SHOULD** = recommended; deviations n
 
 ### 9.7 Migrations and reproducibility
 - MUST: every schema change is an Alembic migration with a working `downgrade`; migrations run on a clean database.
+- MUST: `alembic check` reports no drift between models and migrations; a migration already merged to `main` is never edited (add a new one).
 - MUST: the full stack starts with `docker compose up` following `docs/development_guide.md`.
 - MUST: lock files committed (`uv.lock`, `package-lock.json`); runtime versions pinned (Python 3.12, Node LTS, PostgreSQL 15 with pgvector).
 
 ### 9.8 Code review and documentation
 - MUST: documentation updated in the same change (see documentation standards).
 - MUST: conventional commits; one logical change per commit.
-- SHOULD: run the `adversarial-review` skill on security-sensitive changes (auth, upload, chat).
+- MUST: changes to authentication, authorization, personal data or security get an independent adversarial review (`adversarial-review` skill) by a separate subagent or a clean-context session, not by the implementing session. The report records findings, fixes and a final verdict; a change is not closed with an open blocker or major finding. Other sensitive changes (upload, chat) SHOULD get the same review.
+- MUST: traceability before archive: status codes, limits and field rules agree across `docs/api-spec.yml`, the OpenSpec specs, the tests and the implemented behaviour; report any divergence instead of fixing it silently.
+- MUST: accepted residual risks are added to `docs/technical-debt.md`; lessons from review findings or process deviations are added to `docs/lessons-learned.md` (see `documentation-standards.md`).
 
 ### 9.9 Definition of Done
 A task is done when: acceptance criteria met; failing-first tests now pass; all MUST gates above pass; docs (`data-model.md`, `api-spec.yml`, standards) updated; OpenSpec `tasks.md` checked off; no TODOs without ticket; and the change was verified running (manual call or E2E), not just by unit tests.
