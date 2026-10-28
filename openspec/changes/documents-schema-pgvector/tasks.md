@@ -21,8 +21,8 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 2. Dependency and Image Changes (after the gate passes)
 
-- [ ] 2.1 Add the exact `pgvector` version to `backend/pyproject.toml` and refresh `uv.lock` (lock file committed); `pip-audit` clean
-- [ ] 2.2 Replace the floating image tag with the verified tag in `docker-compose.yml` and `.github/workflows/ci.yml`; document the pin and the extension-update note in `docs/development_guide.md`
+- [x] 2.1 Add the exact `pgvector` version to `backend/pyproject.toml` and refresh `uv.lock` (lock file committed); `pip-audit` clean
+- [x] 2.2 Replace the floating image tag with the verified tag in `docker-compose.yml` and `.github/workflows/ci.yml`; document the pin and the extension-update note in `docs/development_guide.md`
 
 ## 3. Migration and Models (TDD)
 

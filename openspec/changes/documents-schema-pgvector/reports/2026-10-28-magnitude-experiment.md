@@ -10,7 +10,7 @@
 
 - Container `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15.19, pgvector 0.8.7) started with `--rm`, data on `tmpfs`, bound to `127.0.0.1:55439`, scratch database `spike`; throwaway Python 3.12 environment with `psycopg[binary]==3.3.6` in a temporary directory. No project database or container was touched.
 - Both resources were destroyed afterwards: no `spike-pgvector*` container, temporary directory removed, nothing listening on 55439.
-- Script (kept for reproducibility, outside the repository tree and not committed): the matrix below is reproduced by generating two seeded Gaussian directions of 384 components normalised to unit length, scaling them, and comparing `a <=> b` computed by PostgreSQL with `1 - dot / (|a| |b|)` computed in double precision on the single-precision-rounded inputs. Seeds 1 and 2.
+- Script (committed next to this report as `2026-10-28-magnitude-experiment.py`; it only connects to a scratch database on port 55439): the matrix below is reproduced by generating two seeded Gaussian directions of 384 components normalised to unit length, scaling them, and comparing `a <=> b` computed by PostgreSQL with `1 - dot / (|a| |b|)` computed in double precision on the single-precision-rounded inputs. Seeds 1 and 2.
 
 ## Matrix
 
