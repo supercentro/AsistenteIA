@@ -275,6 +275,18 @@ def test_a_refused_enrollment_leaves_the_session_usable(
     assert repo.add(subject.id, teacher.id, student.id).student_id == student.id
 
 
+def test_a_vanished_student_leaves_the_session_usable(
+    db_session: Session, teacher: User, student: User
+) -> None:
+    subject = make_subject(db_session, teacher)
+    repo = EnrollmentRepository(db_session)
+
+    with pytest.raises(NotFoundError):
+        repo.add(subject.id, teacher.id, uuid.uuid4())
+
+    assert repo.add(subject.id, teacher.id, student.id).student_id == student.id
+
+
 def test_concurrent_enrollments_by_owner_and_strangers_create_exactly_one_row(
     clean_db: str, make_user: MakeUser
 ) -> None:
