@@ -21,7 +21,7 @@ All implementation tasks MUST include these steps in the correct order:
 
 ### Step 0: Create Feature Branch (MUST BE FIRST)
 - **Location**: Must be the very first step (Step 0)
-- **Branch naming**: `feature/<change-name>` (the OpenSpec change name; `feature/[ticket-id]` only if a ticket id exists), created from `main`
+- **Branch naming**: `feature/<change-name>` (the OpenSpec change name), created from `main`
 - **Action**: Create and switch to feature branch before any code changes; the branch is merged to `main` through a Pull Request
 
 ### Mandatory Steps (Must Be Included):
@@ -37,7 +37,7 @@ All implementation tasks MUST include these steps in the correct order:
 
 ### Step N+1: Run Unit Tests and Verify Database State (MANDATORY)
 
-**Agent Responsibility**: The coding agent MUST execute unit tests, validate database integrity before/after execution, and produce a test report artifact in the change spec folder. This is NOT optional and cannot be delegated to the user.
+**Agent Responsibility**: The coding agent MUST execute unit tests, validate database integrity before/after execution, and produce a test report artifact in the change folder (`openspec/changes/<change-name>/reports/`). This is NOT optional and cannot be delegated to the user.
 
 **Implementation Steps** (Agent must perform):
 1. **Prepare Test Environment**:
@@ -59,14 +59,14 @@ All implementation tasks MUST include these steps in the correct order:
    - Confirm no unintended mutations remain after tests complete
    - If any mutation occurred, restore state and document the restoration
 
-5. **Create Unit Test Verification Report in Spec Folder**:
-   - Save report under the current change folder in `specs/<change-name>/reports/`
+5. **Create Unit Test Verification Report in the Change Folder**:
+   - Save report under the current change folder in `openspec/changes/<change-name>/reports/`
    - Use this filename pattern: `YYYY-MM-DD-step-N+1-unit-test-and-db-verification.md`
    - Include executed commands, summarized results, database pre/post comparison, and cleanup actions
 
 6. **Mark Task as Completed**: Only after unit tests pass (or approved exceptions are documented), database state is verified/restored, and the report file is created, mark Step N+1 as completed in `tasks.md`.
 
-**Report Template** (store in `specs/<change-name>/reports/`):
+**Report Template** (store in `openspec/changes/<change-name>/reports/`):
 ```markdown
 # Step N+1 Report - Unit Tests and Database Verification
 
@@ -100,7 +100,7 @@ All implementation tasks MUST include these steps in the correct order:
 **Dependencies**:
 - Test runner and project test dependencies installed
 - Database access for state verification/restoration
-- Permission to create report files in `specs/<change-name>/reports/`
+- Permission to create report files in `openspec/changes/<change-name>/reports/`
 
 **Notes**:
 - **The agent MUST execute tests itself** - never ask the user to run tests
@@ -166,7 +166,7 @@ All implementation tasks MUST include these steps in the correct order:
 - This step is MANDATORY for all new endpoints
 - **The agent MUST execute all curl commands itself** - never ask the user to run tests
 - All CREATE/UPDATE/DELETE operations must restore database to original state after testing
-- Document all curl commands and responses for future reference in a report in the spec folder with proper naming
+- Document all curl commands and responses for future reference in a report in `openspec/changes/<change-name>/reports/` with proper naming
 - Verify that database state matches pre-test state after cleanup
 - Do not skip manual testing even if unit tests pass
 - **Task completion in tasks.md can only be marked after successful execution of all curl tests**
@@ -232,7 +232,7 @@ All implementation tasks MUST include these steps in the correct order:
 - **The agent MUST execute all E2E tests itself** - never ask the user to run tests
 - Use incremental waits (1-3 seconds) with snapshot checks rather than long waits
 - Always restore database state after tests that modify data
-- Document test scenarios and outcomes in a report in the spec folder with proper naming
+- Document test scenarios and outcomes in a report in `openspec/changes/<change-name>/reports/` with proper naming
 - **Task completion in tasks.md can only be marked after successful execution of all E2E tests**
 
 ## 4. Verification Checklist
@@ -243,7 +243,7 @@ Before finalizing any `tasks.md` file, verify:
 - [ ] Steps are numbered sequentially
 - [ ] Mandatory steps are clearly marked with "(MANDATORY)" label
 - [ ] Branch naming follows the convention: `feature/<change-name>`
-- [ ] Step N+1 includes report path and naming convention in `specs/<change-name>/reports/`
+- [ ] Step N+1 includes report path and naming convention in `openspec/changes/<change-name>/reports/`
 - [ ] Manual testing steps explicitly state "AGENT MUST EXECUTE"
 - [ ] Tasks include database state restoration steps
 - [ ] E2E testing step is included if frontend changes are involved
@@ -262,7 +262,7 @@ This rule applies when:
 ```markdown
 ## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
 
-- [ ] 0.1 Create feature branch `feature/update-position-backend` from main/master branch
+- [ ] 0.1 Create feature branch `feature/update-position-backend` from the `main` branch
 - [ ] 0.2 Verify branch creation and current branch status
 
 ## 1. Backend: Validator Tests (TDD)
@@ -276,7 +276,7 @@ This rule applies when:
 - [ ] 9.2 Run targeted unit tests for changed modules
 - [ ] 9.3 Run required broader unit test suite from config
 - [ ] 9.4 Verify post-test database state and restore if needed
-- [ ] 9.5 Create report `specs/<change-name>/reports/YYYY-MM-DD-step-N+1-unit-test-and-db-verification.md`
+- [ ] 9.5 Create report `openspec/changes/<change-name>/reports/YYYY-MM-DD-step-N+1-unit-test-and-db-verification.md`
 - [ ] 9.6 Mark step complete only after tests pass and report exists
 
 ## 10. Backend: Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
