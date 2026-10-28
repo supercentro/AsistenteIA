@@ -9,9 +9,10 @@ import type { User } from '../types/api'
 import { TOKEN_VALUE } from './api'
 
 function LocationProbe() {
-  const { pathname, search } = useLocation()
+  const { pathname, search, state } = useLocation()
+  const from = (state as { from?: unknown } | null)?.from
   return (
-    <span data-testid="location" hidden>
+    <span data-testid="location" data-from={typeof from === 'string' ? from : ''} hidden>
       {pathname + search}
     </span>
   )

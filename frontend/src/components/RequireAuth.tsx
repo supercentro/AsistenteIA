@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useSession } from '../hooks/useSession'
+import { peekNotice } from '../lib/session'
 import { strings } from '../lib/strings.es'
 import { LoadingState } from './LoadingState'
 
@@ -9,7 +10,9 @@ export function RequireAuth() {
   const location = useLocation()
 
   if (status === 'anonymous') {
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
+    // After a deliberate sign-out the next person must not be sent to the previous user's page.
+    const from = peekNotice() === 'signed-out' ? undefined : location.pathname + location.search
+    return <Navigate to="/login" replace state={{ from }} />
   }
   if (status === 'loading-profile') {
     return <LoadingState label={strings.states.loading} />

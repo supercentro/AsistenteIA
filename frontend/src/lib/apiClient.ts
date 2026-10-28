@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig, isAxiosError } from 'axios'
 import { ApiError, toApiError } from './apiError'
-import { endSession, getValidToken } from './session'
+import { endSession, getSnapshot, getValidToken } from './session'
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -63,8 +63,10 @@ apiClient.interceptors.response.use(undefined, (error: unknown) => {
     apiError.status === 401 &&
     isAxiosError(error) &&
     !error.config?.public &&
-    error.config?.headers?.has('Authorization')
+    error.config?.headers?.get('Authorization') === `Bearer ${getSnapshot().token}`
   ) {
+    // Only the token of the current session may end it: a late answer to a request sent by a
+    // previous session (another user) must not sign the next user out.
     endSession('unauthorized')
   }
   logFailure(error, apiError)
