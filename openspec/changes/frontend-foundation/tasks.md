@@ -107,5 +107,5 @@ Reports go to `openspec/changes/frontend-foundation/reports/` (pattern `YYYY-MM-
 
 ## 16. Workflow follow-up (no merge, no archive without approval)
 
-- [ ] 16.1 Commit by responsibility with conventional messages on `feature/frontend-foundation` only, push only that branch, open the Pull Request to `main` with the implementation summary, test results, coverage, review verdict and residual risks, and wait for the required CI checks to pass
+- [x] 16.1 Commit by responsibility with conventional messages on `feature/frontend-foundation` only, push only that branch, open the Pull Request to `main` with the implementation summary, test results, coverage, review verdict and residual risks, and wait for the required CI checks to pass
 - [ ] 16.2 Stop before merge: the merge, `/opsx:archive` and the `prompts.md` entry need the user's explicit approval
