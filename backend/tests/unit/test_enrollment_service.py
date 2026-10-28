@@ -51,7 +51,7 @@ def test_enroll_links_the_registered_student_after_checking_ownership(fx: Fixtur
 
     assert row == EnrollmentRow(enrollment, "ana@example.com")
     fx.subjects.get_for_teacher.assert_called_once_with(fx.subject.id, fx.teacher.id)  # type: ignore[attr-defined]
-    fx.enrollments.add.assert_called_once_with(fx.subject.id, student.id)  # type: ignore[attr-defined]
+    fx.enrollments.add.assert_called_once_with(fx.subject.id, fx.teacher.id, student.id)  # type: ignore[attr-defined]
 
 
 def test_ownership_is_checked_before_the_email_is_looked_up(fx: Fixture) -> None:

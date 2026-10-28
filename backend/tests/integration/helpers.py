@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -113,7 +114,10 @@ def insert_enrollment(database_url: str, subject_id: str, student_id: str) -> No
     engine = create_db_engine(database_url)
     session: Session = create_session_factory(engine)()
     try:
-        EnrollmentRepository(session).add(uuid.UUID(subject_id), uuid.UUID(student_id))
+        teacher_id = session.execute(
+            select(Subject.teacher_id).where(Subject.id == uuid.UUID(subject_id))
+        ).scalar_one()
+        EnrollmentRepository(session).add(uuid.UUID(subject_id), teacher_id, uuid.UUID(student_id))
         session.commit()
     finally:
         session.close()

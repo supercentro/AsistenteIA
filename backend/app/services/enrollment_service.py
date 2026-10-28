@@ -40,7 +40,7 @@ class EnrollmentService:
         if student is None or student.role is not UserRole.STUDENT:
             raise NotFoundError(STUDENT_NOT_FOUND_MESSAGE)
         try:
-            enrollment = self._enrollments.add(owned_id, student.id)
+            enrollment = self._enrollments.add(owned_id, teacher.id, student.id)
         except NotFoundError:
             # Deleted after the lookups: answer like an unknown email.
             raise NotFoundError(STUDENT_NOT_FOUND_MESSAGE) from None
