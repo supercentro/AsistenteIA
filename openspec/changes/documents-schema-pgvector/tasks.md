@@ -64,7 +64,7 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 9. E2E Verification (not applicable to UI; regression only)
 
-- [ ] 9.1 Record in a report that no frontend or user workflow changes, so the Playwright MCP interactive flow is not applicable; run the frontend gates and `npm run test:e2e` (mocked suite) to prove no regression; run the stack with `docker compose up` following the guide with the pinned image; browser sessions closed
+- [x] 9.1 Record in a report that no frontend or user workflow changes, so the Playwright MCP interactive flow is not applicable; run the frontend gates and `npm run test:e2e` (mocked suite) to prove no regression; run the stack with `docker compose up` following the guide with the pinned image; browser sessions closed
 
 ## 10. Update Technical Documentation (MANDATORY)
 
