@@ -101,3 +101,6 @@ Log-leak guard (I2): the middleware was temporarily changed to log `str(exc)`. T
 | `top_k` ignored (fixed 50) | killed (3) |
 | `top_k` validation skipped | killed (2) |
 | embedding validation skipped | killed (3) |
+
+## Group 6 - review of existing tests (task 6.1)
+No new functionality, so there is no failing run. Findings and the scenario map are in `2026-11-07-group-6-regression-review.md`. One robustness fix: the downgrade test of migration `0004` used a relative `-1`; it now targets `0003` (it passed before and after). Full suite 668 passed, also in reverse file order. All deviations of the change are listed in that report.

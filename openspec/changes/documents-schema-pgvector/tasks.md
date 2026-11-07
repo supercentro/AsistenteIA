@@ -47,7 +47,7 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 6. Review and Update Existing Unit Tests (MANDATORY)
 
-- [ ] 6.1 Re-read every scenario of `document-storage` and `chunk-retrieval` and confirm each has an automated test; confirm earlier suites (authentication, roles, consent, subjects, enrollments, CLI, health, errors) pass unchanged in intent; list in the TDD evidence report every deviation from test-first order with its justification and the mutation check that compensated it (or state that there were none)
+- [x] 6.1 Re-read every scenario of `document-storage` and `chunk-retrieval` and confirm each has an automated test; confirm earlier suites (authentication, roles, consent, subjects, enrollments, CLI, health, errors) pass unchanged in intent; list in the TDD evidence report every deviation from test-first order with its justification and the mutation check that compensated it (or state that there were none)
 
 ## 7. Run Unit Tests and Verify Database State (MANDATORY)
 
