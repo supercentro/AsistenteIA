@@ -51,10 +51,10 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 7. Run Unit Tests and Verify Database State (MANDATORY)
 
-- [ ] 7.1 Capture the pre-test baseline of `asistenteia` and `asistenteia_test` (extensions and versions, tables, `alembic_version`, row counts)
-- [ ] 7.2 Run targeted tests per module, then the full backend suite with coverage (`services/` and `repositories/` at least 80 percent)
-- [ ] 7.3 Re-check the same indicators and restore if tests left residue
-- [ ] 7.4 Create report `openspec/changes/documents-schema-pgvector/reports/YYYY-MM-DD-step-7-unit-test-and-db-verification.md`
+- [x] 7.1 Capture the pre-test baseline of `asistenteia` and `asistenteia_test` (extensions and versions, tables, `alembic_version`, row counts)
+- [x] 7.2 Run targeted tests per module, then the full backend suite with coverage (`services/` and `repositories/` at least 80 percent)
+- [x] 7.3 Re-check the same indicators and restore if tests left residue
+- [x] 7.4 Create report `openspec/changes/documents-schema-pgvector/reports/YYYY-MM-DD-step-7-unit-test-and-db-verification.md`
 
 ## 8. Manual Verification Against the Real Database (MANDATORY - AGENT MUST EXECUTE; no endpoints are added, so curl does not apply)
 
