@@ -58,9 +58,9 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 8. Manual Verification Against the Real Database (MANDATORY - AGENT MUST EXECUTE; no endpoints are added, so curl does not apply)
 
-- [ ] 8.1 Rebuild the backend image and apply `alembic upgrade head` on the Compose development database; check tables, indexes, constraints and the enum with `psql`; run `alembic downgrade -1` and `upgrade head` again
-- [ ] 8.2 With a script run in the backend container (not committed, or committed under the tests tree only if it is a test), load the deterministic fixtures into the development database, call `find_similar` as an enrolled student, as the owner, as a non-enrolled student and as another teacher, and verify results, scores and empty results; check that the backend still starts and `/health` and the login still answer
-- [ ] 8.3 Delete the fixture subject and verify by queries that documents and chunks are gone; remove every row created for the test, verify the database equals the pre-test state, and document all commands and outcomes in `reports/YYYY-MM-DD-step-8-real-database-verification.md`
+- [x] 8.1 Rebuild the backend image and apply `alembic upgrade head` on the Compose development database; check tables, indexes, constraints and the enum with `psql`; run `alembic downgrade -1` and `upgrade head` again
+- [x] 8.2 With a script run in the backend container (not committed, or committed under the tests tree only if it is a test), load the deterministic fixtures into the development database, call `find_similar` as an enrolled student, as the owner, as a non-enrolled student and as another teacher, and verify results, scores and empty results; check that the backend still starts and `/health` and the login still answer
+- [x] 8.3 Delete the fixture subject and verify by queries that documents and chunks are gone; remove every row created for the test, verify the database equals the pre-test state, and document all commands and outcomes in `reports/YYYY-MM-DD-step-8-real-database-verification.md`
 
 ## 9. E2E Verification (not applicable to UI; regression only)
 
