@@ -68,3 +68,36 @@ Log-leak guard (I2): the middleware was temporarily changed to log `str(exc)`. T
 | enrollment of `student_algebra` dropped | killed (`test_enrollments_cover_...`) |
 | `failed` document marked `ready` | killed (`test_documents_cover_every_status_...`) |
 | Physics document moved to the Algebra subject | killed |
+
+## Group 5 - `ChunkRepository.find_similar` and vector validation
+
+### Failing run before the implementation
+- Command: `uv run pytest -q -p no:cacheprovider --continue-on-collection-errors tests/unit/test_vector_validation.py tests/integration/test_chunk_retrieval.py`
+- Result: **2 collection errors, 0 tests run** (`ModuleNotFoundError: No module named 'app.core.vector_validation'`).
+- Tests written first: `tests/unit/test_vector_validation.py` (45 cases) and `tests/integration/test_chunk_retrieval.py` (36 tests); support `tests/retrieval_support.py`. Production files added afterwards: `app/core/vector_validation.py`, `app/repositories/chunk_repository.py`.
+
+### Result after the implementation
+- First run: 80 passed, 1 failed. The failure was a wrong expectation of mine (the SQL of a student search contains no `subjects` table; a teacher search has no `enrollments`); the test now checks each role's statement separately.
+- Full backend suite: **668 passed** (587 before; +81). Coverage of `app` 98 %; `vector_validation.py` and `chunk_repository.py` 100 %. `ruff`, `ruff format --check`, `mypy --strict` (105 files) and `pip-audit` clean.
+- Note: integration tests hang (no error) when the compose `db` service is stopped; it was restarted with `docker compose up -d db` (no migration).
+
+### Deviations from strict test-first order
+1. The tie-break test first only checked that repeated searches gave the same order; the mutation check showed it could not detect removal of `DocumentChunk.id` from the ORDER BY (survived). It was strengthened to require ascending chunk id among equal similarities and the mutation is now killed.
+2. The wrong expectation above (statement text per role).
+
+### Mutation spot-check of `find_similar` (task 5.5; file restored and verified identical each time)
+| Mutation | Result (failing tests) |
+|---|---|
+| subject filter removed | killed (14) |
+| enrollment condition removed (`student_id`) | killed (7) |
+| enrollment subject condition removed | killed (4) |
+| ownership condition removed (`teacher_id`) | killed (5) |
+| ownership subject condition removed | killed (3) |
+| `ready` filter removed | killed (12) |
+| authorization clause removed from WHERE | killed (11) |
+| unknown role treated as authorized | killed (1) |
+| order direction reversed | killed (7) |
+| tie-break removed | survived first, **killed (1) after strengthening the test** |
+| `top_k` ignored (fixed 50) | killed (3) |
+| `top_k` validation skipped | killed (2) |
+| embedding validation skipped | killed (3) |
