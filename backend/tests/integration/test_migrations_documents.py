@@ -226,7 +226,7 @@ def test_downgrade_removes_tables_and_enum_but_keeps_the_extension(test_db_url: 
     migrate_to_head(test_db_url)
     config = alembic_config(test_db_url)
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0003")  # explicit: "-1" would break when a later migration exists
 
     assert not table_exists(test_db_url, "documents")
     assert not table_exists(test_db_url, "document_chunks")
