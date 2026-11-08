@@ -82,13 +82,13 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 12. Final Verification of MUST Quality Gates (`docs/base-standards.md` section 9)
 
-- [ ] 12.1 Section 9.1 typing and validation: `uv run mypy --strict app tests`; no raw `dict` crossing the API layer (no API change)
-- [ ] 12.2 Section 9.2 testing: unit and integration green on a real PostgreSQL with pgvector; every authorization rule has a negative test; no external service called; the TDD evidence report is complete; state why real-server tests do not apply (no behaviour depending on Uvicorn, headers or transport)
-- [ ] 12.3 Sections 9.3 and 9.4 security and isolation: reads scoped by subject and actor in the repository, no secrets in repository or logs, dependency pinned in `uv.lock`, `pip-audit` clean
-- [ ] 12.4 Section 9.6 lint and format: `ruff check` and `ruff format --check`; frontend lint, format, typecheck and tests still green
-- [ ] 12.5 Section 9.7 migrations: `0004` upgrade and downgrade on a clean database, `alembic check` clean on the development and test databases, `0004` not edited after its first commit, earlier migrations unchanged, `docker compose up --build` starts the stack
-- [ ] 12.6 Section 9.8 documentation and traceability updated in this change (status codes, limits, field rules and constraints agree across the specs, `docs/data-model.md`, tests and implementation); conventional commits prepared (commits, push and Pull Request only when the user asks)
-- [ ] 12.7 Run `openspec validate documents-schema-pgvector --strict` and `openspec validate --all --strict`, and tick this change's tasks only after all items above pass
+- [x] 12.1 Section 9.1 typing and validation: `uv run mypy --strict app tests`; no raw `dict` crossing the API layer (no API change)
+- [x] 12.2 Section 9.2 testing: unit and integration green on a real PostgreSQL with pgvector; every authorization rule has a negative test; no external service called; the TDD evidence report is complete; state why real-server tests do not apply (no behaviour depending on Uvicorn, headers or transport)
+- [x] 12.3 Sections 9.3 and 9.4 security and isolation: reads scoped by subject and actor in the repository, no secrets in repository or logs, dependency pinned in `uv.lock`, `pip-audit` clean
+- [x] 12.4 Section 9.6 lint and format: `ruff check` and `ruff format --check`; frontend lint, format, typecheck and tests still green
+- [x] 12.5 Section 9.7 migrations: `0004` upgrade and downgrade on a clean database, `alembic check` clean on the development and test databases, `0004` not edited after its first commit, earlier migrations unchanged, `docker compose up --build` starts the stack
+- [x] 12.6 Section 9.8 documentation and traceability updated in this change (status codes, limits, field rules and constraints agree across the specs, `docs/data-model.md`, tests and implementation); conventional commits prepared (commits, push and Pull Request only when the user asks)
+- [x] 12.7 Run `openspec validate documents-schema-pgvector --strict` and `openspec validate --all --strict`, and tick this change's tasks only after all items above pass
 
 ## Workflow follow-up
 
