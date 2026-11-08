@@ -7,7 +7,7 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 ## ADDED Requirements
 
 ### Requirement: Similarity search is scoped by subject and by acting user inside the query
-`ChunkRepository.find_similar` SHALL receive the acting user, the subject, a query embedding and `top_k`, and the SQL statement itself MUST restrict the result to chunks of that subject for which the actor is an enrolled student or the owning teacher; there MUST be no method, parameter or default that reads chunks without that restriction.
+`ChunkRepository.find_similar` SHALL receive the acting user, the subject, a query embedding and `top_k`, and the SQL statement itself MUST restrict the result to chunks of that subject for which the actor is an enrolled student or the owning teacher whose stored role matches, whatever role the caller declares; there MUST be no method, parameter or default that reads chunks without that restriction.
 
 #### Scenario: Enrolled student
 - **WHEN** a student enrolled in the subject searches it
@@ -29,9 +29,17 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 - **WHEN** a student's enrollment is removed and the student searches again
 - **THEN** the result is empty on the next call
 
-#### Scenario: Unknown subject or malformed access
-- **WHEN** the subject does not exist
+#### Scenario: Unknown subject
+- **WHEN** the subject id is a well-formed UUID and the subject does not exist
 - **THEN** the result is empty and no error is raised
+
+#### Scenario: Declared role that does not match the stored role
+- **WHEN** an actor declares the role `student` or `teacher` but the stored role of that user is the other one (for example a teacher who is also enrolled, a student who appears as the owner of a subject, or a user whose role was changed), or the user does not exist
+- **THEN** the result is empty and no error is raised
+
+#### Scenario: Subject id that is not a UUID
+- **WHEN** the subject id is not a `uuid.UUID` (a string, a number, `None`, bytes)
+- **THEN** a controlled error with fixed text that does not contain the value is raised and no database statement is executed
 
 #### Scenario: Chunks of other subjects are never returned
 - **WHEN** several subjects hold chunks closer to the query than any chunk of the requested subject
@@ -57,7 +65,7 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 - **THEN** exactly `top_k` chunks of the requested subject are still returned and they equal the result of an exact (unindexed) search of that subject
 
 ### Requirement: Invalid query vectors and limits are rejected before the database
-`find_similar` MUST reject, with a controlled domain error and without executing any statement, a query embedding that is not exactly 384 finite numbers, whose Euclidean norm (computed in double precision) is outside the reliable range `1e-6 <= norm <= 1e6` (zero included), or a `top_k` outside 1 to 50. The range is justified in `reports/2026-10-28-magnitude-experiment.md`.
+`find_similar` MUST reject, with a controlled domain error and without executing any statement, a query embedding that is not exactly 384 finite numbers, whose Euclidean norm (of the single-precision values that the database stores, accumulated in double precision as `vector_norm` does) is outside the reliable range `1e-6 <= norm <= 1e6` (zero included), or a `top_k` outside 1 to 50. The range is justified in `reports/2026-10-28-magnitude-experiment.md`.
 
 #### Scenario: Wrong dimension
 - **WHEN** the query embedding has 383, 385 or 0 components
@@ -76,8 +84,12 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 - **THEN** a controlled error is raised and no statement is executed
 
 #### Scenario: Magnitude at the edges of the range
-- **WHEN** the query embedding has a norm of exactly `1e-6` or `1e6`
+- **WHEN** the query embedding has a stored (single-precision) norm of `1e6`, or the smallest single-precision norm that is not below `1e-6`
 - **THEN** the search runs and returns finite similarities that match an exact double-precision computation within `1e-6`
+
+#### Scenario: Helper and database check agree at the edges
+- **WHEN** a vector has a norm next to `1e-6` or `1e6` (for example `1e-6` as a double, which is stored as a single-precision value just below it)
+- **THEN** the validation helper accepts it if and only if the database check `vector_norm(embedding) BETWEEN 1e-6 AND 1e6` accepts the stored vector
 
 #### Scenario: Normalised vectors
 - **WHEN** the query embedding is a unit vector, or a unit vector rounded to single precision
