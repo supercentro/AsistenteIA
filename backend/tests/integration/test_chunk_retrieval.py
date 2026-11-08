@@ -245,7 +245,12 @@ def _single(vector: list[float]) -> list[float]:
     return [struct.unpack("f", struct.pack("f", x))[0] for x in vector]
 
 
-@pytest.mark.parametrize("norm", [1e-6, 1e6])
+# 1e-6 is stored as the single-precision number just below it, so the smallest accepted norm is the
+# next single-precision number (finding F5).
+SMALLEST_ACCEPTED_NORM = _single([1e-6])[0] * (1 + 2**-22)
+
+
+@pytest.mark.parametrize("norm", [SMALLEST_ACCEPTED_NORM, 1e6])
 def test_similarities_at_the_edges_of_the_norm_range_are_accurate(
     db_session: Session, catalog: Catalog, norm: float
 ) -> None:

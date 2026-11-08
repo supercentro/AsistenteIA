@@ -80,9 +80,51 @@ def test_overflowing_squares_are_rejected_not_accepted_as_infinite_norm() -> Non
         validate_embedding(vector)
 
 
-@pytest.mark.parametrize("norm", [1e-6, 1e6])
-def test_norms_exactly_at_the_edges_are_accepted(norm: float) -> None:
-    assert validate_embedding(with_norm(norm)) == with_norm(norm)
+def _next_single(value: float, steps: int = 1) -> float:
+    """The single-precision number `steps` representable values above `value` (value >= 0)."""
+    import struct
+
+    bits = struct.unpack("<I", struct.pack("<f", value))[0]
+    return float(struct.unpack("<f", struct.pack("<I", bits + steps))[0])
+
+
+def test_the_upper_edge_is_accepted() -> None:
+    assert validate_embedding(with_norm(1e6)) == with_norm(1e6)
+
+
+def test_the_smallest_single_precision_norm_at_or_above_the_lower_edge_is_accepted() -> None:
+    # 1e-6 itself is stored by the database as the single-precision number just below it (F5).
+    smallest = _next_single(single_precision([1e-6])[0])
+    assert smallest >= MIN_NORM
+    assert validate_embedding(with_norm(smallest)) == with_norm(smallest)
+
+
+def test_a_norm_that_rounds_below_the_lower_edge_in_single_precision_is_rejected() -> None:
+    # In double precision this is exactly 1e-6, but the stored vector would have a norm below it.
+    assert single_precision([1e-6])[0] < MIN_NORM
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(with_norm(1e-6))
+
+
+@pytest.mark.parametrize("factor", [1 + 1e-8, 1 + 3e-8, 1 - 3e-8])
+def test_a_norm_within_single_precision_rounding_of_the_upper_edge_is_accepted(
+    factor: float,
+) -> None:
+    # The database stores 1e6 * factor as exactly 1e6, which the check accepts (F5).
+    assert validate_embedding(with_norm(1e6 * factor)) is not None
+
+
+def test_the_next_single_precision_value_above_the_upper_edge_is_rejected() -> None:
+    above = _next_single(1e6)
+    assert above > MAX_NORM
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(with_norm(above))
+
+
+def test_a_component_too_small_for_single_precision_counts_as_zero() -> None:
+    vector = [1e-50] * EMBEDDING_DIMENSIONS  # stored as all zeros
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(vector)
 
 
 def test_unit_vectors_and_single_precision_unit_vectors_are_accepted() -> None:
