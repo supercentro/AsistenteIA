@@ -1,6 +1,8 @@
 """Validation of query vectors and `top_k` (D8): rejected early, values never leaked."""
 
 import math
+from collections.abc import Iterator, Sequence
+from typing import Any
 
 import pytest
 
@@ -158,3 +160,36 @@ def test_error_is_a_value_error_with_a_stable_generic_message() -> None:
         validate_embedding([])
     with pytest.raises(ValueError, match="invalid search input"):
         validate_top_k(0)
+
+
+@pytest.mark.parametrize("huge", [10**400, -(10**400)], ids=["positive", "negative"])
+def test_integers_too_large_for_a_float_are_rejected_with_the_controlled_error(huge: int) -> None:
+    vector: list[object] = list(unit())
+    vector[2] = huge
+    with pytest.raises(InvalidSearchInputError) as raised:
+        validate_embedding(vector)  # type: ignore[arg-type]
+    assert "400" not in str(raised.value)
+
+
+class _LyingLength(Sequence[float]):
+    """Reports 384 items but yields a different number: the length cannot be trusted alone."""
+
+    def __init__(self, produced: int) -> None:
+        self._produced = produced
+
+    def __len__(self) -> int:
+        return EMBEDDING_DIMENSIONS
+
+    def __getitem__(self, index: Any) -> Any:  # pragma: no cover - iteration is used instead
+        return 1.0
+
+    def __iter__(self) -> Iterator[float]:
+        return iter([1.0] * self._produced)
+
+
+@pytest.mark.parametrize("produced", [0, 383, 385, 5000])
+def test_a_sequence_that_yields_another_number_of_items_than_its_length_is_rejected(
+    produced: int,
+) -> None:
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(_LyingLength(produced))

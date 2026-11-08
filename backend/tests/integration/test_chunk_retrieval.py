@@ -413,7 +413,13 @@ def test_parallel_searches_by_different_actors_stay_isolated(
 # ---------------------------------------------------------------- logs and error text (I2)
 
 
-FORBIDDEN_TEXT = ("fixture chunk", "1.0, 0.0", "0.9848", "Failing row contains")
+FORBIDDEN_TEXT = (
+    "fixture chunk",
+    "[1.0,0.0,0.0",  # how pgvector serialises the query embedding
+    "[1,0,0,0",
+    "0.9848",
+    "Failing row contains",
+)
 
 
 def _assert_clean(log_text: str) -> None:
@@ -443,6 +449,7 @@ def test_valid_and_rejected_searches_log_no_vector_or_chunk_text(
         sql_logger.setLevel(previous)
         engine.dispose()
     assert spy.text  # the statement itself was logged, so the check is meaningful
+    assert "hidden" in spy.text  # SQLAlchemy states that the parameters are hidden
     _assert_clean(spy.text)
 
 
