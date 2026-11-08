@@ -78,7 +78,7 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 ## 11. Adversarial Review (required for data isolation)
 
 - [x] 11.1 Run an independent adversarial review with the `adversarial-review` skill, executed by a separate subagent or a clean-context session (not the implementing session), read-only on the repository and probing only the isolated test database or the live stack; cover isolation between subjects, teachers and students, the composite FK, cascades, authorization conditions in the SQL, filtered-ANN completeness, extreme vectors, concurrency, log and error leakage and the migration; save `reports/YYYY-MM-DD-independent-review.md` with findings, severity, fixes and a final verdict
-- [ ] 11.2 Fix findings of this change (tests first) and re-run affected tests; the change is not closed while a blocker or major finding is open; record accepted risks in `docs/technical-debt.md` with the user's agreement and, only for relevant findings or process deviations, append a lesson to `docs/lessons-learned.md`
+- [x] 11.2 Fix findings of this change (tests first) and re-run affected tests; the change is not closed while a blocker or major finding is open; record accepted risks in `docs/technical-debt.md` with the user's agreement and, only for relevant findings or process deviations, append a lesson to `docs/lessons-learned.md`
 
 ## 12. Final Verification of MUST Quality Gates (`docs/base-standards.md` section 9)
 

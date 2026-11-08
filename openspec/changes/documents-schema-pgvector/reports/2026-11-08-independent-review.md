@@ -19,10 +19,10 @@ Clean areas (with how it tried to break them): isolation SQL for both roles (EXI
 | F6 | MINOR | `content ~ '\S'` accepts content made only of U+00A0 or U+0085 (database locale), while the spec says whitespace-only is rejected | **Accepted** by user decision: registered as TD-027; migration `0004` and the applied constraints are unchanged |
 | F7 | ACCEPTABLE RISK / QUESTION | `find_similar` trusts `actor.role`; the SQL does not join `users`, and the database does not force enrollees to be students or owners to be teachers (the services do) | **Fixed on 2026-11-08** by user decision: the stored role is checked inside the SQL of both branches (tests with false roles, mutations, focused review PASS) |
 | F8 | MINOR / QUESTION | The scenario title says "malformed access" but a non-UUID `subject_id` raises a `DataError` (echoing the value in its message) instead of an empty list | **Fixed on 2026-11-08** by user decision: a non-UUID `subject_id` (and `actor.user_id`) raises the controlled error before any statement; an unknown well-formed UUID still returns an empty list |
-| F9 | MINOR | `checkfirst=True` on the enum could adopt a stale type with other labels | **Pending the user's decision**: full text and alternatives below; `0004` is not touched |
+| F9 | MINOR | `checkfirst=True` on the enum could adopt a stale type with other labels | **Accepted** by user decision (2026-11-08) as a low residual risk: TD-028; detection query in `docs/development_guide.md`; `0004` unchanged and no `0005` |
 | F10 | MINOR | A throwaway password literal in the committed experiment script | **Fixed**: read from `SPIKE_DSN` |
 | F11 | MINOR | Tasks 0.1 to 0.4 unticked | **Open**: see `2026-11-08-group-0-survey.md` (plan awaiting approval) |
-| F12 | ACCEPTABLE RISK | The pre-migration dump is still inside the container `/tmp` | **Open**: documented as not durable; no deletion without the user's decision |
+| F12 | ACCEPTABLE RISK | The pre-migration dump is still inside the container `/tmp` | **Closed** by user decision: a persistent copy was made outside the repository and the temporary directories (see below); no copy deleted |
 | F13 | ACCEPTABLE RISK | The hnsw index is unused by construction (tie-break); removing `, id` would bring back the D3 risk | Documented as TD-022; see test gap below |
 
 Test gaps named by the reviewer: the recall test cannot detect filtered-ANN loss at its size (only `test_ties_are_broken_by_chunk_id` kills the "remove tie-break" mutation); an `EXPLAIN` assertion that the plan never uses `ix_document_chunks_embedding` is missing; the database-failure test simulates the failure by raising an INSERT violation from `session.execute`; missing cases for a malformed subject id (F8), a teacher enrolled as a student (F7), float32 edge vectors on insert (F5) and Unicode blanks (F6), and for a document moving from `ready` to `failed`.
@@ -63,15 +63,46 @@ The reviewer also noticed ` M backend/app/core/database.py` in the working tree 
 - **F1:** the design artifact correction is kept; no new error type; the response and log protection tests are kept.
 - **F5, F7, F8:** corrected with tests first, mutations and a focused independent review (verdict PASS, `2026-11-08-focused-review-f5-f7-f8.md`). The review found that the first F5 fix was incomplete (midpoint rounding and summation order) and that `actor.user_id` also needed the UUID guard; both were corrected.
 - **F6:** accepted; TD-027 registered.
-- **F9:** open, awaiting the user's decision (text below).
+- **F9:** accepted as a low residual risk (TD-028); see the final decisions below.
 - **TD-022 to TD-025:** kept with the review precisions (TD-022: dropping the tie-break brings back the D3 risk; TD-023: evaluate `statement_timeout` before any bulk load; TD-024: single-precision norm and the margin assumptions). TD-026 (no automated guard for the HNSW plan or the tie-break) and TD-027 (F6) registered. No debt was merged or deleted.
-- **Not done on purpose:** the `EXPLAIN` guard test (proposal in the final report), F12 (the dump stays outside the repository, no deletion).
-- **Task 11.2:** stays open until the user decides F9 (and confirms the remaining accepted risks F12 and N3).
+- **Not done on purpose:** the `EXPLAIN` guard test (kept as TD-026 for change 12), deleting any backup.
+- **Task 11.2:** closed on 2026-11-08 after the final decisions below were carried out and verified.
 
-## F9 in full
+## F9 in full (original text and alternatives; the user chose alternative 1 on 2026-11-08)
 **Finding (review 1, MINOR):** in `backend/alembic/versions/0004_create_documents_and_chunks.py`, `upgrade()` creates the `document_status` type with `document_status.create(op.get_bind(), checkfirst=True)` (the type object is declared with `create_type=False` so that the table does not create it again) and `downgrade()` drops it with `checkfirst=True`. `checkfirst=True` only tests whether a type with that name exists. If a type named `document_status` already exists with other labels (for example left by a failed manual attempt or a different branch), the migration skips creating it and then creates `documents.status` on top of the stale type, so the labels `pending`, `processing`, `ready`, `failed` might not exist; the failure would appear later as an insert error, not as a migration error. On a clean database, in CI and in the development database (already migrated) this does not occur.
 **Alternatives:**
 1. Leave as is and register it as a low technical debt (no change to `0004`; the development database is already at `0004`).
 2. Add a new migration `0005` with a check that fails if the type exists with other labels (never edit a migration already applied).
 3. Edit `0004` to create the type without `checkfirst` (fails fast on any existing type). It would change a migration already applied in development, so it needs the user's explicit approval and a reset or stamp of that database.
 **Recommendation:** alternative 1 (or 2 if a stale type is judged plausible); alternative 3 only with a rebuild of the development database.
+
+## Final decisions of 2026-11-08 and their verification
+### F9, accepted as a low residual risk (TD-028)
+- No change to `0004` and no `0005`. TD-028 is specific to the enum; it does not duplicate TD-018 or TD-027.
+- Detection: the catalog query in `docs/development_guide.md` (migrations section) lists any `document_status` type and its labels before the migration. Check made on the development database: the type exists with the labels `pending, processing, ready, failed`, in that order.
+
+### F12, persistent backup of the pre-`0004` dump
+- Location: `%USERPROFILE%\Backups\AsistenteIAsistenteia_pre_0004.dump` (a folder in the user profile on a fixed local disk, outside the repository, outside every temporary directory and not synchronised with a cloud folder).
+- Permissions: inheritance removed; full control only for the current Windows user (checked with `icacls`).
+- Integrity: size 8,261 bytes at the source and the copy; SHA-256 identical (prefix `f1bf54e5dc15a567`, full hash `f1bf54e5dc15a567a186f06e5dd1831630c57e6d26915a6aeba19e914a1ebe97`); `pg_restore --list` reads the copy (the archive header and its 9 table and type entries). The earlier restore into an isolated database (group 8) used this same file content.
+- Contents: schema only (the development database held no application rows), no credentials.
+- Retention: kept until change 5 is merged and archived and the owner agrees; nothing was deleted (the temporary copy of the session and the copy in the container's `/tmp` remain; neither counts as storage).
+- Owner of the risk: the project owner; follow-up when archiving change 5.
+
+### N3, spike credential
+- The string belonged to the throwaway container used for the compatibility spike (a container `spike-pgvector-g1`, now removed: no container or volume with `spike` in its name exists).
+- It is not a credential of the project: the working tree has no file that uses it (the only mention is this report's note by name); no tracked file outside `openspec/` mentions it; `docker-compose.yml` and the CI workflow do not use it; the local `backend/.env` has no match; the project database container does not use it as its password (compared without printing); the project database has only the role `asistente`, no spike role.
+- Commit `f61ce6d` holds it in the script `2026-10-28-magnitude-experiment.py`; the script now reads the DSN from the environment. History was not rewritten.
+- Not checked: containers of other applications on the machine (out of the project scope; not inspected).
+- Accepted by user decision; owner: the project owner. Revisit if the password is ever reused.
+
+### Classification of accepted risks
+| Risk | Severity | Owner / follow-up |
+|---|---|---|
+| F9 stale enum | Low | TD-028, whoever applies `0004` to a foreign database |
+| F6 blank-looking content | Low | TD-027, change 6 |
+| F7 role trusted by services (now also checked in SQL) | Closed | none |
+| F12 backup lifecycle | Low | project owner, review at archive time of change 5 |
+| N3 spike password in history | Low | project owner |
+| F13 no plan guard | Low | TD-026, change 12 |
+| TD-022, TD-023, TD-024, TD-025 | Low | change 12 (TD-023 also change 6) |
