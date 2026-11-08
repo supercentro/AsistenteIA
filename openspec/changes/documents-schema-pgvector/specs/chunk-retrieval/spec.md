@@ -80,16 +80,20 @@ Defines the single, actor-scoped way to find the chunks most similar to a query 
 - **THEN** a controlled error is raised
 
 #### Scenario: Magnitude outside the reliable range
-- **WHEN** the query embedding is a valid direction scaled so that its norm is `1e-7`, `1e-30`, `1e7` or `1e38`, or contains one component large enough to push the norm above `1e6`
+- **WHEN** the query embedding is a valid direction scaled so that its norm is `1e-7`, `1e-30`, `1e7` or `1e38`, or contains one component large enough to push the norm above `1e6`, or has a norm of exactly `1e6`
+- **THEN** a controlled error is raised and no statement is executed
+
+#### Scenario: Magnitude within the safety margin of a limit
+- **WHEN** the query embedding has a stored norm closer than a relative `1e-12` to `1e-6` or `1e6`
 - **THEN** a controlled error is raised and no statement is executed
 
 #### Scenario: Magnitude at the edges of the range
-- **WHEN** the query embedding has a stored (single-precision) norm of `1e6`, or the smallest single-precision norm that is not below `1e-6`
+- **WHEN** the query embedding has the largest single-precision norm below `1e6` (`999999.9375`), or the smallest single-precision norm that is not below `1e-6`
 - **THEN** the search runs and returns finite similarities that match an exact double-precision computation within `1e-6`
 
-#### Scenario: Helper and database check agree at the edges
-- **WHEN** a vector has a norm next to `1e-6` or `1e6` (for example `1e-6` as a double, which is stored as a single-precision value just below it)
-- **THEN** the validation helper accepts it if and only if the database check `vector_norm(embedding) BETWEEN 1e-6 AND 1e6` accepts the stored vector
+#### Scenario: Helper never accepts what the database check rejects
+- **WHEN** a vector has a norm next to `1e-6` or `1e6` (for example `1e-6` as a double, which is stored just below it; components at single-precision midpoints; sums that differ in the last bits depending on the order of addition)
+- **THEN** whenever the validation helper accepts it, the database check `vector_norm(embedding) BETWEEN 1e-6 AND 1e6` accepts the vector the helper returns (the single-precision values); the helper may be stricter only within the relative margin `1e-12` of a limit, where a norm exactly `1e6` is rejected
 
 #### Scenario: Normalised vectors
 - **WHEN** the query embedding is a unit vector, or a unit vector rounded to single precision
