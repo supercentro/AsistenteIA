@@ -116,3 +116,30 @@ No new functionality, so there is no failing run. Findings and the scenario map 
 ### Deviations from strict test-first order
 1. **F1 (design I2) was a documentation defect, not a code defect:** the design promised that `find_similar` translates database errors into controlled errors; the implementation propagates them and the test `test_the_repository_does_not_swallow_or_rewrite_database_errors` asserts it, but the divergence was never recorded as a deviation. Found by the independent review. Corrected in `design.md` (I2, dependency row, divergence 6). Compensation: the leak tests (`test_error_text_exposure`, the search-path test) and their mutations show that handlers and middleware keep database error text out of responses and logs.
 2. **F2:** the previous log test passed with parameters exposed; it was a weak test that the earlier mutation table did not cover (the hide-parameters mutation was only checked against another test). Now killed by the mutation above.
+
+## Corrections F5, F7, F8 after the adversarial review (2026-11-08, see `2026-11-08-focused-review-f5-f7-f8.md`)
+
+### Failing runs before each correction
+- F5 (first pass): 4 failed (`test_vector_validation.py` single-precision edge cases and the helper-versus-CHECK comparison), then green after the float32 norm.
+- F8 and F7: 11 failed in `test_chunk_retrieval_roles.py` (false or stale roles, non-UUID subject ids), then green.
+- Focused review (F5 again): the reviewer reproduced two disagreements on the real database that the first tests did not sample (values at single-precision midpoints: 167 of 3,000; sums that differ with the order of addition: 47 of 240). New tests written first: the midpoint test **failed** against the first fix (1 vector accepted by the helper and rejected by the CHECK); the crafted summation-order set showed 218 of 4,080 vectors accepted by the helper and rejected by the CHECK before the margin. Then green with: the helper returns the single-precision values, plus a relative margin of `1e-12` at both limits.
+- Actor id: 4 failed (`user_id` not a UUID), then green.
+- Full backend suite afterwards: **712 passed**, coverage of `app` 98 %.
+
+### Mutations (each one temporarily applied, the targeted tests must fail, file restored)
+| Mutation | Result |
+|---|---|
+| Remove `User.role == STUDENT` from the student branch | killed |
+| Remove `User.role == TEACHER` from the teacher branch | killed |
+| Remove `User.id == Enrollment.student_id` (cross join) | killed |
+| Remove `validate_subject_id` | killed |
+| Norm of the double values instead of the single-precision values | killed |
+| Remove the overflow guard of the float32 conversion | killed |
+| `validate_subject_id` never rejects | killed |
+| Safety margin set to 0 | killed (summation-order test and unit tests) |
+| Return the double values instead of the single-precision ones | killed (midpoint test) |
+| Remove `validate_user_id` | killed |
+
+### Deviations
+1. The spec of `chunk-retrieval` and design D8 were adjusted (divergence 7 in `design.md`) because the first wording ("accepts exactly when the CHECK accepts") cannot be guaranteed: pgvector sums the squares in another order. The guarantee is one-directional (acceptance implies that the CHECK passes). The database constraints and migration `0004` were not touched.
+2. The independent review found what the first tests did not: the first F5 test sampled random doubles only. Compensation: midpoint and crafted-sum sets, plus the review itself.

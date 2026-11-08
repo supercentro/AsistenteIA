@@ -15,11 +15,11 @@ Clean areas (with how it tried to break them): isolation SQL for both roles (EXI
 | F2 | MINOR | The statement-log leak test could not see the embedding (it searched `1.0, 0.0` while pgvector writes `[1.0,0.0,`); it passed with parameters exposed | **Fixed** (test): real serialisation forbidden, `hidden` asserted; mutation `hide_parameters=False` now killed |
 | F3 | MINOR | An integer component such as `10**400` raised `OverflowError` instead of the controlled error | **Fixed** (code, tests first: red 5 failures, then green) |
 | F4 | MINOR | A sequence whose `__len__` says 384 but yields another number of items reached the database | **Fixed** (code, tests first) |
-| F5 | MINOR | The helper measures the norm in double precision, the database check in float32: vectors at the extreme edges (about `1e6` and `1e-6`) pass the helper and fail the CHECK on insert | **Open**, needs a decision (changes the spec wording "computed in double precision") |
-| F6 | MINOR | `content ~ '\S'` accepts content made only of U+00A0 or U+0085 (database locale), while the spec says whitespace-only is rejected | **Open**, needs a decision (migration `0004` is applied to the development database) |
-| F7 | ACCEPTABLE RISK / QUESTION | `find_similar` trusts `actor.role`; the SQL does not join `users`, and the database does not force enrollees to be students or owners to be teachers (the services do) | **Open**, needs a decision (defense in depth is a design change) |
-| F8 | MINOR / QUESTION | The scenario title says "malformed access" but a non-UUID `subject_id` raises a `DataError` (echoing the value in its message) instead of an empty list | **Open**, needs a decision (narrow the wording or validate the type) |
-| F9 | MINOR | `checkfirst=True` on the enum could adopt a stale type with other labels | **Open**, low priority; editing `0004` after it was applied needs a decision |
+| F5 | MINOR | The helper measures the norm in double precision, the database check in float32: vectors at the extreme edges (about `1e6` and `1e-6`) pass the helper and fail the CHECK on insert | **Fixed on 2026-11-08** by user decision (tests first, mutations, focused review PASS): see `2026-11-08-focused-review-f5-f7-f8.md` |
+| F6 | MINOR | `content ~ '\S'` accepts content made only of U+00A0 or U+0085 (database locale), while the spec says whitespace-only is rejected | **Accepted** by user decision: registered as TD-027; migration `0004` and the applied constraints are unchanged |
+| F7 | ACCEPTABLE RISK / QUESTION | `find_similar` trusts `actor.role`; the SQL does not join `users`, and the database does not force enrollees to be students or owners to be teachers (the services do) | **Fixed on 2026-11-08** by user decision: the stored role is checked inside the SQL of both branches (tests with false roles, mutations, focused review PASS) |
+| F8 | MINOR / QUESTION | The scenario title says "malformed access" but a non-UUID `subject_id` raises a `DataError` (echoing the value in its message) instead of an empty list | **Fixed on 2026-11-08** by user decision: a non-UUID `subject_id` (and `actor.user_id`) raises the controlled error before any statement; an unknown well-formed UUID still returns an empty list |
+| F9 | MINOR | `checkfirst=True` on the enum could adopt a stale type with other labels | **Pending the user's decision**: full text and alternatives below; `0004` is not touched |
 | F10 | MINOR | A throwaway password literal in the committed experiment script | **Fixed**: read from `SPIKE_DSN` |
 | F11 | MINOR | Tasks 0.1 to 0.4 unticked | **Open**: see `2026-11-08-group-0-survey.md` (plan awaiting approval) |
 | F12 | ACCEPTABLE RISK | The pre-migration dump is still inside the container `/tmp` | **Open**: documented as not durable; no deletion without the user's decision |
@@ -57,3 +57,21 @@ The reviewer also noticed ` M backend/app/core/database.py` in the working tree 
 
 ## Final verdict of this review
 **PASS WITH GAPS.** No blocker and no major is open; the gaps are minors and risks listed above, each with a disposition. The change is not closed for archive until the user decides items 1 to 4 (task 11.2).
+
+
+## Resolution of the user's decisions (2026-11-08)
+- **F1:** the design artifact correction is kept; no new error type; the response and log protection tests are kept.
+- **F5, F7, F8:** corrected with tests first, mutations and a focused independent review (verdict PASS, `2026-11-08-focused-review-f5-f7-f8.md`). The review found that the first F5 fix was incomplete (midpoint rounding and summation order) and that `actor.user_id` also needed the UUID guard; both were corrected.
+- **F6:** accepted; TD-027 registered.
+- **F9:** open, awaiting the user's decision (text below).
+- **TD-022 to TD-025:** kept with the review precisions (TD-022: dropping the tie-break brings back the D3 risk; TD-023: evaluate `statement_timeout` before any bulk load; TD-024: single-precision norm and the margin assumptions). TD-026 (no automated guard for the HNSW plan or the tie-break) and TD-027 (F6) registered. No debt was merged or deleted.
+- **Not done on purpose:** the `EXPLAIN` guard test (proposal in the final report), F12 (the dump stays outside the repository, no deletion).
+- **Task 11.2:** stays open until the user decides F9 (and confirms the remaining accepted risks F12 and N3).
+
+## F9 in full
+**Finding (review 1, MINOR):** in `backend/alembic/versions/0004_create_documents_and_chunks.py`, `upgrade()` creates the `document_status` type with `document_status.create(op.get_bind(), checkfirst=True)` (the type object is declared with `create_type=False` so that the table does not create it again) and `downgrade()` drops it with `checkfirst=True`. `checkfirst=True` only tests whether a type with that name exists. If a type named `document_status` already exists with other labels (for example left by a failed manual attempt or a different branch), the migration skips creating it and then creates `documents.status` on top of the stale type, so the labels `pending`, `processing`, `ready`, `failed` might not exist; the failure would appear later as an insert error, not as a migration error. On a clean database, in CI and in the development database (already migrated) this does not occur.
+**Alternatives:**
+1. Leave as is and register it as a low technical debt (no change to `0004`; the development database is already at `0004`).
+2. Add a new migration `0005` with a check that fails if the type exists with other labels (never edit a migration already applied).
+3. Edit `0004` to create the type without `checkfirst` (fails fast on any existing type). It would change a migration already applied in development, so it needs the user's explicit approval and a reset or stamp of that database.
+**Recommendation:** alternative 1 (or 2 if a stale type is judged plausible); alternative 3 only with a rebuild of the development database.
