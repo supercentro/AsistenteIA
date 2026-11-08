@@ -187,4 +187,4 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a later change copies a pattern that does not exist, or a leak guard silently stops guarding. Medium for a security-sensitive change.
 - **Solution applied:** `design.md` corrected; the log test now forbids the real serialisation and asserts the "hidden" marker; the mutation `hide_parameters=False` is killed.
 - **Preventive measure:** when a design or spec sentence names a control, grep the code and a test for it before the group closes; for every leak or isolation test, print what the leak looks like once (a probe with the control removed) and assert on that real text, not on an assumed one.
-- **Evidence:** `openspec/changes/documents-schema-pgvector/reports/2026-11-08-independent-review.md`, `reports/2026-10-28-tdd-evidence.md` (group 11).
+- **Evidence:** `openspec/changes/archive/2026-11-08-documents-schema-pgvector/reports/2026-11-08-independent-review.md`, `reports/2026-10-28-tdd-evidence.md` (group 11).
