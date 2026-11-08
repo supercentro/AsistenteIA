@@ -88,8 +88,17 @@ def _next_single(value: float, steps: int = 1) -> float:
     return float(struct.unpack("<f", struct.pack("<I", bits + steps))[0])
 
 
-def test_the_upper_edge_is_accepted() -> None:
-    assert validate_embedding(with_norm(1e6)) == with_norm(1e6)
+def test_a_norm_just_inside_the_upper_edge_is_accepted() -> None:
+    inside = 999999.9375  # the single-precision number just below 1e6
+    assert validate_embedding(with_norm(inside)) == with_norm(inside)
+
+
+@pytest.mark.parametrize("norm", [1e6, 1e6 * (1 - 1e-13)])
+def test_a_norm_within_the_safety_margin_of_the_upper_edge_is_rejected(norm: float) -> None:
+    # pgvector sums squares in another order than this helper, so a norm closer than 1e-12
+    # (relative) to a limit cannot be decided safely; it is rejected on the safe side (F5).
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(with_norm(norm))
 
 
 def test_the_smallest_single_precision_norm_at_or_above_the_lower_edge_is_accepted() -> None:
@@ -107,11 +116,12 @@ def test_a_norm_that_rounds_below_the_lower_edge_in_single_precision_is_rejected
 
 
 @pytest.mark.parametrize("factor", [1 + 1e-8, 1 + 3e-8, 1 - 3e-8])
-def test_a_norm_within_single_precision_rounding_of_the_upper_edge_is_accepted(
-    factor: float,
-) -> None:
-    # The database stores 1e6 * factor as exactly 1e6, which the check accepts (F5).
-    assert validate_embedding(with_norm(1e6 * factor)) is not None
+def test_inputs_stored_as_exactly_the_upper_edge_are_rejected_by_the_margin(factor: float) -> None:
+    # The database stores 1e6 * factor as exactly 1e6; the helper decides on the stored value
+    # and keeps the safety margin, so it rejects them (F5).
+    assert single_precision([1e6 * factor])[0] == 1e6
+    with pytest.raises(InvalidSearchInputError):
+        validate_embedding(with_norm(1e6 * factor))
 
 
 def test_the_next_single_precision_value_above_the_upper_edge_is_rejected() -> None:

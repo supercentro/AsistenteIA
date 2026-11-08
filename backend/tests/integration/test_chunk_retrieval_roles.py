@@ -16,7 +16,15 @@ from app.models.user import UserRole
 from app.repositories.chunk_repository import ChunkRepository, SearchActor
 from tests import embeddings as emb
 from tests.catalog import Catalog, build_catalog
-from tests.sql_support import insert_enrollment, insert_subject, insert_user, run
+from tests.sql_support import (
+    insert_chunk,
+    insert_document,
+    insert_enrollment,
+    insert_subject,
+    insert_user,
+    run,
+    vector_literal,
+)
 
 SECRET_TEXT = "secret-subject-text"
 
@@ -102,13 +110,39 @@ def test_a_user_whose_role_was_changed_in_the_database_loses_access(
     assert hits(db_session, actor, catalog.algebra, catalog) == 0
 
 
-def test_a_new_teacher_with_a_new_subject_is_authorized_by_the_database(
+def test_a_teacher_whose_role_was_changed_to_student_loses_access_to_the_own_subject(
+    clean_db: str, db_session: Session, catalog: Catalog
+) -> None:
+    actor = SearchActor(catalog.teacher_one, UserRole.TEACHER)
+    assert hits(db_session, actor, catalog.algebra, catalog) > 0
+    run(
+        clean_db,
+        "UPDATE users SET role = CAST('student' AS user_role) WHERE id = :uid",
+        uid=catalog.teacher_one,
+    )
+    assert hits(db_session, actor, catalog.algebra, catalog) == 0
+
+
+def test_a_new_teacher_is_authorized_on_the_own_subject_only(
     clean_db: str, db_session: Session, catalog: Catalog
 ) -> None:
     teacher = insert_user(clean_db, "late-teacher@example.test", "teacher")
-    insert_subject(clean_db, teacher, "Empty")
+    own = insert_subject(clean_db, teacher, "Own")
+    document = insert_document(clean_db, own)
+    insert_chunk(clean_db, document, own, 0, vector_literal(catalog.query))
     actor = SearchActor(teacher, UserRole.TEACHER)
-    assert hits(db_session, actor, catalog.algebra, catalog) == 0  # someone else's subject
+    assert hits(db_session, actor, own, catalog) == 1
+    assert hits(db_session, actor, catalog.algebra, catalog) == 0
+
+
+@pytest.mark.parametrize("bad_user_id", [SECRET_TEXT, 12345, None, b"abc"])
+def test_a_user_id_that_is_not_a_uuid_is_rejected_before_any_statement(bad_user_id: object) -> None:
+    session = MagicMock()
+    actor = SearchActor(cast(Any, bad_user_id), UserRole.STUDENT)
+    with pytest.raises(InvalidSearchInputError) as caught:
+        ChunkRepository(session).find_similar(actor, uuid.uuid4(), emb.basis(0), 5)
+    session.execute.assert_not_called()
+    assert SECRET_TEXT not in str(caught.value)
 
 
 # ---------------------------------------------------------------- F8: malformed subject ids

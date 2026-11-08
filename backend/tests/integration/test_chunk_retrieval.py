@@ -250,7 +250,7 @@ def _single(vector: list[float]) -> list[float]:
 SMALLEST_ACCEPTED_NORM = _single([1e-6])[0] * (1 + 2**-22)
 
 
-@pytest.mark.parametrize("norm", [SMALLEST_ACCEPTED_NORM, 1e6])
+@pytest.mark.parametrize("norm", [SMALLEST_ACCEPTED_NORM, 999999.9375])
 def test_similarities_at_the_edges_of_the_norm_range_are_accurate(
     db_session: Session, catalog: Catalog, norm: float
 ) -> None:
