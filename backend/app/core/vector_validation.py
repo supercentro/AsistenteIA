@@ -7,6 +7,8 @@ normalised nor rescaled. Error messages are fixed text: they never contain a com
 """
 
 import math
+import struct
+import uuid
 from collections.abc import Sequence
 
 EMBEDDING_DIMENSIONS = 384
@@ -28,13 +30,18 @@ def validate_embedding(embedding: Sequence[float]) -> list[float]:
     """Return the embedding as a list of floats, or raise `InvalidSearchInputError`.
 
     Requires exactly `EMBEDDING_DIMENSIONS` real, finite numbers (booleans are not accepted) whose
-    Euclidean norm, computed in double precision, lies within `[MIN_NORM, MAX_NORM]`.
+    Euclidean norm lies within `[MIN_NORM, MAX_NORM]`. The norm is that of the single-precision
+    values the database stores (`vector` keeps float32 components), accumulated in double
+    precision as `vector_norm` does, so the helper and the CHECK constraint agree (finding F5).
     """
     if isinstance(embedding, str | bytes) or not isinstance(embedding, Sequence):
         raise InvalidSearchInputError("the embedding must be a sequence of numbers")
     if len(embedding) != EMBEDDING_DIMENSIONS:
         raise InvalidSearchInputError("the embedding has the wrong dimension")
     values: list[float] = []
+    stored: list[
+        float
+    ] = []  # the same numbers rounded to single precision, as the database keeps them
     for item in embedding:
         if len(values) >= EMBEDDING_DIMENSIONS:  # the declared length cannot be trusted alone
             raise InvalidSearchInputError("the embedding has the wrong dimension")
@@ -48,10 +55,16 @@ def validate_embedding(embedding: Sequence[float]) -> list[float]:
             ) from None
         if not math.isfinite(number):
             raise InvalidSearchInputError("the embedding must contain only finite numbers")
+        try:
+            stored.append(struct.unpack("<f", struct.pack("<f", number))[0])
+        except OverflowError:  # beyond the largest single-precision number: the database refuses it
+            raise InvalidSearchInputError(
+                "the embedding magnitude is outside the supported range"
+            ) from None
         values.append(number)
     if len(values) != EMBEDDING_DIMENSIONS:
         raise InvalidSearchInputError("the embedding has the wrong dimension")
-    norm = math.hypot(*values)  # overflow-safe, double precision
+    norm = math.hypot(*stored)  # overflow-safe, double precision
     if not (MIN_NORM <= norm <= MAX_NORM):
         raise InvalidSearchInputError("the embedding magnitude is outside the supported range")
     return values
@@ -64,3 +77,10 @@ def validate_top_k(top_k: int) -> int:
     if not MIN_TOP_K <= top_k <= MAX_TOP_K:
         raise InvalidSearchInputError("the limit is outside the supported range")
     return top_k
+
+
+def validate_subject_id(subject_id: uuid.UUID) -> uuid.UUID:
+    """Return `subject_id` if it is a `uuid.UUID`; anything else is rejected without echoing it."""
+    if not isinstance(subject_id, uuid.UUID):
+        raise InvalidSearchInputError("the subject id must be a UUID")
+    return subject_id
