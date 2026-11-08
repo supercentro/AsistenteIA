@@ -8,7 +8,7 @@ Task 0.4. Date of extraction: 2026-11-08. This file separates **literal transcri
 - Selection: every genuine user message from the start of Feature 5 (the exploration prompt, 2026-10-28 18:57 UTC) until the date above. Messages that are not from the user were left out: harness notifications, messages relayed from sub-agents, skill texts and the context-compaction summaries (see section B).
 - Each entry gives the UTC timestamp and the 1-based line of the transcript file, so it can be checked.
 - Secrets check: the texts were searched for passwords, tokens, API keys and connection strings; the only matches are the words "secretos" and "secrets" in instructions not to record them. Nothing was masked.
-- The prompt of 2026-11-08 15:51 (entry 16) and the one-line message before it (entry 15) were sent after the independent review of group 11; they are included for completeness.
+- Entries A15 to A18 were sent after the independent review of group 11 (the one-line message, the resolution of the review, the resolution of F9, F12 and N3, and the authorization of group 12); they are included for completeness. The message A18 reached the session cut off after the words "Cobertura y Quality" in its last section; it is copied exactly as received and nothing was completed.
 
 ## A. Literal transcriptions
 
@@ -1156,6 +1156,164 @@ Informar:
 - Commits, cobertura, CI y riesgos pendientes.
 
 Detenerse antes del grupo 12 para mi aprobación.
+~~~~
+
+### A17. 2026-11-08T16:40:49.238Z (transcript line 13477)
+
+~~~~text
+# Feature 5 — Resolución final de F9, F12, N3 y cierre del grupo 11
+
+Apruebo el cierre del grupo 0 y las correcciones F5, F7 y F8, verificadas mediante revisión independiente con resultado PASS.
+
+Autorizo completar exclusivamente la tarea 11.2 de `documents-schema-pgvector`.
+
+## 1. Preflight
+
+- Confirmar rama `feature/documents-schema-pgvector`, HEAD `ba17840` y árbol limpio.
+- Verificar PR #7 abierto, mergeable y CI verde.
+- Ejecutar validación estricta de OpenSpec.
+
+## 2. F9 — Enum preexistente
+
+- Aceptar como riesgo residual de severidad baja.
+- Registrar una deuda técnica específica, sin duplicar las existentes.
+- Documentar cómo detectar etiquetas incompatibles de `document_status` mediante consulta al catálogo antes de aplicar la migración.
+- No modificar la migración 0004 ni crear una 0005.
+
+## 3. F12 — Respaldo
+
+- Conservar una copia persistente fuera del repositorio y de directorios temporales.
+- Usar una ubicación apropiada para respaldos locales, con permisos restringidos.
+- Verificar hash e integridad del archivo copiado.
+- Registrar la ubicación y la política de retención sin exponer información sensible.
+- No borrar ninguna copia todavía.
+- Si no se puede garantizar almacenamiento persistente, detenerse y reportarlo.
+
+## 4. N3 — Credencial del spike
+
+- Confirmar que `spikepw` pertenecía exclusivamente a un contenedor desechable ya eliminado.
+- Comprobar que no figura como credencial activa, valor predeterminado ni secreto utilizado por el proyecto.
+- No imprimir credenciales reales durante la comprobación.
+- No reescribir el historial Git.
+- Registrar la aceptación del riesgo y su evidencia.
+- Si existe reutilización activa, detenerse y reportar el problema.
+
+## 5. TD-026 y guarda de EXPLAIN
+
+- Mantener TD-026 como deuda técnica para el cambio 12.
+- No implementar ahora un test que exija un plan físico específico.
+- Conservar las pruebas funcionales de recall, aislamiento y orden determinista.
+- Documentar que el cambio 12 evaluará índices, rendimiento y planes mediante EXPLAIN.
+
+## 6. Finalizar revisión adversarial
+
+- Actualizar el informe independiente con las decisiones sobre F9, F12 y N3.
+- Clasificar explícitamente los riesgos aceptados y sus responsables.
+- Marcar 11.2 como completada solo después de verificar las condiciones anteriores.
+- Mantener intacto el código funcional y las migraciones.
+- Ejecutar los Quality Gates afectados y OpenSpec estricto.
+
+## 7. Git
+
+- Crear commits convencionales separados para documentación y cierre de tareas.
+- Publicar exclusivamente en la rama feature.
+- Actualizar PR #7 y comprobar CI verde.
+
+## 8. Restricciones
+
+- No ejecutar el grupo 12.
+- No realizar merge ni archive.
+- No modificar prompts.md ni readme.md.
+- No modificar skills, agentes, configuraciones originales de OpenSpec o SpecBoot ni specs archivadas.
+- No ejecutar despliegues ni borrar ramas.
+
+## 9. Entregables
+
+Informar:
+- Estado final de F9, F12 y N3.
+- Evidencia de persistencia y verificación del respaldo.
+- Deudas técnicas actualizadas.
+- Estado de la tarea 11.2.
+- Commits publicados.
+- Resultado de CI y OpenSpec.
+- Riesgos residuales.
+
+Detenerse antes del grupo 12 y solicitar mi aprobación.
+~~~~
+
+### A18. 2026-11-08T16:56:52.335Z (transcript line 13610)
+
+~~~~text
+# Feature 5 — Autorización del grupo 12: verificación final
+
+Apruebo el cierre del grupo 11 de `documents-schema-pgvector` y autorizo ejecutar exclusivamente el grupo 12 definido en `openspec/changes/documents-schema-pgvector/tasks.md`.
+
+## 1. Preflight
+
+- Confirmar rama `feature/documents-schema-pgvector`, HEAD `234f232` y árbol de trabajo limpio, identificando cualquier archivo sin seguimiento preexistente.
+- Confirmar PR #7 abierto, mergeable y CI en verde.
+- Ejecutar validación estricta de OpenSpec.
+- Leer las tareas exactas del grupo 12 antes de ejecutarlas.
+- Confirmar el cierre documentado de los grupos 0–11.
+
+## 2. Verificación final
+
+- Reconciliar proposal.md, design.md, specs y tasks.md con la implementación real.
+- Verificar la migración 0004, modelos y repositorio vectorial.
+- Confirmar autorización dentro de SQL y validación de actores.
+- Verificar rechazo de vectores inválidos, incluidos los límites float32.
+- Confirmar que las correcciones F5, F7 y F8 están cubiertas por tests.
+- Revisar que los hallazgos adversariales estén corregidos o aceptados formalmente.
+- Confirmar que TD-022 a TD-028 tienen estado, impacto y responsable.
+- Verificar que la documentación y las notas de IA están completas.
+
+## 3. Quality Gates finales
+
+- Ejecutar nuevamente toda la suite backend, con cobertura.
+- Ejecutar lint, formato, mypy --strict y pip-audit.
+- Ejecutar los controles correspondientes del frontend.
+- Verificar migraciones y alembic check.
+- Ejecutar validación estricta de OpenSpec.
+- Verificar que la base de desarrollo continúa en 0004 y que no se alteran sus datos.
+- Confirmar que los tests no dejan residuos en la base de pruebas.
+
+## 4. Seguridad e infraestructura
+
+- Verificar el destino de las conexiones antes de consultar las bases.
+- No ejecutar downgrades destructivos sobre desarrollo.
+- No modificar otros contenedores ni aplicaciones.
+- Mantener intactos los puertos y la configuración existente.
+- Confirmar que el respaldo persistente conserva su hash y permisos.
+- No borrar ninguna copia del respaldo.
+- No modificar la estrategia de búsqueda ni los parámetros HNSW.
+
+## 5. PR y documentación
+
+- Actualizar los informes de verificación final y las tareas realmente completadas.
+- Confirmar que las evidencias TDD y las revisiones independientes están preservadas.
+- Actualizar la descripción del PR #7 con resultados, decisiones y riesgos aceptados.
+- Crear commits convencionales separados cuando corresponda.
+- Publicar exclusivamente en feature/documents-schema-pgvector.
+- Confirmar que todos los checks requeridos de CI estén en verde.
+- Confirmar que el PR está mergeable y sin conflictos.
+
+## 6. Restricciones
+
+- No ejecutar squash merge ni archive.
+- No modificar prompts.md ni readme.md.
+- No modificar migraciones anteriores ni specs archivadas.
+- No modificar skills, agentes o configuraciones originales de OpenSpec o SpecBoot.
+- No ejecutar despliegues.
+- No borrar ramas ni respaldos.
+- No comenzar la feature 6.
+
+## 7. Entregables
+
+Informar:
+
+- Tareas completadas y pendientes.
+- Resultados de backend y frontend.
+- Cobertura y Quality
 ~~~~
 
 ## B. Summaries (not literal)
