@@ -3,7 +3,7 @@
 Canonical database model. PostgreSQL 15 + `pgvector`. Managed only through Alembic migrations.
 `readme.md` section 3 is a simplified academic summary; if they diverge, this document wins (see `base-standards.md` §0).
 
-Status: **proposed design for implementation** — the differences from the `readme.md` summary are listed in [Changes vs readme.md](#changes-vs-readmemd).
+Status: `users`, `subjects`, `enrollments`, `documents` and `document_chunks` are **implemented** (migrations `0002` to `0004`); the conversation tables are a **proposed design for implementation**. The differences from the `readme.md` summary are listed in [Changes vs readme.md](#changes-vs-readmemd).
 
 ## Entity Relationship Diagram
 
@@ -49,7 +49,7 @@ erDiagram
         uuid subject_id FK
         string filename
         string content_type
-        int size_bytes
+        bigint size_bytes
         enum status "pending | processing | ready | failed"
         text error_message "nullable"
         int chunks_count
@@ -58,7 +58,7 @@ erDiagram
     DOCUMENT_CHUNKS {
         uuid id PK
         uuid document_id FK
-        uuid subject_id FK "denormalized for isolation"
+        uuid subject_id FK "denormalized; composite FK with document_id"
         int chunk_index
         int page_number "nullable"
         text content
@@ -115,13 +115,21 @@ erDiagram
 ### documents
 - One row per uploaded **original file**. The original binary is not stored in the database (see backend standards, "File handling"); only metadata and extracted chunks are.
 - `status`: `pending` → `processing` → `ready` | `failed`. `error_message` is a short, non-sensitive reason for `failed`.
-- Supported `content_type`: `application/pdf`, `text/plain` (and `text/markdown`). Max size configured via `MAX_UPLOAD_MB`.
+- Supported `content_type`: `application/pdf`, `text/plain` (and `text/markdown`). Max size configured via `MAX_UPLOAD_MB`. The database does not restrict `content_type` values (validated at upload), so a new type needs no migration.
+- Columns: `id` uuid (`gen_random_uuid()`), `subject_id` uuid not null, `filename` varchar(255) not null, `content_type` varchar(100) not null, `size_bytes` bigint not null, `status` enum `document_status` (`pending`, `processing`, `ready`, `failed`) not null default `pending`, `error_message` text null, `chunks_count` integer not null default 0, `created_at` timestamptz not null default `now()`.
+- Checks: `size_bytes >= 0`, `chunks_count >= 0`. Unique `(id, subject_id)` (`uq_documents_id`): the target of the composite foreign key of `document_chunks`. Index `ix_documents_subject_id`.
+- `subject_id` cannot be changed while the document has chunks (the composite foreign key has no `ON UPDATE` action).
+- Created by migration `0004` (downgrade drops `document_chunks`, then `documents`, then the `document_status` type; the `vector` extension is kept).
 
 ### document_chunks
 - One row per **text fragment** with its embedding. `embedding` is `vector(384)` (`paraphrase-multilingual-MiniLM-L12-v2`).
-- `subject_id` is intentionally denormalized so that every similarity query can filter by subject without a join and the index/scoping cannot be bypassed by forgetting the join. It must always equal `documents.subject_id` (enforced by the repository when inserting).
+- `subject_id` is intentionally denormalized so that every similarity query can filter by subject without a join and the index/scoping cannot be bypassed by forgetting the join. It always equals `documents.subject_id`, **enforced by the database**: the composite foreign key `(document_id, subject_id)` references `documents (id, subject_id)` (`ON DELETE CASCADE`), so a chunk of another subject than its document cannot be stored.
+- Columns: `id` uuid (`gen_random_uuid()`), `document_id` and `subject_id` uuid not null, `chunk_index` integer not null, `page_number` integer null, `content` text not null, `embedding` `vector(384)` not null, `created_at` timestamptz not null default `now()`.
 - Unique `(document_id, chunk_index)`.
-- Indexes: `hnsw (embedding vector_cosine_ops)`; b-tree on `(subject_id)`.
+- Checks: `chunk_index >= 0`, `page_number IS NULL OR page_number >= 1`, `content ~ '\S'` (at least one non-whitespace character), and `vector_norm(embedding)` between `1e-6` and `1e6`. The norm range rejects the zero vector (cosine distance is `NaN` for it) and the magnitudes for which pgvector 0.8.7 returns `NaN` or a wrong distance; embeddings are neither normalised nor rescaled. `NaN`, infinity and a wrong dimension are rejected by the `vector(384)` type. The range depends on the pgvector version: see `openspec/changes/documents-schema-pgvector/reports/2026-10-28-magnitude-experiment.md`.
+- Indexes: `ix_document_chunks_embedding` `hnsw (embedding vector_cosine_ops)` with `m=16` and `ef_construction=64` (defaults); b-tree `ix_document_chunks_subject_id`. Alembic does not compare operator classes, index options or CHECK constraints, so the migration tests assert them from the PostgreSQL catalog.
+- Retrieval reads only chunks of documents in status `ready` through `ChunkRepository.find_similar`, which filters by subject and checks the actor's enrollment or ownership inside the SQL statement (see `backend-standards.md`, section 7). The search is an exact, subject-filtered scan; the hnsw index is not used by the current plan (TD-022 in `technical-debt.md`).
+- Created by migration `0004`.
 - Chunk size must fit the embedding model's input limit (about 128 word pieces; verify against the model card) — see backend standards.
 
 ### conversations
@@ -143,7 +151,7 @@ erDiagram
 | enrollments.subject_id → subjects | CASCADE |
 | enrollments.student_id → users | CASCADE |
 | documents.subject_id → subjects | CASCADE |
-| document_chunks.document_id → documents | CASCADE |
+| document_chunks.(document_id, subject_id) → documents.(id, subject_id) | CASCADE (composite foreign key; a single-column foreign key on `document_id` does not exist) |
 | conversations.student_id → users | CASCADE (right to erasure) |
 | conversations.subject_id → subjects | CASCADE |
 | messages.conversation_id → conversations | CASCADE |
@@ -164,5 +172,6 @@ erDiagram
 3. Replaced `MESSAGE.source_document_id` by `message_sources` (an answer cites 1..N chunks).
 4. Added consent fields to `users` and `status`/`error_message` to `documents`.
 5. Index changed from `ivfflat` to `hnsw` (ivfflat quality depends on data existing when the index is built).
+6. `document_chunks.subject_id` is tied to its document by a composite foreign key instead of being checked by the repository, and `documents` gained `ix_documents_subject_id`.
 
 The `readme.md` summary (sections 2.5, 3, 4, 5 and 6) was aligned with these changes with the user's approval.
