@@ -77,6 +77,18 @@ docker compose exec backend alembic downgrade -1      # revert last migration
 
 Migration `0004` creates `documents`, `document_chunks` and the `document_status` type. A development database created before it stays at `0003` until you rebuild the backend image (`docker compose up -d --build backend`, or `docker compose build backend` followed by `docker compose run --rm --no-deps backend alembic upgrade head`) and apply the migration. Its `downgrade` drops both tables **with their data**, so use it only on development data, and take a `pg_dump -Fc` first if the database holds anything you want to keep. After a pgvector upgrade, also run `ALTER EXTENSION vector UPDATE;` (see section 2).
 
+Before applying `0004` to a database that was not built from `0003` by Alembic, check that no stale `document_status` type exists (the migration creates it only if absent, so a leftover with other labels would not be noticed; TD-028):
+
+```sql
+SELECT t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS labels
+FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid
+WHERE t.typname = 'document_status' GROUP BY t.typname;
+```
+
+No row is expected before the migration. After it, the labels must be exactly `pending, processing, ready, failed` in that order. If a row exists before the migration, inspect what uses the type, then drop or rename it before running `alembic upgrade head`.
+
+Local backups of the development database (for example the dump taken before applying `0004`) are kept outside the repository and outside temporary directories, for example under `%USERPROFILE%\Backups\AsistenteIA\` with permissions restricted to your user; verify the SHA-256 after copying and with `pg_restore --list`. A container's `/tmp` is not durable. Do not delete a backup until the change that produced it has been merged and the owner of the project agrees.
+
 Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
 
 ### Administrative commands (teacher accounts and demo data)
