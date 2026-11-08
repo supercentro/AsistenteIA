@@ -8,7 +8,7 @@ Task 0.4. Date of extraction: 2026-11-08. This file separates **literal transcri
 - Selection: every genuine user message from the start of Feature 5 (the exploration prompt, 2026-10-28 18:57 UTC) until the date above. Messages that are not from the user were left out: harness notifications, messages relayed from sub-agents, skill texts and the context-compaction summaries (see section B).
 - Each entry gives the UTC timestamp and the 1-based line of the transcript file, so it can be checked.
 - Secrets check: the texts were searched for passwords, tokens, API keys and connection strings; the only matches are the words "secretos" and "secrets" in instructions not to record them. Nothing was masked.
-- Entries A15 to A18 were sent after the independent review of group 11 (the one-line message, the resolution of the review, the resolution of F9, F12 and N3, and the authorization of group 12); they are included for completeness. The message A18 reached the session cut off after the words "Cobertura y Quality" in its last section; it is copied exactly as received and nothing was completed.
+- Entries A15 to A20 were sent after the independent review of group 11 (the one-line message, the resolution of the review, the resolution of F9, F12 and N3, the authorization of group 12, the final approval with squash merge and archive, and the publication of the archive); A19 and A20 were added after the archive, from the same transcript and with the same method, at the user's request. The message A18 reached the session cut off after the words "Cobertura y Quality" in its last section; it is copied exactly as received and nothing was completed.
 
 ## A. Literal transcriptions
 
@@ -1314,6 +1314,136 @@ Informar:
 - Tareas completadas y pendientes.
 - Resultados de backend y frontend.
 - Cobertura y Quality
+~~~~
+
+### A19. 2026-11-08T17:46:09.072Z (transcript line 13882)
+
+~~~~text
+# Aprobación final — Feature 5: documents-schema-pgvector
+
+Apruebo la implementación y verificación final de la Feature 5.
+
+Autorizo el squash merge del PR #7 y el archivado OpenSpec, con las siguientes condiciones.
+
+## 1. Squash merge
+
+- Verificar que el PR #7 apunta a main.
+- Confirmar HEAD `1f3e2ea`, los checks requeridos en verde y estado MERGEABLE/CLEAN.
+- Confirmar que no existen archivos inesperados ni cambios fuera de alcance.
+- Verificar que las 47 tareas de OpenSpec están completas.
+- Ejecutar squash merge sin borrar ramas.
+- Actualizar main local mediante git pull --ff-only.
+- Verificar la integración y registrar el SHA del squash merge.
+
+## 2. Archivado OpenSpec
+
+- Ejecutar /opsx:archive documents-schema-pgvector.
+- Sincronizar exclusivamente las capacidades document-storage y chunk-retrieval.
+- Preservar todos los informes de TDD, migraciones, EXPLAIN, recall, revisión adversarial y verificación final.
+- Mantener intactas las specs de otras features.
+- Ejecutar openspec validate --all --strict.
+- Crear un commit convencional de archivado exclusivamente local.
+- No publicar todavía el commit de archivado.
+
+## 3. Seguridad y deuda técnica
+
+- Confirmar que TD-022 a TD-028 siguen documentadas con estado y responsable.
+- Mantener registrada la dependencia del margen float32 y la versión de pgvector.
+- Conservar el respaldo persistente pre-0004 sin modificarlo ni eliminarlo.
+- No modificar el historial Git para retirar la credencial desechable aceptada.
+- No introducir código funcional nuevo ni migraciones adicionales.
+
+## 4. Documentación de IA
+
+- Conservar los informes y prompts literales de la feature.
+- Preparar un resumen de la futura sección 14 de prompts.md, respetando la estructura de las secciones anteriores.
+- No modificar todavía prompts.md.
+- No inventar prompts ni atribuir citas sin evidencia.
+
+## 5. Restricciones
+
+- No realizar push del archivado sin mi aprobación.
+- No modificar readme.md, código funcional, tests ni migraciones.
+- No modificar skills, agentes ni configuraciones originales de OpenSpec o SpecBoot.
+- No ejecutar despliegues.
+- No borrar ramas ni respaldos.
+- No comenzar la feature 6.
+
+## 6. Entregables
+
+Informar:
+- SHA del squash merge.
+- SHA local del archivado.
+- Especificaciones sincronizadas.
+- Resultado OpenSpec.
+- Estado Git.
+- Estado de TD-022 a TD-028.
+- Ubicación y conservación del respaldo.
+- Propuesta de registro de IA para prompts.md.
+
+Detenerse antes de publicar el archivado y solicitar mi aprobación.
+~~~~
+
+### A20. 2026-11-08T18:02:16.985Z (transcript line 14012)
+
+~~~~text
+# Feature 5 — Publicación del archivado y preparación de prompts.md
+
+Apruebo publicar el archivado OpenSpec de `documents-schema-pgvector` y preparar el registro final de uso de IA.
+
+## 1. Publicar archivado
+
+- Verificar que estamos en main.
+- Confirmar que origin/main continúa en el squash merge `af7a2e2`.
+- Verificar que `ab22f42` modifica únicamente archivos de openspec/ y docs/ relacionados con el archivado.
+- Confirmar que las capacidades sincronizadas son document-storage y chunk-retrieval.
+- Ejecutar push normal a origin/main, sin force.
+- Confirmar que main y origin/main quedan sincronizadas.
+- Ejecutar openspec validate --all --strict y verificar 14/14.
+- No borrar ramas.
+
+## 2. Preparar sección 14 de prompts.md
+
+- Utilizar como fuente los informes archivados y el registro de prompts originales.
+- Mantener la estructura de las secciones anteriores: prompts, decisiones técnicas, correcciones, validación y riesgos.
+- Conservar los fragmentos textuales verificados.
+- Identificar expresamente todos los resúmenes.
+- No inventar prompts ni reconstruir conversaciones.
+- Incorporar el resultado del squash merge y del archivado publicado.
+- Registrar las revisiones adversariales, sus resultados y las correcciones F5, F7 y F8.
+- Mantener los estados de TD-022 a TD-028.
+- Añadir A19 al registro de prompts solamente si el mensaje original está disponible y puede verificarse literalmente.
+- No modificar las especificaciones archivadas para agregar A19.
+- No alterar documentos históricos sin necesidad.
+
+## 3. Git
+
+- Incorporar la sección 14 de prompts.md.
+- Crear un commit convencional independiente exclusivamente local.
+- No publicar todavía ese commit.
+- Verificar que el único archivo modificado por el nuevo commit sea prompts.md, salvo que una actualización del registro A19, justificada y autorizada, requiera un archivo adicional.
+- No mezclar documentación de IA con cambios funcionales.
+
+## 4. Restricciones
+
+- No modificar código, tests ni migraciones.
+- No modificar readme.md.
+- No modificar skills, agentes ni configuraciones originales de OpenSpec o SpecBoot.
+- No ejecutar despliegues.
+- No borrar ramas ni respaldos.
+- No comenzar la Feature 6.
+
+## 5. Entregables
+
+Informar:
+- SHA publicado del archivado.
+- Validación OpenSpec.
+- SHA local del commit de prompts.md.
+- Resumen de la sección 14.
+- Estado Git.
+- Riesgos pendientes.
+
+Detenerse antes de publicar prompts.md y solicitar mi aprobación.
 ~~~~
 
 ## B. Summaries (not literal)
