@@ -179,3 +179,12 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Solution applied:** the UI degrades gracefully when the header is unreadable, the owner approved the one-line CORS fix (commit `1d65ac1`, test `backend/tests/integration/test_cors_retry_after.py`) and the mocks and the gated real-backend spec now assert the seconds; the list grid is a single explicit column and a 320 px browser test guards it; the guide documents `docker compose up -d --build -V frontend`.
 - **Preventive measure:** verify headers, CORS and layout in a real browser against the running stack for every change that adds a screen (now in `docs/frontend-standards.md` section 6); derive mocks from observed responses, not from the contract text alone.
 - **Evidence:** `openspec/changes/frontend-foundation/reports/` (`tdd-evidence`, `step-11`, `step-12`).
+
+### L17. A design promise and a test can claim a control that does not exist
+- **Origin:** documents-schema-pgvector (independent review, findings F1 and F2).
+- **Problem:** (1) `design.md` said the repository translates database errors into controlled errors; the code propagates them and a test asserts that, so the written control was never implemented and the difference was not reported as a deviation. (2) A log test searched for a text format that the library does not produce, so it passed even with SQL parameters exposed.
+- **Root cause:** the design text was written before the implementation and not re-read against it; the mutation table checked the guarded line against a different test than the one that claimed to cover it.
+- **Impact / repetition risk:** a later change copies a pattern that does not exist, or a leak guard silently stops guarding. Medium for a security-sensitive change.
+- **Solution applied:** `design.md` corrected; the log test now forbids the real serialisation and asserts the "hidden" marker; the mutation `hide_parameters=False` is killed.
+- **Preventive measure:** when a design or spec sentence names a control, grep the code and a test for it before the group closes; for every leak or isolation test, print what the leak looks like once (a probe with the control removed) and assert on that real text, not on an assumed one.
+- **Evidence:** `openspec/changes/documents-schema-pgvector/reports/2026-11-08-independent-review.md`, `reports/2026-10-28-tdd-evidence.md` (group 11).
