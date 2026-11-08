@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.core.vector_validation import validate_embedding, validate_subject_id, validate_top_k
+from app.core.vector_validation import (
+    validate_embedding,
+    validate_subject_id,
+    validate_top_k,
+    validate_user_id,
+)
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.subject import Enrollment, Subject
 from app.models.user import User, UserRole
@@ -54,6 +59,7 @@ class ChunkRepository:
         before any statement runs. Similarity is `1 - cosine distance`; ties break by chunk id.
         """
         validate_subject_id(subject_id)
+        validate_user_id(actor.user_id)
         vector = validate_embedding(query_embedding)
         limit = validate_top_k(top_k)
 

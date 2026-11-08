@@ -16,6 +16,10 @@ MIN_NORM = 1e-6
 MAX_NORM = 1e6
 MIN_TOP_K = 1
 MAX_TOP_K = 50
+# pgvector adds the squares in another order than `math.hypot`, so the stored norm can differ from
+# the computed one by about 1e-15 (relative). Norms closer than this margin to a limit are rejected,
+# which guarantees that an accepted vector also passes the database CHECK (finding F5).
+NORM_SAFETY_MARGIN = 1e-12
 
 
 class InvalidSearchInputError(ValueError):
@@ -27,12 +31,14 @@ class InvalidSearchInputError(ValueError):
 
 
 def validate_embedding(embedding: Sequence[float]) -> list[float]:
-    """Return the embedding as a list of floats, or raise `InvalidSearchInputError`.
+    """Return the embedding as single-precision floats, or raise `InvalidSearchInputError`.
 
     Requires exactly `EMBEDDING_DIMENSIONS` real, finite numbers (booleans are not accepted) whose
     Euclidean norm lies within `[MIN_NORM, MAX_NORM]`. The norm is that of the single-precision
     values the database stores (`vector` keeps float32 components), accumulated in double
-    precision as `vector_norm` does, so the helper and the CHECK constraint agree (finding F5).
+    precision as `vector_norm` does, and must be at least `NORM_SAFETY_MARGIN` (relative) inside the
+    range. The returned numbers are the single-precision values, whose decimal text reaches the
+    database unchanged, so an accepted vector also passes the CHECK constraint (finding F5).
     """
     if isinstance(embedding, str | bytes) or not isinstance(embedding, Sequence):
         raise InvalidSearchInputError("the embedding must be a sequence of numbers")
@@ -65,9 +71,9 @@ def validate_embedding(embedding: Sequence[float]) -> list[float]:
     if len(values) != EMBEDDING_DIMENSIONS:
         raise InvalidSearchInputError("the embedding has the wrong dimension")
     norm = math.hypot(*stored)  # overflow-safe, double precision
-    if not (MIN_NORM <= norm <= MAX_NORM):
+    if not (MIN_NORM * (1 + NORM_SAFETY_MARGIN) <= norm <= MAX_NORM * (1 - NORM_SAFETY_MARGIN)):
         raise InvalidSearchInputError("the embedding magnitude is outside the supported range")
-    return values
+    return stored
 
 
 def validate_top_k(top_k: int) -> int:
@@ -84,3 +90,10 @@ def validate_subject_id(subject_id: uuid.UUID) -> uuid.UUID:
     if not isinstance(subject_id, uuid.UUID):
         raise InvalidSearchInputError("the subject id must be a UUID")
     return subject_id
+
+
+def validate_user_id(user_id: uuid.UUID) -> uuid.UUID:
+    """Return `user_id` if it is a `uuid.UUID`; anything else is rejected without echoing it."""
+    if not isinstance(user_id, uuid.UUID):
+        raise InvalidSearchInputError("the user id must be a UUID")
+    return user_id
