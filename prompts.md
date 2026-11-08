@@ -619,3 +619,158 @@ Autorizo finalizar la feature 4 mediante squash merge y archivado OpenSpec.
 - TD-019: (a) la sesión se pierde al recargar la página y (b) el token en memoria queda expuesto ante XSS; se registraron por separado.
 - TD-020: el E2E con mocks puede divergir del backend real; se revisa en el cambio 12.
 - TD-021 quedó resuelto. `alembic check` sigue siendo un paso manual fuera del CI.
+
+
+## 14. Esquema de documentos y búsqueda vectorial (`documents-schema-pgvector`, cambio OpenSpec 5 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, con el flujo OpenSpec del repositorio (`/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:archive`). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md`, `docs/backend-standards.md`, `docs/lessons-learned.md` y `docs/technical-debt.md`. Esta sección se agregó con aprobación explícita del usuario.
+
+**Skills y subagentes usados:**
+- Skills de OpenSpec `opsx:explore`, `opsx:propose`, `opsx:apply` y `opsx:archive`.
+- Skills `adversarial-review` y `update-docs`.
+- **Un subagente** de Claude Code (tipo `Explore`, `model=opus`), con contexto limpio y de solo lectura, como revisor adversarial independiente, en cuatro pasadas: la revisión del grupo 11 (revisión 1 y revisión 2 de las correcciones) y la revisión focalizada de las correcciones F5, F7 y F8 (pasada 1 y pasada 2). La IA le dio el alcance, las áreas a atacar y las restricciones, y ninguna de sus propias conclusiones.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de mensajes del usuario, copiadas del registro `openspec/changes/archive/2026-11-08-documents-schema-pgvector/reports/2026-11-08-user-prompts-verbatim.md` (20 mensajes extraídos de forma mecánica de la transcripción de la sesión, entradas A1 a A20); los marcados *(resumido, no textual)* son resúmenes de la IA. No se reconstruyó ninguna conversación. El mensaje A18 llegó a la sesión cortado en su última sección y así está registrado. Las notas de trabajo por grupo están en `…/reports/2026-11-07-ai-usage-notes.md` (resúmenes) y el cierre del grupo 0 en `…/reports/2026-11-08-group-0-baseline.md`.
+
+### 14.1 Prompts y decisiones del usuario
+
+**Prompt 1 — análisis previo (A1, fragmento textual):**
+
+```
+Quiero comenzar el análisis de la feature 5 del proyecto AsistenteIA, manteniendo OpenSpec como fuente de verdad y aplicando los estándares y lecciones aprendidas del proyecto.
+```
+
+**Prompt 2 — aprobación de diseño, decisiones D1–D9 (A2, fragmentos textuales):**
+
+```
+No implementar ingesta, extracción, chunking, generación de embeddings, endpoints de documentos ni chat/RAG.
+D1: usar FK compuesta para impedir inconsistencias entre documento, chunk y asignatura. Incorporar la restricción UNIQUE necesaria.
+```
+
+**Prompt 3 — aprobación condicionada, D1–D11 (A3, fragmentos textuales):**
+
+```
+Mantener `vector(384)` y el aislamiento por actor dentro de SQL.
+Mantener búsqueda exacta como referencia funcional del MVP.
+```
+
+**Prompt 4 — planificación y spike de compatibilidad (A4, fragmento textual, más resumen):**
+
+```
+Utilizar contenedor PostgreSQL y entorno Python completamente desechables y aislados.
+```
+
+*(Resumido, no textual:)* autorizó publicar la planificación en un PR sin merge y ejecutar únicamente el grupo 1 (spike).
+
+**Prompt 5 — resolución de las incidencias I1–I4 y grupo 2 (A5, fragmento textual, más resumen):**
+
+```
+Prohibir el registro de `exc.orig` y SQL con parámetros que puedan revelar embeddings o contenido documental.
+```
+
+*(Resumido, no textual:)* decidió mantener `alembic check` y ampliar los tests de migración con consultas al catálogo (I1), y pidió definir los límites numéricos de los embeddings únicamente con evidencia reproducible de un experimento aislado (I3).
+
+**Prompts 6 y 7 — grupos 3 y 4 (A6 y A7, resumidos, no textuales):** autorizaciones de un grupo por vez (migración 0004 y modelos; fixtures deterministas), con "detenerse y pedir aprobación" antes del grupo siguiente.
+
+**Prompt 8 — grupo 5, `find_similar` (A8, fragmento textual):**
+
+```
+Si HNSW reduce recall o entrega resultados incompletos, detenerse y presentar evidencia y alternativas.
+```
+
+**Prompt 9 — grupo 6, regresión (A9, fragmentos textuales):**
+
+```
+Registrar como deuda técnica que HNSW no se utiliza en el plan actual.
+Dejar su evaluación de rendimiento y estrategia de indexación para el cambio 12.
+```
+
+**Prompts 10 y 11 — grupos 7 y 8, seguridad de la base de datos (A10 y A11, fragmentos textuales):**
+
+```
+La migración 0004 de la base de desarrollo queda reservada para la tarea 8.1 y no está autorizada en este grupo.
+No ejecutar downgrade destructivo sobre la base de desarrollo.
+```
+
+**Prompts 12 y 13 — grupos 9 y 10 (A12 y A13, fragmento textual, más resumen):**
+
+```
+No considerar `/tmp` del contenedor como almacenamiento duradero.
+```
+
+*(Resumido, no textual:)* autorizó documentar en la guía de desarrollo cómo usar un archivo de Compose temporal cuando los puertos 8000 y 5173 están ocupados por otro proyecto, sin cambiar los puertos por defecto.
+
+**Prompt 14 — grupo 11, revisión adversarial (A14, resumido, no textual):** exigió una revisión independiente por un subagente de contexto limpio y solo lectura, TDD para toda corrección funcional y solo un relevamiento (sin ejecutar) de las tareas pendientes del grupo 0.
+
+**Prompt 15 — espera (A15, fragmento textual):**
+
+```
+Esperar el informe del revisor
+```
+
+**Prompt 16 — resolución de la revisión (A16, fragmentos textuales):**
+
+```
+No inventar prompts ni completar huecos con reconstrucciones de memoria.
+No registrar secretos en documentos.
+```
+
+*(Resumido, no textual:)* corregir F5, F7 y F8 con TDD y revisión independiente focalizada, aceptar F6 como TD-027 y presentar el texto de F9 sin cambiar el enum, y ejecutar el grupo 0 con evidencia.
+
+**Prompt 17 — F9, F12 y N3 (A17, fragmentos textuales):**
+
+```
+No modificar la migración 0004 ni crear una 0005.
+Si no se puede garantizar almacenamiento persistente, detenerse y reportarlo.
+No reescribir el historial Git.
+```
+
+**Prompt 18 — verificación final (A18, fragmento textual; el mensaje llegó cortado):**
+
+```
+No comenzar la feature 6.
+```
+
+**Prompt 19 — aprobación final (A19, fragmento textual):**
+
+```
+Ejecutar squash merge sin borrar ramas.
+```
+
+**Prompt 20 — publicación del archivado y de esta sección (A20, fragmento textual):**
+
+```
+No inventar prompts ni reconstruir conversaciones.
+```
+
+**Prompts de la IA al subagente revisor (resumidos, no textuales):** alcance del diff y de la base de datos, fuentes a leer, áreas a atacar (aislamiento, autorización en SQL, vectores extremos, fugas de errores y de logs, concurrencia, reversibilidad de la migración, planes con EXPLAIN), prohibición de editar el repositorio y de tocar la base de desarrollo, y un formato de informe con clasificación de bloqueantes, mayores, menores y riesgos aceptables.
+
+### 14.2 Decisiones técnicas principales
+- Tablas `documents` y `document_chunks` con clave foránea compuesta `(document_id, subject_id)` hacia `documents(id, subject_id)` (D1), CHECK de contenido no vacío y de la norma del embedding, y índices B-tree más un índice HNSW coseno (`m=16`, `ef_construction=64`).
+- `ChunkRepository.find_similar(actor, subject_id, query_embedding, top_k)`: autorización dentro del SQL (estudiante matriculado o docente titular), solo documentos `ready`, orden por distancia y luego por id de chunk; actor no autorizado, asignatura desconocida o rol desconocido devuelven lista vacía sin error (D2, D11).
+- Búsqueda exacta filtrada por asignatura como referencia funcional; el HNSW existe pero el plan no lo usa (TD-022). No se tocaron parámetros del planificador ni de pgvector.
+- Validación compartida con la futura ingesta: 384 componentes finitos, norma entre `1e-6` y `1e6` medida sobre los valores en precisión simple con margen relativo de `1e-12`, `top_k` de 1 a 50, ids de asignatura y de actor como UUID; los mensajes de error no contienen valores (D8).
+- Imagen `pgvector/pgvector:0.8.7-pg15` fijada en Compose y en CI; paquete Python `pgvector 0.5.1`.
+
+### 14.3 Correcciones, desviaciones y hallazgos
+- **Evidencia TDD:** fallo previo registrado por grupo y tablas de mutaciones (por ejemplo 13 de 13 mutaciones de `find_similar` detectadas y 10 de 10 en la corrección final de F5, F7 y F8). Desviaciones registradas en `…/reports/2026-10-28-tdd-evidence.md`.
+- **Incidencias del spike (I1–I4):** `alembic check` no ve el operador HNSW, los CHECK ni las cascadas (se amplió con consultas al catálogo); riesgo de fuga de datos por errores de SQL; extensión de pgvector y magnitud de los embeddings (pgvector 0.8.7 devuelve `NaN` o distancias erróneas para magnitudes extremas).
+- **Revisión independiente 1 (grupo 11, FAIL por un mayor):** el diseño prometía que `find_similar` traduce errores de base de datos y el código los propaga; se corrigió el artefacto (el usuario confirmó no introducir un tipo de error nuevo). También: un test de logs que no veía el embedding, un entero enorme y una secuencia con longitud falsa que escapaban del error controlado, y una contraseña desechable en un script (se lee ahora del entorno).
+- **Revisión 2 (PASS WITH GAPS):** dos hallazgos menores adicionales (un `int` cuya conversión a `float` falla; numeración duplicada), corregidos; la contraseña desechable en el historial se aceptó (N3).
+- **Correcciones decididas por el usuario tras la revisión:**
+  - F5: el helper y el CHECK `vector_norm` discrepaban en los bordes; se corrigió con TDD y la revisión focalizada halló que la primera corrección era incompleta (valores en puntos medios de float32: 167 de 3.000 vectores; orden de suma de pgvector: 47 de 240); la corrección final devuelve los valores en precisión simple y añade el margen de `1e-12`. La garantía es unidireccional: si el helper acepta, el CHECK acepta.
+  - F7: `find_similar` verifica el rol almacenado del usuario dentro del SQL; tests con roles falsos y cambiados en la base.
+  - F8: un `subject_id` que no es UUID se rechaza antes del SQL (el revisor halló lo mismo en `actor.user_id`, también corregido).
+  - Revisión focalizada: PASS WITH GAPS y luego PASS.
+- **Grupo 0:** las tareas 0.1 a 0.4 no se ejecutaron al inicio; se cerraron al final con evidencia de Git, la línea base tomada en el grupo 2 (desviación cronológica registrada) y los prompts literales extraídos de la transcripción.
+- **Incidentes de herramientas y de proceso (reconocidos por la IA):** una consulta de solo lectura al contenedor de otro proyecto antes de corregir el destino; la cuenta de GitHub CLI activa era otra y hubo que cambiarla a `supercentro`; los puertos 8000 y 5173 pertenecen a otro proyecto (se usaron 18000 y 15173 con un archivo de Compose fuera del repositorio); un script escribió un carácter de control en una ruta de un informe y se corrigió en un commit aparte; un permiso denegado de forma transitoria se reintentó una vez.
+
+### 14.4 Resultados de validación
+- Backend: 712 pruebas, cobertura de `app` 98 %, `ruff`, `ruff format --check`, `mypy --strict` (107 archivos) y `pip-audit` limpios. Frontend sin cambios (236 pruebas, 11 E2E con mocks pasan y 6 se saltan, `npm audit` sin vulnerabilidades).
+- Migración `0004`: subida, `alembic check`, bajada a `0003` y subida en una base descartable; la base de desarrollo quedó en `0004` sin filas y con el esquema idéntico antes y después de la verificación final.
+- `openspec validate --all --strict`: 14 de 14 tras el archivado.
+- Entrega: PR #7 con CI en verde, squash merge `af7a2e2` y archivado `ab22f42` publicado en `main`; 47 de 47 tareas.
+
+### 14.5 Riesgos residuales
+- TD-022 (HNSW sin uso), TD-023 (sin cuota ni `statement_timeout`), TD-025 (parámetros HNSW) y TD-026 (sin guarda automática del plan): abiertas, a evaluar en los cambios 6 y 12. TD-024 (dimensión fija y supuestos del margen de F5), TD-027 (contenido que parece vacío) y TD-028 (enum `document_status` preexistente): aceptadas.
+- El respaldo previo a `0004` tiene una única copia persistente en un disco local, fuera del repositorio; y una contraseña desechable de un contenedor del spike permanece en el historial de git (commit `f61ce6d`), sin uso en el proyecto.
