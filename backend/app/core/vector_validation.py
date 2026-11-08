@@ -42,7 +42,7 @@ def validate_embedding(embedding: Sequence[float]) -> list[float]:
             raise InvalidSearchInputError("the embedding must contain only real numbers")
         try:
             number = float(item)
-        except OverflowError:  # an integer too large for a double
+        except (OverflowError, TypeError, ValueError):  # too large for a double, or a broken type
             raise InvalidSearchInputError(
                 "the embedding must contain only finite numbers"
             ) from None
