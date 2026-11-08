@@ -193,3 +193,29 @@ def test_a_sequence_that_yields_another_number_of_items_than_its_length_is_rejec
 ) -> None:
     with pytest.raises(InvalidSearchInputError):
         validate_embedding(_LyingLength(produced))
+
+
+class _HostileInt(int):
+    """An int subclass whose conversion to float fails in the way a broken numeric type could."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__()
+        self._error = error
+
+    def __new__(cls, error: Exception) -> "_HostileInt":
+        return super().__new__(cls, 1)
+
+    def __float__(self) -> float:
+        raise self._error
+
+
+@pytest.mark.parametrize("error", [ValueError("secret-component-7.654321"), TypeError("x")])
+def test_a_numeric_type_whose_float_conversion_fails_is_rejected_with_the_controlled_error(
+    error: Exception,
+) -> None:
+    vector: list[object] = list(unit())
+    vector[4] = _HostileInt(error)
+    with pytest.raises(InvalidSearchInputError) as raised:
+        validate_embedding(vector)  # type: ignore[arg-type]
+    assert "7.654321" not in f"{raised.value} {raised.value!r}"
+    assert raised.value.__cause__ is None
