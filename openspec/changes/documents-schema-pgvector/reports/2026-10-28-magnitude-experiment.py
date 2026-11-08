@@ -1,12 +1,13 @@
 """Experiment I3: cosine distance behaviour of pgvector 0.8.7 across magnitudes. Scratch DB only; no vector values printed."""
 import math
+import os
 import random
 import struct
 
 import psycopg
 
-DSN = "postgresql://postgres:spikepw@127.0.0.1:55439/spike"
-assert "55439" in DSN
+DSN = os.environ["SPIKE_DSN"]  # scratch container only, e.g. postgresql://USER:PASSWORD@127.0.0.1:55439/spike
+assert ":55439/" in DSN
 DIM = 384
 
 
