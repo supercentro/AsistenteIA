@@ -68,12 +68,12 @@ Isolation rules: a throwaway virtual environment outside the repository and a th
 
 ## 10. Update Technical Documentation (MANDATORY)
 
-- [ ] 10.1 Update `docs/data-model.md`: documents and chunks as implemented, composite FK and `UNIQUE (id, subject_id)`, the added referential row for `document_chunks`, checks, indexes, `ready`-only retrieval, migration `0004`; remove the "enforced by the repository when inserting" sentence for `subject_id`
-- [ ] 10.2 Update `docs/backend-standards.md`: correct the seed line (users only, as approved in change 2), document the `find_similar` contract (actor, authorization in SQL, empty result for unauthorized, validation, no embeddings in logs) and the image pin
-- [ ] 10.3 Update `docs/development_guide.md` (pinned image, migration `0004`, rebuild of the backend image, extension update note) and verify `docs/api-spec.yml` needs no change for this change (state it in the reconciliation report)
-- [ ] 10.4 Add to `docs/technical-debt.md` the residual risks of this change: no per-subject document or chunk quota, embedding dimension fixed in the schema (model change needs migration and reindex), HNSW parameters and filtered-ANN behaviour to revisit with real data (change 12), and any risk accepted by the user after the review; keep IDs sequential from the register
-- [ ] 10.5 Invoke the `update-docs` skill itself (not only its checklist), apply what it reports and note the invocation in the AI usage notes; confirm `prompts.md` is untouched and that `readme.md` is untouched (report the Ticket 3 divergences instead)
-- [ ] 10.6 Write `reports/YYYY-MM-DD-contract-reconciliation.md` comparing, across the delta specs, `docs/data-model.md`, the models, the migration and the database catalog: columns, types, nullability, defaults, constraints, indexes, cascades and the status values; fix or report every mismatch
+- [x] 10.1 Update `docs/data-model.md`: documents and chunks as implemented, composite FK and `UNIQUE (id, subject_id)`, the added referential row for `document_chunks`, checks, indexes, `ready`-only retrieval, migration `0004`; remove the "enforced by the repository when inserting" sentence for `subject_id`
+- [x] 10.2 Update `docs/backend-standards.md`: correct the seed line (users only, as approved in change 2), document the `find_similar` contract (actor, authorization in SQL, empty result for unauthorized, validation, no embeddings in logs) and the image pin
+- [x] 10.3 Update `docs/development_guide.md` (pinned image, migration `0004`, rebuild of the backend image, extension update note) and verify `docs/api-spec.yml` needs no change for this change (state it in the reconciliation report)
+- [x] 10.4 Add to `docs/technical-debt.md` the residual risks of this change: no per-subject document or chunk quota, embedding dimension fixed in the schema (model change needs migration and reindex), HNSW parameters and filtered-ANN behaviour to revisit with real data (change 12), and any risk accepted by the user after the review; keep IDs sequential from the register
+- [x] 10.5 Invoke the `update-docs` skill itself (not only its checklist), apply what it reports and note the invocation in the AI usage notes; confirm `prompts.md` is untouched and that `readme.md` is untouched (report the Ticket 3 divergences instead)
+- [x] 10.6 Write `reports/YYYY-MM-DD-contract-reconciliation.md` comparing, across the delta specs, `docs/data-model.md`, the models, the migration and the database catalog: columns, types, nullability, defaults, constraints, indexes, cascades and the status values; fix or report every mismatch
 
 ## 11. Adversarial Review (required for data isolation)
 

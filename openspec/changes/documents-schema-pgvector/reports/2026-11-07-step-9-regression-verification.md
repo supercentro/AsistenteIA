@@ -42,3 +42,9 @@ Full suite **668 passed** (2 min 13 s), coverage of `app` 98 %; `ruff check`, `r
 1. Ports 8000 and 5173 are occupied by another project; handled with the override above instead of `docker compose up` on the default ports (the guide's command is otherwise the same, with `--build` and detached).
 2. The first attempt to start the stack failed because the Vite server started for the mocked suite still held port 15173 (its Windows process had to be stopped explicitly). It was this verification's own process; the second attempt succeeded.
 3. The six real-backend tests were deliberately not run (they would create users in the development database; out of scope for a change with no API).
+
+## Update at group 10 (2026-11-07): state of the pre-migration backup
+- External copy: still present in the session scratch directory (operating system temporary folder, outside the repository), 8,261 bytes, sha256 prefix `f1bf54e5dc15a567` unchanged. It was not added to Git (`git ls-files` lists no dump).
+- Copy inside the `asistenteia-db-1` container (`/tmp/asistenteia_pre_0004.dump`, same size): **not durable storage**; it disappears when the container is recreated. Do not rely on it.
+- Restore status: restored with `pg_restore` into a throwaway database and compared with the source at step 8 (identical structure, extensions, revision and row counts); the throwaway database was dropped.
+- Retention: nothing deleted. The operating system may clean its temporary folder, so if the backup must outlive this session, copy it to a folder chosen by the user outside the repository.
