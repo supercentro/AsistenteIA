@@ -82,9 +82,9 @@ D1-D11 and these artifacts were approved by the user with conditions, incorporat
 1. Ticket 3 and `docs/backend-standards.md` (seed with sample chunks) vs the approved seed decision of change 2: resolved by D5; `docs/backend-standards.md` is corrected in this change, `readme.md` Ticket 3 is **not** edited without approval.
 2. Ticket 3 states "Dependencias: ninguna", but the tables need `subjects` (change 3, already merged). Informational only; no document is changed.
 3. Ticket 3 signature of `find_similar` vs `docs/base-standards.md` 9.4: resolved by D2.
-4. Design I2 (first draft) promised error translation inside `find_similar`; the code propagates database errors and relies on the handlers. Found by the independent review (F1) and corrected in this document; see `reports/2026-11-08-independent-review.md`.
 4. `docs/data-model.md`: status "proposed design" for these tables, subject consistency left to the repository, missing referential row for `document_chunks.subject_id`: corrected here (D1).
 5. `docs/api-spec.yml` `Document` schema has no `required` list: not changed here; corrected with evidence in change 6 (same policy as change 4).
+6. Design I2 (first draft) promised error translation inside `find_similar`; the code propagates database errors and relies on the handlers. Found by the independent review (F1) and corrected in this document; see `reports/2026-11-08-independent-review.md`.
 
 ## Dependencies with later changes
 

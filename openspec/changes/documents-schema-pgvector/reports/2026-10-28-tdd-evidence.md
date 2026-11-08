@@ -104,3 +104,15 @@ Log-leak guard (I2): the middleware was temporarily changed to log `str(exc)`. T
 
 ## Group 6 - review of existing tests (task 6.1)
 No new functionality, so there is no failing run. Findings and the scenario map are in `2026-11-07-group-6-regression-review.md`. One robustness fix: the downgrade test of migration `0004` used a relative `-1`; it now targets `0003` (it passed before and after). Full suite 668 passed, also in reverse file order. All deviations of the change are listed in that report.
+
+## Group 11 - corrections after the independent review (see `2026-11-08-independent-review.md`)
+
+### Failing runs before each correction
+- F3 and F4 (`tests/unit/test_vector_validation.py`, 6 new cases): **5 failed** before the change (`10**400`, `-(10**400)`, and a sequence whose `__len__` says 384 but yields 383, 385 or 5000 items); the case yielding 0 items already passed because the zero vector was rejected. After the change: 51 passed.
+- N2 (a numeric type whose `__float__` raises `ValueError` or `TypeError`, 2 cases): **2 failed**, then 53 passed.
+- F2 (log test): strengthened with the real pgvector serialisation and the `hidden` marker. Mutation `hide_parameters=False` in `create_db_engine`: **killed** (it survived the previous version of the test). File restored; `git diff --ignore-cr-at-eol` empty.
+- Full suite after the corrections: **676 passed** (668 before; +8). Coverage of `app` 98 %.
+
+### Deviations from strict test-first order
+1. **F1 (design I2) was a documentation defect, not a code defect:** the design promised that `find_similar` translates database errors into controlled errors; the implementation propagates them and the test `test_the_repository_does_not_swallow_or_rewrite_database_errors` asserts it, but the divergence was never recorded as a deviation. Found by the independent review. Corrected in `design.md` (I2, dependency row, divergence 6). Compensation: the leak tests (`test_error_text_exposure`, the search-path test) and their mutations show that handlers and middleware keep database error text out of responses and logs.
+2. **F2:** the previous log test passed with parameters exposed; it was a weak test that the earlier mutation table did not cover (the hide-parameters mutation was only checked against another test). Now killed by the mutation above.
