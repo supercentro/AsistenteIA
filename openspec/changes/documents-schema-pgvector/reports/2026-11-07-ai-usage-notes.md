@@ -2,7 +2,7 @@
 
 Working notes for a later `prompts.md` proposal (that file needs the user's approval and is not touched here). Tool: Claude Code (Sonnet 5.5), OpenSpec workflow, SpecBoot skills.
 
-**Status of this file: partial.** Task 0.4 asked for this report from the start of the change, with the literal user prompts. It was not created at that time, and it is not reconstructed here from memory: the sections below cover only groups 5 to 10, whose authorization prompts were available verbatim in the session. The planning prompts (D1-D11, spikes of groups 1-4) are recorded in the session transcript and in `design.md` (approval record); completing this file for them is a separate decision for the user. Task 0.4 stays unchecked.
+**Status of this file: summaries.** The literal user prompts of Feature 5 (task 0.4) are in `reports/2026-11-08-user-prompts-verbatim.md`, copied unchanged from the session transcript. This file keeps short notes, in English or as short fragments, by group; those fragments are summaries or partial quotations (accents removed) and are not the literal record. Closing record of group 0: `reports/2026-11-08-group-0-baseline.md`.
 
 ## User decisions and instructions (fragments in the original Spanish; accents removed to keep the file ASCII, as in earlier changes)
 - Group 5: "Si HNSW reduce recall o entrega resultados incompletos, detenerse y presentar evidencia y alternativas. No modificar el planner ni los parametros de pgvector sin aprobacion."

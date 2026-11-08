@@ -4,10 +4,10 @@ Reports required by `docs/openspec-tasks-mandatory-steps.md` are saved in `opens
 
 ## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
 
-- [ ] 0.1 Verify the current branch is `feature/documents-schema-pgvector` (created from `main` at `db06d50` during planning; `git branch --show-current`) and that it contains no code changes yet
-- [ ] 0.2 Confirm the branch is based on the published `main` (`git merge-base --is-ancestor db06d50 HEAD`)
-- [ ] 0.3 Start the stack (`docker compose up -d db`), confirm `uv run pytest -q` is green on the starting point and record the baseline of `asistenteia` and `asistenteia_test` (extension version, tables, `alembic_version`, row counts)
-- [ ] 0.4 Create `reports/YYYY-MM-DD-ai-usage-notes.md` and keep it updated with the literal user prompts, decisions and AI findings of this change (source for the later `prompts.md` proposal)
+- [x] 0.1 Verify the current branch is `feature/documents-schema-pgvector` (created from `main` at `db06d50` during planning; `git branch --show-current`) and that it contains no code changes yet
+- [x] 0.2 Confirm the branch is based on the published `main` (`git merge-base --is-ancestor db06d50 HEAD`)
+- [x] 0.3 Start the stack (`docker compose up -d db`), confirm `uv run pytest -q` is green on the starting point and record the baseline of `asistenteia` and `asistenteia_test` (extension version, tables, `alembic_version`, row counts) _(done: baseline taken during group 2, recorded in `reports/2026-11-08-group-0-baseline.md` with the chronological deviation)_
+- [x] 0.4 Create `reports/YYYY-MM-DD-ai-usage-notes.md` and keep it updated with the literal user prompts, decisions and AI findings of this change (source for the later `prompts.md` proposal)
 
 ## 1. Compatibility Spike and Image Pin (GATE, verify in apply; isolated)
 
