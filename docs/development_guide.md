@@ -64,6 +64,8 @@ The database image is pinned to `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15 wi
 
 `db` creates two databases on first start: `asistenteia` (development) and `asistenteia_test` (integration tests only). The init script runs only when the data volume is created; if the volume already existed, run `docker compose down -v` (deletes data) or `docker compose exec db createdb -U <POSTGRES_USER> asistenteia_test`.
 
+If port 8000 or 5173 is already used by another application, see [Ports already in use](#ports-already-in-use) instead of changing the project's defaults.
+
 _(planned)_ The first build of the ingestion change downloads the embedding model into a Docker volume (large image, several minutes).
 
 ## 3. Database
@@ -72,6 +74,8 @@ _(planned)_ The first build of the ingestion change downloads the embedding mode
 docker compose exec backend alembic upgrade head      # apply migrations (manual, not run on startup)
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
+
+Migration `0004` creates `documents`, `document_chunks` and the `document_status` type. A development database created before it stays at `0003` until you rebuild the backend image (`docker compose up -d --build backend`, or `docker compose build backend` followed by `docker compose run --rm --no-deps backend alembic upgrade head`) and apply the migration. Its `downgrade` drops both tables **with their data**, so use it only on development data, and take a `pg_dump -Fc` first if the database holds anything you want to keep. After a pgvector upgrade, also run `ALTER EXTENSION vector UPDATE;` (see section 2).
 
 Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
 
@@ -124,7 +128,7 @@ npm run test:coverage              # Vitest with the 70 % thresholds on componen
 npm run check:api-types            # fails when src/types/api.generated.ts is stale
 npm run generate:api               # regenerate it from docs/api-spec.yml after a contract change
 npx playwright install chromium    # once
-npm run test:e2e                   # mocked browser suite (no backend); reuses the frontend on :5173 or starts it
+npm run test:e2e                   # mocked browser suite (no backend); reuses ANY server already on :5173 (see 'Ports already in use')
 # Against the real stack (docker compose up) - creates one student per run, see the header of the spec:
 E2E_REAL_BACKEND=1 npm run test:e2e -- real-backend
 ```
@@ -154,3 +158,30 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 - Startup error `Invalid configuration - CORS_ORIGINS ...`: set explicit origins in production and never use `*`.
 - Frontend page blank or `Failed to resolve import` after a dependency change: renew the container volume (`docker compose up -d --build -V frontend`).
 - _(planned)_ Gemini 429/blocked responses locally: switch `LLM_PROVIDER=fake` to keep developing without the API.
+
+### Ports already in use
+
+The project publishes the backend on `127.0.0.1:8000`, the frontend on `127.0.0.1:5173` and the database on `127.0.0.1:5442`. Keep those defaults in the repository. If another application (for example another course project) already listens there, do not stop it and do not edit `docker-compose.yml`:
+
+1. **Find out who owns the port.** `docker ps --format '{{.Names}} {{.Ports}}'` shows containers of this project (`asistenteia-*`). For host processes on Windows: `Get-NetTCPConnection -State Listen -LocalPort 8000,5173` and then `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>" | Select-Object CommandLine`; the command line shows the project folder. A `200` from `/api/v1/health` does **not** prove it is AsistenteIA.
+2. **Use a temporary Compose override kept outside the repository** (for example in the operating system temporary folder, never committed, never containing secrets), which only moves the host ports and the two URLs that must follow them:
+
+```yaml
+# %TEMP%\asistenteia.ports.override.yml
+services:
+  backend:
+    ports: !override
+      - "127.0.0.1:18000:8000"
+    environment:
+      CORS_ORIGINS: "http://localhost:15173"
+  frontend:
+    ports: !override
+      - "127.0.0.1:15173:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_URL: "http://localhost:18000/api/v1"
+```
+
+   Run `docker compose -f docker-compose.yml -f <override> config` to check the result and `docker compose -f docker-compose.yml -f <override> up -d --build`, and stop only your services afterwards (`docker compose stop backend frontend`; do not use `down -v`). Do not name the file `docker-compose.override.yml`: Compose would load it automatically.
+3. **Playwright reuses whatever answers on the base URL.** `playwright.config.ts` has `reuseExistingServer: true`, and Vite uses `strictPort: 5173`. With another project's Vite on 5173, `npm run test:e2e` runs against that project's pages and proves nothing. Start your own server on a free port and point the suite at it: `npx vite --host 127.0.0.1 --port 15173 --strictPort`, then `E2E_BASE_URL=http://127.0.0.1:15173 npm run test:e2e`; stop that server afterwards. The mocked suite stubs `http://localhost:8000`, so keep `VITE_API_URL` at its default for it. The real-backend specs create users in the development database and run only with `E2E_REAL_BACKEND=1`.
+4. **Integration tests hang without an error when the `db` service is stopped.** Start it with `docker compose up -d db` (this does not run migrations).
