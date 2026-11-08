@@ -15,6 +15,7 @@ dependencies = [
     "pydantic[email]>=2.14.1",
     "limits>=5.8.0",
     "python-dotenv>=1.2.4",
+    "pgvector>=0.5.1,<0.6",
 ]
 
 [dependency-groups]

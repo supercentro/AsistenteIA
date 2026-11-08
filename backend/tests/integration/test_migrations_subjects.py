@@ -96,7 +96,7 @@ def test_downgrade_one_step_removes_both_tables_and_keeps_users(test_db_url: str
     config = alembic_config(test_db_url)
     command.upgrade(config, "head")
 
-    command.downgrade(config, "-1")
+    command.downgrade(config, "0002")  # explicit: later revisions sit above 0003
 
     assert not table_exists(test_db_url, "subjects")
     assert not table_exists(test_db_url, "enrollments")

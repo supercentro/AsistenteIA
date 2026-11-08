@@ -16,7 +16,7 @@ Legend: **MUST** blocks merge; **SHOULD** is recommended. Canonical contracts: [
 | Web framework | FastAPI + Uvicorn |
 | Validation / settings | Pydantic v2, `pydantic-settings` |
 | ORM / migrations | SQLAlchemy 2.x (typed, sync or async — pick one and use it consistently, see §3), Alembic |
-| Database | PostgreSQL 15 + `pgvector` (`pgvector` Python package) |
+| Database | PostgreSQL 15 + `pgvector` (`pgvector` Python package); image `pgvector/pgvector:0.8.7-pg15`, pinned in `docker-compose.yml` and CI |
 | RAG | LangChain (text splitters, prompt templates, Gemini chat model wrapper) |
 | LLM | Gemini 2.5 Flash via `langchain-google-genai` (model name read from config; verify availability before release) |
 | Embeddings | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, local, 384 dims |
@@ -81,7 +81,7 @@ Flow in `RAGService.answer(user, subject_id, message, conversation_id)`:
 
 1. Authorize: student enrolled in `subject_id`; if `conversation_id` given, it belongs to the user **and** to `subject_id`.
 2. Embed the question (`Embedder`).
-3. Retrieve top-K chunks (default K=5) via `ChunkRepository.find_similar(subject_id, embedding, top_k)`; filter by `subject_id` inside the repository query. Drop chunks below `MIN_SIMILARITY` (config).
+3. Retrieve top-K chunks (default K=5) via `ChunkRepository.find_similar(actor, subject_id, query_embedding, top_k)` (contract in section 7); the subject filter and the actor's authorization are inside the repository query. Drop chunks below `MIN_SIMILARITY` (config).
 4. If nothing remains: persist the user message plus a controlled "no material" assistant message and return `no_material=true` **without calling the LLM**.
 5. Build the prompt (see prompt-injection rules), include a bounded window of previous messages (last N turns, default 6, trimmed to a token budget).
 6. Call the LLM with timeout and limited retries (exponential backoff on 429/5xx, max 2 retries).
@@ -120,7 +120,15 @@ Flow in `RAGService.answer(user, subject_id, message, conversation_id)`:
 - MUST: repositories return domain/ORM objects or typed DTOs, never raw rows; no `SELECT *`.
 - MUST: every query on `document_chunks`, `conversations`, `messages` is scoped by `subject_id` / owner in the repository signature (the parameter is required, not optional).
 - SHOULD: avoid N+1 (use `selectinload`); paginate list endpoints that can grow.
-- Seed script creates a demo teacher, student, subject and sample chunks; it never runs automatically in production.
+- The seed (CLI) creates demo **users only** (one teacher and one student, no subjects, no chunks), as approved in change 2; it never runs automatically in production. Tests build documents and chunks with deterministic fixtures (`tests/catalog.py`, `tests/embeddings.py`), not with a seed.
+- `ChunkRepository.find_similar(actor, subject_id, query_embedding, top_k) -> list[ScoredChunk]` is the only way to read chunks:
+  - `actor` is a small immutable value (`SearchActor`: user id and role), not the ORM object.
+  - Authorization is part of the SQL statement: a student must be enrolled in the subject, a teacher must own it, and the role stored in `users` must match the branch (the declared `SearchActor.role` only selects it, so a false or stale role finds nothing). A non-authorized actor, an unknown subject or an unknown role gets an empty list, never an error, so the existence of a subject cannot be probed.
+  - Only chunks of documents in status `ready` are returned, ordered by cosine similarity (`<=>`, similarity = `1 - distance`) and then by chunk id, at most `top_k`. `ScoredChunk` carries chunk id, document id, document filename, chunk index, page number, content and similarity.
+  - The search is exact and filter-first; planner and pgvector settings are not changed in code (TD-022).
+  - Input is validated before any statement (`app/core/vector_validation.py`, reused by ingestion): `subject_id` and `actor.user_id` `uuid.UUID` values, exactly 384 finite numbers, Euclidean norm between `1e-6` and `1e6` measured on the single-precision values the database stores, with a relative margin of `1e-12` at both limits (so an accepted vector passes the CHECK `vector_norm(embedding) BETWEEN 1e-6 AND 1e6`; bind the vector the helper returns), `top_k` between 1 and 50. A violation raises `InvalidSearchInputError`, whose message never contains a value.
+  - Neither embeddings, chunk text nor SQL parameters are logged, and database error text (which carries the failing row) is never logged or returned: the engine uses `hide_parameters=True` and the error handlers log only the exception type.
+  - There is no unscoped read method, by design.
 
 ## 8. Security and Secrets
 
