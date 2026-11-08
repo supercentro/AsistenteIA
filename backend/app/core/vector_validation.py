@@ -36,12 +36,21 @@ def validate_embedding(embedding: Sequence[float]) -> list[float]:
         raise InvalidSearchInputError("the embedding has the wrong dimension")
     values: list[float] = []
     for item in embedding:
+        if len(values) >= EMBEDDING_DIMENSIONS:  # the declared length cannot be trusted alone
+            raise InvalidSearchInputError("the embedding has the wrong dimension")
         if isinstance(item, bool) or not isinstance(item, int | float):
             raise InvalidSearchInputError("the embedding must contain only real numbers")
-        number = float(item)
+        try:
+            number = float(item)
+        except OverflowError:  # an integer too large for a double
+            raise InvalidSearchInputError(
+                "the embedding must contain only finite numbers"
+            ) from None
         if not math.isfinite(number):
             raise InvalidSearchInputError("the embedding must contain only finite numbers")
         values.append(number)
+    if len(values) != EMBEDDING_DIMENSIONS:
+        raise InvalidSearchInputError("the embedding has the wrong dimension")
     norm = math.hypot(*values)  # overflow-safe, double precision
     if not (MIN_NORM <= norm <= MAX_NORM):
         raise InvalidSearchInputError("the embedding magnitude is outside the supported range")
