@@ -82,7 +82,7 @@ The reviewer also noticed ` M backend/app/core/database.py` in the working tree 
 - Detection: the catalog query in `docs/development_guide.md` (migrations section) lists any `document_status` type and its labels before the migration. Check made on the development database: the type exists with the labels `pending, processing, ready, failed`, in that order.
 
 ### F12, persistent backup of the pre-`0004` dump
-- Location: `%USERPROFILE%\Backups\AsistenteIAsistenteia_pre_0004.dump` (a folder in the user profile on a fixed local disk, outside the repository, outside every temporary directory and not synchronised with a cloud folder).
+- Location: `%USERPROFILE%\Backups\AsistenteIA\asistenteia_pre_0004.dump` (a folder in the user profile on a fixed local disk, outside the repository, outside every temporary directory and not synchronised with a cloud folder).
 - Permissions: inheritance removed; full control only for the current Windows user (checked with `icacls`).
 - Integrity: size 8,261 bytes at the source and the copy; SHA-256 identical (prefix `f1bf54e5dc15a567`, full hash `f1bf54e5dc15a567a186f06e5dd1831630c57e6d26915a6aeba19e914a1ebe97`); `pg_restore --list` reads the copy (the archive header and its 9 table and type entries). The earlier restore into an isolated database (group 8) used this same file content.
 - Contents: schema only (the development database held no application rows), no credentials.
