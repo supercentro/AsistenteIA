@@ -15,7 +15,9 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: api
     env_file:
       - ./backend/.env
     ports:
@@ -39,6 +41,25 @@ services:
         "--reload-dir",
         "/app/app",
       ]
+
+  # Ingestion worker (change 6). The `worker` profile keeps it out of a plain `docker compose up`
+  # until `python -m app.worker` exists (group 8 of the change removes the profile). Start it with
+  # `docker compose --profile worker up -d worker`. CPU and memory are the values validated by the
+  # spike; EMBEDDING_THREADS is left unset so inference follows the CPU quota below.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: ./backend
+      target: worker
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    cpus: 4
+    mem_limit: 2g
+    volumes:
+      - ./backend/app:/app/app
 
   frontend:
     build: ./frontend
