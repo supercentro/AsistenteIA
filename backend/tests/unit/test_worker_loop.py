@@ -3,6 +3,7 @@
 import logging
 import signal
 import threading
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,7 @@ DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 
 
 class FakeService:
-    def __init__(self, outcomes: list[Outcome | BaseException], stop: threading.Event) -> None:
+    def __init__(self, outcomes: Sequence[Outcome | BaseException], stop: threading.Event) -> None:
         self.outcomes = list(outcomes)
         self.stop = stop
         self.sweeps = 0
@@ -63,12 +64,12 @@ class Timeline:
 
 
 def make_loop(
-    outcomes: list[Outcome | BaseException], **kwargs: float
+    outcomes: Sequence[Outcome | BaseException], **kwargs: float
 ) -> tuple[WorkerLoop, FakeService, Timeline, threading.Event]:
     stop = threading.Event()
     service = FakeService(outcomes, stop)
     timeline = Timeline(stop)
-    loop = WorkerLoop(service, stop, clock=timeline.clock, wait=timeline.wait, **kwargs)  # type: ignore[arg-type]
+    loop = WorkerLoop(service, stop, clock=timeline.clock, wait=timeline.wait, **kwargs)
     return loop, service, timeline, stop
 
 
@@ -152,7 +153,7 @@ class TestResilienceAndStop:
 
         service = Service([], stop)
         timeline = Timeline(stop)
-        WorkerLoop(service, stop, clock=timeline.clock, wait=timeline.wait).run()  # type: ignore[arg-type]
+        WorkerLoop(service, stop, clock=timeline.clock, wait=timeline.wait).run()
 
         assert started == [1]
 
@@ -179,7 +180,9 @@ class TestResilienceAndStop:
             handler(signal.SIGTERM, None)
             assert stop.is_set()
             stop.clear()
-            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)  # type: ignore[operator]
+            interrupt = signal.getsignal(signal.SIGINT)
+            assert callable(interrupt)
+            interrupt(signal.SIGINT, None)
             assert stop.is_set()
         finally:
             restore()

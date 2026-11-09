@@ -15,10 +15,11 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 from app.core.database import create_db_engine, create_session_factory
+from app.rag.chunker import Page
 from app.rag.embedder import Embedder, FakeEmbedder
-from app.rag.loaders import Page
 from app.services.ingestion_service import IngestionLimits, IngestionService
 
 # About 700 words: nine chunks of roughly 100 words with the fake embedder.
@@ -92,6 +93,13 @@ def built_service(
         engine.dispose()
 
 
+def checked_out(engine: Engine) -> int:
+    """Connections of the engine's pool currently in use (0 when none is held)."""
+    pool = engine.pool
+    assert isinstance(pool, QueuePool)
+    return pool.checkedout()
+
+
 @dataclass(frozen=True)
 class Activity:
     """What the other sessions of the test database hold at one instant."""
@@ -99,6 +107,7 @@ class Activity:
     idle_in_transaction: int
     open_transactions: int
     locks: int
+    stuck_in_transaction: int  # idle in a transaction for more than one second
 
 
 def activity(url: str) -> Activity:
@@ -111,8 +120,11 @@ def activity(url: str) -> Activity:
                     "SELECT "
                     "count(*) FILTER (WHERE state LIKE 'idle in transaction%'), "
                     "count(*) FILTER (WHERE xact_start IS NOT NULL), "
+                    "count(*) FILTER (WHERE state LIKE 'idle in transaction%' "
+                    " AND now() - state_change > interval '1 second'), "
                     "(SELECT count(*) FROM pg_locks l WHERE l.pid <> pg_backend_pid() "
-                    " AND l.granted AND l.locktype IN ('relation','tuple','transactionid','advisory') "
+                    " AND l.granted "
+                    " AND l.locktype IN ('relation','tuple','transactionid','advisory') "
                     " AND l.pid IN (SELECT pid FROM pg_stat_activity "
                     "               WHERE datname = current_database())) "
                     "FROM pg_stat_activity "
@@ -122,7 +134,7 @@ def activity(url: str) -> Activity:
             ).one()
     finally:
         engine.dispose()
-    return Activity(int(row[0]), int(row[1]), int(row[2]))
+    return Activity(int(row[0]), int(row[1]), int(row[3]), int(row[2]))
 
 
 def capture_logs(caplog: object) -> None:

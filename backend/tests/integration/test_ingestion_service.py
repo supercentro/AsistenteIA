@@ -6,8 +6,9 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
+from app.rag.chunker import Page
 from app.rag.embedder import EmbeddingError, FakeEmbedder
-from app.rag.loaders import DocumentLoadError, Page, UnsupportedPlatformError
+from app.rag.loaders import DocumentLoadError, UnsupportedPlatformError
 from app.repositories.ingestion_job_repository import IngestionJobRepository
 from app.services.ingestion_service import Outcome
 from tests.ingestion_support import (
@@ -27,6 +28,7 @@ from tests.service_support import (
     activity,
     built_service,
     capture_logs,
+    checked_out,
     log_text,
 )
 from tests.sql_support import run, scalar
@@ -303,7 +305,6 @@ class TestFailures:
         interrupted_doc, interrupted_job = add_text(scene)
         expired_doc, expired_job = add_text(scene)
         run(scene.url, "UPDATE ingestion_jobs SET attempts = 3 WHERE id = :j", j=interrupted_job)
-        expire_lease(scene.url, interrupted_job)  # no lease at all also counts as free
         run(
             scene.url,
             "UPDATE ingestion_jobs SET created_at = now() - interval '48 hours' WHERE id = :j",
@@ -468,7 +469,8 @@ class TestRetries:
         assert outcome is Outcome.READY
         assert job_state(scene.url, job)["attempts"] == 2
         count = chunk_count(scene.url, document)
-        assert count == document_state(scene.url, document)["chunks_count"] > 1
+        assert count > 1
+        assert count == document_state(scene.url, document)["chunks_count"]
 
     def test_a_job_with_no_attempts_left_is_not_claimed_and_the_sweep_fails_it(
         self, scene: Scene
@@ -507,7 +509,7 @@ class TestNothingIsHeldWhileWorking:
                     seen.idle_in_transaction,
                     seen.open_transactions,
                     seen.locks,
-                    built.engine.pool.checkedout(),
+                    checked_out(built.engine),
                 )
             )
 
@@ -530,7 +532,7 @@ class TestNothingIsHeldWhileWorking:
                     seen.idle_in_transaction,
                     seen.open_transactions,
                     seen.locks,
-                    built.engine.pool.checkedout(),
+                    checked_out(built.engine),
                 )
             )
             return [Page(1, "page text")]

@@ -80,7 +80,7 @@ def worker_environment(url: str) -> dict[str, str]:
 @contextmanager
 def worker(url: str, script: str | None = None) -> Iterator[subprocess.Popen[bytes]]:
     command = [sys.executable, "-c", script] if script else [sys.executable, "-m", "app.worker"]
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # noqa: S603 - fixed command, no input from outside
         command,
         cwd=BACKEND,
         env=worker_environment(url),
@@ -134,7 +134,8 @@ def test_a_job_of_a_killed_worker_is_completed_by_another_without_duplicates(
 
     state = document_state(scene.url, document)
     count = chunk_count(scene.url, document)
-    assert count == state["chunks_count"] > 1
+    assert count > 1
+    assert count == state["chunks_count"]
     assert job_state(scene.url, job)["attempts"] == 2
     indexes = scalar(
         scene.url,

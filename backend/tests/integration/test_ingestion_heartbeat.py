@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from app.core.database import create_db_engine, create_session_factory
-from app.rag.loaders import Page
+from app.rag.chunker import Page
 from app.repositories.ingestion_job_repository import IngestionJobRepository
 from app.services.ingestion_service import Outcome
 from tests.ingestion_support import (
@@ -84,20 +84,22 @@ class TestHeartbeatKeepsTheLease:
             # Longer than the lease; the main thread is blocked and only the heartbeat renews.
             deadline = time.monotonic() + 4.5
             while time.monotonic() < deadline:
-                idle_samples.append(activity(scene.url).idle_in_transaction)
+                idle_samples.append(activity(scene.url).stuck_in_transaction)
                 time.sleep(0.25)
             return [Page(1, LONG_TEXT.decode())]
 
-        with Poller(scene.url) as poller:
-            with built_service(
+        with (
+            Poller(scene.url) as poller,
+            built_service(
                 scene.url,
                 sleeping(0.5),
                 pdf_loader=slow_pdf_child,
                 lease_seconds=LEASE,
                 deadline_seconds=60,
                 batch_size=2,
-            ) as built:
-                outcome = built.service.run_once()
+            ) as built,
+        ):
+            outcome = built.service.run_once()
 
         assert outcome is Outcome.READY
         assert poller.claims == []
@@ -113,7 +115,7 @@ class TestHeartbeatKeepsTheLease:
 
         def hook(call: int) -> None:
             for _ in range(5):
-                samples.append(activity(scene.url).idle_in_transaction)
+                samples.append(activity(scene.url).stuck_in_transaction)
                 time.sleep(0.25)
 
         with built_service(
