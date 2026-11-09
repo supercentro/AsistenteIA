@@ -66,6 +66,8 @@ select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 [tool.mypy]
 strict = true
 python_version = "3.12"
+# The worker and CI run on Linux; the PDF child uses POSIX-only calls (rlimit, killpg, signals).
+platform = "linux"
 plugins = ["pydantic.mypy"]
 files = ["app", "tests"]
 
