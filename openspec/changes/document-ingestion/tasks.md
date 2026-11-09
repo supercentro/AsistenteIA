@@ -31,9 +31,9 @@ All work happens in a temporary directory outside the repository and in disposab
 
 ## 3. Migration `0005` and Models (TDD)
 
-- [ ] 3.1 Write failing catalog-level tests (style of change 5): table `ingestion_jobs` (columns, types, nullability, unique `document_id`, foreign key with `ON DELETE CASCADE`, lease CHECK, attempts CHECK, partial index), `documents.error_code` and its CHECK, reversibility (upgrade, downgrade to `0004`, upgrade), `alembic check` clean, `0004` byte-identical to `main`; record the failing run
-- [ ] 3.2 Add models `IngestionJob` and the `error_code` column of `Document`, an enum of the failure catalogue with fixed messages, and Alembic migration `0005` with a working `downgrade`; verify the tests of 3.1 pass and the 712 existing tests still pass
-- [ ] 3.3 Cascade and integrity tests: deleting a document or a subject removes the job and its bytes; a second job for a document is rejected; a code on a non-failed document is rejected; existing rows keep their values after the upgrade
+- [x] 3.1 Write failing catalog-level tests (style of change 5): table `ingestion_jobs` (columns, types, nullability, unique `document_id`, foreign key with `ON DELETE CASCADE`, lease CHECK, attempts CHECK, partial index), `documents.error_code` and its CHECK, reversibility (upgrade, downgrade to `0004`, upgrade), `alembic check` clean, `0004` byte-identical to `main`; record the failing run
+- [x] 3.2 Add models `IngestionJob` and the `error_code` column of `Document`, an enum of the failure catalogue with fixed messages, and Alembic migration `0005` with a working `downgrade`; verify the tests of 3.1 pass and the 712 existing tests still pass
+- [x] 3.3 Cascade and integrity tests: deleting a document or a subject removes the job and its bytes; a second job for a document is rejected; a code on a non-failed document is rejected; existing rows keep their values after the upgrade
 
 ## 4. API Contract and Generated Types
 

@@ -20,3 +20,7 @@ Tests written first: `backend/tests/unit/test_ingestion_settings.py` (69 cases) 
 ### 2.2 and 2.3 Dependencies, lock, images and CI
 
 Configuration and build files with no unit-test surface; the evidence is the verification run recorded in `2026-11-08-group-2-dependencies-and-images.md`. **Deviation**: no failing-first test exists for these tasks, compensated by the checks listed there (the lock diff is additive, the lock holds no CUDA packages, the `api` image does not contain `torch`, `pypdf` or the model, the `worker` image loads the model offline as a non-root user and detects the container CPU quota, and the full suite passes).
+
+## Group 3: migration 0005 and models
+
+Failing-first runs, the passing runs and eight mutation checks of the migration are recorded in `2026-11-09-group-3-migration-0005.md`. Summary: the catalogue and integrity tests failed at collection (`ModuleNotFoundError: app.models.ingestion`), the catalog tests failed 8 of 12 before the migration, and every mutation of the migration (lease check, attempts check, uniqueness, cascade, error code check, partial index, downgrade, column width) was detected. Deviation: none.
