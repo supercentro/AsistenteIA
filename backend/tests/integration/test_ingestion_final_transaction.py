@@ -3,13 +3,13 @@
 import uuid
 
 import pytest
-from app.repositories.ingestion_job_repository import ClaimedJob, IngestionJobRepository
 from sqlalchemy import text
 
 from app.core.vector_validation import InvalidSearchInputError, validate_embedding
 from app.models.user import UserRole
 from app.rag.chunker import Chunk
 from app.repositories.chunk_repository import ChunkRepository, SearchActor
+from app.repositories.ingestion_job_repository import ClaimedJob, IngestionJobRepository
 from tests.ingestion_support import (
     Scene,
     chunk_count,

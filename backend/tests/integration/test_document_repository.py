@@ -10,17 +10,17 @@ import time
 import uuid
 
 import pytest
-from app.repositories.document_repository import (
-    ADMISSION_LOCK_KEY,
-    AdmissionLimits,
-    DocumentRepository,
-)
 from sqlalchemy import text
 
 from app.core.errors import (
     DocumentQuotaExceededError,
     IngestionQueueFullError,
     NotFoundError,
+)
+from app.repositories.document_repository import (
+    ADMISSION_LOCK_KEY,
+    AdmissionLimits,
+    DocumentRepository,
 )
 from tests.ingestion_support import (
     PDF_BYTES,
@@ -277,10 +277,12 @@ class TestListGetDelete:
 
         with session_for(scene.url) as session:
             listed = DocumentRepository(session).list_for_teacher(scene.subject, scene.teacher)
+            assert listed is not None
+            ids = [document.id for document in listed]
+            has_payload = hasattr(listed[0], "payload")
 
-        assert listed is not None
-        assert [document.id for document in listed] == [second, first]
-        assert not hasattr(listed[0], "payload")
+        assert ids == [second, first]
+        assert not has_payload
 
     def test_an_empty_subject_returns_an_empty_list(self, scene: Scene) -> None:
         with session_for(scene.url) as session:
@@ -293,8 +295,9 @@ class TestListGetDelete:
 
         with session_for(scene.url) as session:
             listed = DocumentRepository(session).list_for_teacher(scene.subject, scene.teacher)
+            ids = [d.id for d in listed] if listed is not None else None
 
-        assert listed is not None and [d.id for d in listed] == [mine]
+        assert ids == [mine]
 
     def test_another_teacher_an_unknown_subject_and_a_student_get_none(self, scene: Scene) -> None:
         insert_pending(scene.url, scene.subject)
@@ -428,12 +431,11 @@ class TestConcurrency:
         subjects = [add_subject(scene.url, scene.teacher, f"S{i}") for i in range(6)]
 
         for round_number in range(4):
-            outcomes = run_together(
-                18,
-                lambda i, r=round_number: upload(
-                    scene, subject=subjects[i % 6], filename=f"{r}-{i}.pdf"
-                ),
-            )
+
+            def work(i: int, r: int = round_number) -> uuid.UUID:
+                return upload(scene, subject=subjects[i % 6], filename=f"{r}-{i}.pdf")
+
+            outcomes = run_together(18, work)
 
             failures = [o for o in outcomes if isinstance(o, BaseException)]
             assert failures == [], [type(f).__name__ for f in failures]

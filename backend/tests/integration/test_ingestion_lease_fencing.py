@@ -9,11 +9,11 @@ import uuid
 from collections.abc import Callable
 
 import pytest
-from app.repositories.ingestion_job_repository import ClaimedJob, IngestionJobRepository
 from sqlalchemy import event, text
 
 from app.models.ingestion import DocumentErrorCode
 from app.rag.chunker import Chunk
+from app.repositories.ingestion_job_repository import ClaimedJob, IngestionJobRepository
 from tests.ingestion_support import (
     Scene,
     chunk_count,

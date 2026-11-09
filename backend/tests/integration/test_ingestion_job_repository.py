@@ -3,14 +3,14 @@
 import uuid
 
 import pytest
+from sqlalchemy import event, text
+
+from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
 from app.repositories.ingestion_job_repository import (
     ClaimedJob,
     IngestionJobRepository,
     SweepResult,
 )
-from sqlalchemy import event, text
-
-from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
 from tests.ingestion_support import (
     PDF_BYTES,
     Scene,
@@ -316,6 +316,27 @@ class TestSweep:
         sweep(scene.url)
 
         assert sweep(scene.url) == SweepResult(interrupted=0, expired=0, erased=0)
+
+    def test_a_processing_document_whose_bytes_are_gone_and_whose_lease_expired_is_failed(
+        self, scene: Scene
+    ) -> None:
+        document, job_id = insert_pending(scene.url, scene.subject)
+        job = claim(scene.url)
+        assert job is not None
+        with session_for(scene.url) as session:
+            IngestionJobRepository(session).erase_payload(job.job_id, job.token)
+            session.commit()
+        run(
+            scene.url,
+            "UPDATE ingestion_jobs SET locked_by = 'gone', "
+            "locked_until = clock_timestamp() - interval '5 seconds' WHERE id = :j",
+            j=job_id,
+        )
+
+        result = sweep(scene.url)
+
+        assert result.interrupted == 1
+        assert document_state(scene.url, document)["error_code"] == "PROCESSING_INTERRUPTED"
 
     def test_the_sweep_skips_rows_locked_by_another_transaction(self, scene: Scene) -> None:
         _, job_id = insert_pending(scene.url, scene.subject)
