@@ -1,5 +1,6 @@
 """`IngestionJobRepository`: claim, attempts, restart behaviour and sweep (change 6, task 7.2)."""
 
+import time
 import uuid
 
 import pytest
@@ -176,6 +177,104 @@ class TestClaim:
         assert claim(scene.url) is None
         assert document_state(scene.url, document)["status"] == "ready"
 
+    def test_an_orphaned_job_without_bytes_does_not_hide_a_valid_one(self, scene: Scene) -> None:
+        _, orphan = insert_pending(scene.url, scene.subject, payload=None, status="processing")
+        _, valid = insert_pending(scene.url, scene.subject)
+        run(
+            scene.url,
+            "UPDATE ingestion_jobs SET available_at = now() - interval '1 hour' WHERE id = :j",
+            j=orphan,
+        )
+
+        job = claim(scene.url)
+
+        assert job is not None and job.job_id == valid
+
+    def test_claim_does_not_wait_for_a_document_locked_by_another_session(
+        self, scene: Scene
+    ) -> None:
+        first_document, first_job = insert_pending(scene.url, scene.subject)
+        _, second_job = insert_pending(scene.url, scene.subject)
+        run(
+            scene.url,
+            "UPDATE ingestion_jobs SET available_at = now() - interval '1 hour' WHERE id = :j",
+            j=first_job,
+        )
+        with session_for(scene.url) as holder:
+            holder.execute(
+                text("SELECT id FROM documents WHERE id = :d FOR UPDATE"), {"d": first_document}
+            )
+            started = time.monotonic()
+
+            job = claim(scene.url)
+
+            elapsed = time.monotonic() - started
+            holder.rollback()
+        assert job is not None and job.job_id == second_job
+        assert elapsed < 5
+
+    def test_jobs_come_out_in_the_order_of_their_availability(self, scene: Scene) -> None:
+        jobs = [insert_pending(scene.url, scene.subject)[1] for _ in range(6)]
+        shuffled = [3, 0, 5, 1, 4, 2]
+        for position, job_id in zip(shuffled, jobs, strict=True):
+            run(
+                scene.url,
+                "UPDATE ingestion_jobs SET available_at = now() - make_interval(hours => :h) "
+                "WHERE id = :j",
+                h=10 - position,
+                j=job_id,
+            )
+        expected = [job for _, job in sorted(zip(shuffled, jobs, strict=True))]
+
+        claimed = [claim(scene.url) for _ in range(6)]
+
+        assert [job.job_id for job in claimed if job is not None] == expected
+
+    def test_an_exhausted_job_does_not_hide_a_claimable_one(self, scene: Scene) -> None:
+        _, exhausted = insert_pending(scene.url, scene.subject)
+        _, valid = insert_pending(scene.url, scene.subject)
+        run(
+            scene.url,
+            "UPDATE ingestion_jobs SET attempts = 3, "
+            "available_at = now() - interval '1 hour' WHERE id = :j",
+            j=exhausted,
+        )
+
+        job = claim(scene.url)
+
+        assert job is not None and job.job_id == valid
+
+    @pytest.mark.parametrize("case", ["leased", "exhausted"])
+    def test_the_update_refuses_a_job_that_stopped_being_claimable_after_it_was_chosen(
+        self, scene: Scene, case: str
+    ) -> None:
+        _, job_id = insert_pending(scene.url, scene.subject)
+        if case == "leased":
+            first = claim(scene.url)
+            assert first is not None
+            holder_token = first.token
+        else:
+            run(scene.url, "UPDATE ingestion_jobs SET attempts = 3 WHERE id = :j", j=job_id)
+            holder_token = None
+        before = job_state(scene.url, job_id)
+
+        def relax(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+            if statement.lstrip().startswith("SELECT d.id AS document_id"):
+                statement = statement.replace(
+                    "AND (j.locked_until IS NULL OR j.locked_until <= clock_timestamp())", ""
+                ).replace("AND j.attempts < %(max_attempts)s", "")
+            return statement, parameters
+
+        with session_for(scene.url) as session:
+            event.listen(session.get_bind(), "before_cursor_execute", relax, retval=True)
+            job = IngestionJobRepository(session).claim(LEASE, MAX_ATTEMPTS)
+            session.commit()
+
+        assert job is None  # the candidate was offered to the update, which refused it
+        after = job_state(scene.url, job_id)
+        assert after["attempts"] == before["attempts"]
+        assert after["locked_by"] == holder_token
+
 
 def run_scalar(url: str, sql: str) -> object:
     from tests.sql_support import scalar
@@ -337,6 +436,28 @@ class TestSweep:
 
         assert result.interrupted == 1
         assert document_state(scene.url, document)["error_code"] == "PROCESSING_INTERRUPTED"
+
+    def test_the_sweep_does_not_wait_for_a_document_locked_by_another_session(
+        self, scene: Scene
+    ) -> None:
+        locked_document, locked_job = insert_pending(scene.url, scene.subject)
+        free_document, free_job = insert_pending(scene.url, scene.subject)
+        for job_id in (locked_job, free_job):
+            age_job(scene.url, job_id, MAX_AGE_HOURS + 1)
+        with session_for(scene.url) as holder:
+            holder.execute(
+                text("SELECT id FROM documents WHERE id = :d FOR UPDATE"), {"d": locked_document}
+            )
+            started = time.monotonic()
+
+            result = sweep(scene.url)
+
+            elapsed = time.monotonic() - started
+            holder.rollback()
+        assert result.expired == 1
+        assert document_state(scene.url, free_document)["error_code"] == "JOB_EXPIRED"
+        assert document_state(scene.url, locked_document)["status"] == "pending"
+        assert elapsed < 5
 
     def test_the_sweep_skips_rows_locked_by_another_transaction(self, scene: Scene) -> None:
         _, job_id = insert_pending(scene.url, scene.subject)

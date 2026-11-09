@@ -3,7 +3,7 @@
 import uuid
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from app.core.vector_validation import InvalidSearchInputError, validate_embedding
 from app.models.user import UserRole
@@ -260,6 +260,33 @@ class TestAtomicity:
             )
 
         assert chunk_count(scene.url, document) == 0
+
+    @pytest.mark.parametrize(
+        ("items", "vectors"),
+        [
+            pytest.param([], [], id="no-chunks"),
+            pytest.param(chunks(3), [vector(0), vector(1)], id="fewer-embeddings"),
+            pytest.param(
+                [Chunk(index=1, page_number=1, text="x")], [vector(0)], id="indexes-from-one"
+            ),
+        ],
+    )
+    def test_invalid_input_is_refused_before_any_statement_runs(
+        self, scene: Scene, items: list[Chunk], vectors: list[list[float]]
+    ) -> None:
+        insert_pending(scene.url, scene.subject)
+        job = claim(scene.url)
+        statements: list[str] = []
+        with session_for(scene.url) as session:
+            event.listen(
+                session.get_bind(),
+                "before_cursor_execute",
+                lambda conn, cursor, statement, params, context, many: statements.append(statement),
+            )
+            with pytest.raises(ValueError):  # noqa: PT011
+                IngestionJobRepository(session).complete(job.job_id, job.token, items, vectors)
+
+        assert statements == []
 
 
 class TestRetriesAndStaleWorkers:
