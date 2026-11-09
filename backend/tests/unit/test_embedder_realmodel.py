@@ -9,9 +9,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from app.rag.embedder import LocalEmbedder
 
 from app.core.vector_validation import EMBEDDING_DIMENSIONS, validate_embedding
+from app.rag.embedder import LocalEmbedder
 
 pytestmark = pytest.mark.realmodel
 

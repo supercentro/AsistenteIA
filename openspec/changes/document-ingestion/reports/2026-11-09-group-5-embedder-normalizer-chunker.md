@@ -56,3 +56,6 @@ Run in the `asistenteia-worker` image (model baked in, hub offline, 4 CPUs, 2 GB
 
 ## Full run
 Backend suite on the isolated test database: **981 passed, 16 deselected (the `realmodel` tests), 1 xfailed** (the strict xfail of the real-application contract test), 2 warnings, 162 s; 846 before this group plus 135 new passing tests. Coverage of `app`: **98 %**; `rag/normalizer.py` 100 %, `rag/embedder.py` 99 %, `rag/chunker.py` 98 % (one unreachable defensive line each in `embedder` and `chunker`). `asistenteia_test` has no tables afterwards; the development database `asistenteia` is still at revision `0004`.
+
+## CI incident after the first push (`85cdaa7`)
+The `backend` job failed at the lint step: three test files (`test_chunker.py`, `test_chunker_realmodel.py`, `test_embedder_realmodel.py`) had an import block that `ruff` (rule `I001`) wanted sorted differently. Locally `ruff check` had passed because its cache held the result from before `app.rag.*` existed (the first-party classification of those imports changed once the modules were created); `ruff check --no-cache` reproduced the failure. Fixed with `ruff check --fix` (import order only) and a new commit; every later local gate uses `--no-cache`. No behaviour changed.

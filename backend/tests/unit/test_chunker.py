@@ -5,6 +5,7 @@ tokenizer is exercised by `test_chunker_realmodel.py` (marker `realmodel`).
 """
 
 import pytest
+
 from app.rag.chunker import (
     Chunk,
     ChunkTooLongError,

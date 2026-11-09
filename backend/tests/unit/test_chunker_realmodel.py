@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
 from app.rag.chunker import Page, chunk_pages
 from app.rag.embedder import LocalEmbedder
 
