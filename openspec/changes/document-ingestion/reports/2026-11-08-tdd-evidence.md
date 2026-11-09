@@ -32,3 +32,6 @@ Failing-first runs (the previous contract: 11 failed, 3 passed, 1 xfailed; the r
 ## Group 5: embedder, normaliser and chunker
 
 Failing-first runs (three collection errors), the passing runs (134 unit tests and 16 real-model tests in the worker image) and 25 mutation checks are in `2026-11-09-group-5-embedder-normalizer-chunker.md`. Deviation: none; the tests were committed before the modules, and the weak assertions found by the mutations were strengthened.
+
+## Group 6 (loaders and isolated PDF child)
+Failing run before the code: 4 collection errors, `ModuleNotFoundError: No module named 'app.rag.loaders'` (commit `71d24ef`). After: 195 passed, 1 skipped in the Linux worker image. 56 mutations, four first-pass survivors resolved (two by new tests, one by removing a redundant branch, one accepted as equivalent). Details: `2026-11-09-group-6-loaders-and-pdf-child.md`.
