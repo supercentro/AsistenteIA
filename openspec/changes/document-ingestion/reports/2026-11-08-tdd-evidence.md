@@ -35,3 +35,6 @@ Failing-first runs (three collection errors), the passing runs (134 unit tests a
 
 ## Group 6 (loaders and isolated PDF child)
 Failing run before the code: 4 collection errors, `ModuleNotFoundError: No module named 'app.rag.loaders'` (commit `71d24ef`). After: 195 passed, 1 skipped in the Linux worker image. 56 mutations, four first-pass survivors resolved (two by new tests, one by removing a redundant branch, one accepted as equivalent). Details: `2026-11-09-group-6-loaders-and-pdf-child.md`.
+
+## Group 7 (repositories and queue)
+Failing run before the code: 4 collection errors, `ModuleNotFoundError: No module named 'app.repositories.ingestion_job_repository'` (commit `8723900`). After: 139 passed against PostgreSQL with real concurrency. About 50 mutations; 15 first-pass survivors closed by new tests, the single-check fence redundancy accepted as equivalent. Details: `2026-11-10-group-7-repositories-and-queue.md`.
