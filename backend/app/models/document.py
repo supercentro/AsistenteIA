@@ -44,6 +44,11 @@ class Document(Base):
         UniqueConstraint("id", "subject_id"),
         CheckConstraint("size_bytes >= 0", name="size_bytes_non_negative"),
         CheckConstraint("chunks_count >= 0", name="chunks_count_non_negative"),
+        # A failure code belongs to a failed document only. The reverse ("a failed document has a
+        # code") is the service rule, so fixtures that insert failed rows without one still work.
+        CheckConstraint(
+            "error_code IS NULL OR status = 'failed'", name="error_code_only_when_failed"
+        ),
         Index(None, "subject_id"),
     )
 
@@ -66,6 +71,8 @@ class Document(Base):
         server_default=DocumentStatus.PENDING.value,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # One value of `DocumentErrorCode` (app.models.ingestion); the catalogue lives in code.
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
     chunks_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
