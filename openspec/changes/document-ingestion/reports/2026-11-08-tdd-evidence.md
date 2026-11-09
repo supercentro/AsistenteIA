@@ -28,3 +28,7 @@ Failing-first runs, the passing runs and eight mutation checks of the migration 
 ## Group 4: API contract and generated types
 
 Failing-first runs (the previous contract: 11 failed, 3 passed, 1 xfailed; the real application without the xfail marker: failed on the missing document routes; the stale generated types: `check:api-types` failed), the passing run (14 passed, 1 xfailed) and seven mutations (all detected) are in `2026-11-09-group-4-api-contract.md`. Deviation: the comparison against the real application is `xfail(strict=True)` until group 9, where the routes exist.
+
+## Group 5: embedder, normaliser and chunker
+
+Failing-first runs (three collection errors), the passing runs (134 unit tests and 16 real-model tests in the worker image) and 25 mutation checks are in `2026-11-09-group-5-embedder-normalizer-chunker.md`. Deviation: none; the tests were committed before the modules, and the weak assertions found by the mutations were strengthened.
