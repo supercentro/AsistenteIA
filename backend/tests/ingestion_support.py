@@ -55,16 +55,18 @@ def insert_pending(
     payload: bytes | None = PDF_BYTES,
     status: str = "pending",
     filename: str = "file.pdf",
+    content_type: str = "application/pdf",
 ) -> tuple[uuid.UUID, uuid.UUID]:
     """A document with its job (document id, job id), inserted by SQL."""
     document, job = uuid.uuid4(), uuid.uuid4()
     run(
         url,
         "INSERT INTO documents (id, subject_id, filename, content_type, size_bytes, status) "
-        "VALUES (:d, :s, :f, 'application/pdf', :n, CAST(:status AS document_status))",
+        "VALUES (:d, :s, :f, :ct, :n, CAST(:status AS document_status))",
         d=document,
         s=subject,
         f=filename,
+        ct=content_type,
         n=len(payload or b""),
         status=status,
     )
