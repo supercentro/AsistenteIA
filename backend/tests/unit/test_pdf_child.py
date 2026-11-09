@@ -68,10 +68,14 @@ class TestTextExtraction:
         assert load_pdf(pdf, LIMITS) == [Page(1, "uno"), Page(3, "tres")]
 
     def test_a_scan_without_text_has_no_extractable_text(self) -> None:
-        assert failure(pdf_support.pdf_without_text(3)).code is DocumentErrorCode.NO_EXTRACTABLE_TEXT
+        assert (
+            failure(pdf_support.pdf_without_text(3)).code is DocumentErrorCode.NO_EXTRACTABLE_TEXT
+        )
 
     def test_a_pdf_without_pages_has_no_extractable_text(self) -> None:
-        assert failure(pdf_support.pdf_from_streams([])).code is DocumentErrorCode.NO_EXTRACTABLE_TEXT
+        assert (
+            failure(pdf_support.pdf_from_streams([])).code is DocumentErrorCode.NO_EXTRACTABLE_TEXT
+        )
 
     def test_each_call_uses_a_fresh_process(self) -> None:
         pdf = pdf_support.pdf_with_pages(["hola"])
@@ -288,7 +292,9 @@ class TestSelfAppliedLimits:
 
     def test_cpu_time_has_a_soft_limit_that_ends_the_process(self, tmp_path: Path) -> None:
         applied = _applied_limits(tmp_path, 300, 7)
-        soft, hard = applied["RLIMIT_CPU"]  # type: ignore[misc]
+        limit = applied["RLIMIT_CPU"]
+        assert isinstance(limit, list)
+        soft, hard = limit
 
         assert soft == 7
         assert hard > soft  # the soft limit sends SIGXCPU before the hard limit sends SIGKILL

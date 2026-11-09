@@ -41,8 +41,8 @@ def failure(limit: PdfLimits = LIMITS) -> DocumentLoadError:
 
 def test_pdfs_are_not_parsed_outside_linux(monkeypatch: pytest.MonkeyPatch) -> None:
     started: list[object] = []
-    monkeypatch.setattr(loaders.sys, "platform", "win32")
-    monkeypatch.setattr(loaders.subprocess, "Popen", lambda *a, **k: started.append(a))
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: started.append(a))
 
     with pytest.raises(UnsupportedPlatformError):
         load_pdf(b"%PDF-1.4", LIMITS)
@@ -131,7 +131,7 @@ class TestProtocol:
         [
             pytest.param([PAGE_ONE], id="no-end-marker"),
             pytest.param(["not json", END], id="not-json"),
-            pytest.param(['[1, 2]', END], id="not-an-object"),
+            pytest.param(["[1, 2]", END], id="not-an-object"),
             pytest.param(['{"page": "1", "text": "a"}', END], id="page-is-a-string"),
             pytest.param(['{"page": 0, "text": "a"}', END], id="page-zero"),
             pytest.param(['{"page": true, "text": "a"}', END], id="page-is-a-boolean"),
@@ -196,24 +196,25 @@ class TestExitStatus:
     @pytest.mark.parametrize(
         ("kill_with", "expected"),
         [
-            (signal.SIGXCPU, DocumentErrorCode.PROCESSING_TIMEOUT),
-            (signal.SIGKILL, DocumentErrorCode.RESOURCE_LIMIT_EXCEEDED),
-            (signal.SIGSEGV, DocumentErrorCode.PROCESSING_FAILED),
-            (signal.SIGABRT, DocumentErrorCode.PROCESSING_FAILED),
+            ("SIGXCPU", DocumentErrorCode.PROCESSING_TIMEOUT),
+            ("SIGKILL", DocumentErrorCode.RESOURCE_LIMIT_EXCEEDED),
+            ("SIGSEGV", DocumentErrorCode.PROCESSING_FAILED),
+            ("SIGABRT", DocumentErrorCode.PROCESSING_FAILED),
         ],
     )
     def test_a_child_ended_by_a_signal_is_mapped(
         self,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
-        kill_with: signal.Signals,
+        kill_with: str,
         expected: DocumentErrorCode,
     ) -> None:
+        number = int(signal.Signals[kill_with])
         install(
             monkeypatch,
             tmp_path,
-            f"signal.signal({int(kill_with)}, signal.SIG_DFL)\n"
-            f"os.kill(os.getpid(), {int(kill_with)})\ntime.sleep(5)\n",
+            f"try:\n    signal.signal({number}, signal.SIG_DFL)\nexcept OSError:\n    pass\n"
+            f"os.kill(os.getpid(), {number})\ntime.sleep(5)\n",
         )
 
         assert failure().code is expected
@@ -329,7 +330,7 @@ class TestProcessHandling:
             seen["process"] = real(*args, **kwargs)
             return seen["process"]
 
-        monkeypatch.setattr(loaders.subprocess, "Popen", spy)
+        monkeypatch.setattr(subprocess, "Popen", spy)
         return seen
 
     def test_the_child_is_started_isolated_with_discarded_stderr(

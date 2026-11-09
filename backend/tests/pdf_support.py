@@ -77,7 +77,8 @@ def pdf_from_streams(
         page = page_numbers[index]
         objects[page] = (
             b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            b"/Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R %s >>" % (page + 1, page_extra)
+            b"/Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R %s >>"
+            % (page + 1, page_extra)
         )
         objects[page + 1] = stream_object(data, extra=stream_extra)
     return assemble(objects)
@@ -161,7 +162,9 @@ def pdf_with_bad_jpeg() -> bytes:
         4: b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
         b"/Resources << /Font << /F1 3 0 R >> /XObject << /Im1 5 0 R >> >> /Contents 6 0 R >>",
         5: stream_object(
-            b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xc0\x00\x0b\x08\xff\xff\xff\xff\x01\x01\x11\x00",
+            b"\xff\xd8\xff\xe0"
+            + b"\x00" * 64
+            + b"\xff\xc0\x00\x0b\x08\xff\xff\xff\xff\x01\x01\x11\x00",
             extra=b"/Type /XObject /Subtype /Image /Width 65535 /Height 65535 "
             b"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode",
         ),
@@ -216,6 +219,8 @@ def pdf_with_metadata(marker: str, text: str) -> bytes:
         5: stream_object(text_stream([text])),
         6: b"<< /Title (" + _escape(marker) + b") /Author (" + _escape(marker) + b") >>",
         7: b"<< /Type /Outlines /Count 0 /Title (" + _escape(marker) + b") >>",
-        8: b"<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (" + _escape(marker) + b") >>",
+        8: b"<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents ("
+        + _escape(marker)
+        + b") >>",
     }
     return assemble(objects, trailer_extra=b"/Info 6 0 R")
