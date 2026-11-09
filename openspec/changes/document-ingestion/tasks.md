@@ -4,9 +4,9 @@ Reports required by `docs/openspec-tasks-mandatory-steps.md` are saved in `opens
 
 ## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
 
-- [ ] 0.1 Verify the current branch is `feature/document-ingestion`, created from `main` at `3960132` during planning, and that it contains only OpenSpec planning files (`git branch --show-current`, `git diff --stat main...HEAD`)
-- [ ] 0.2 Confirm `main` is the published one (`git merge-base --is-ancestor 3960132 HEAD`), the stack is up (`docker compose up -d db`), `uv run pytest -q` is green (712 tests expected) and record the baseline of `asistenteia` and `asistenteia_test` (revision `0004`, tables, row counts, extension version) in `reports/YYYY-MM-DD-group-0-baseline.md`
-- [ ] 0.3 Create `reports/YYYY-MM-DD-user-prompts-verbatim.md` now and extend it at every group: literal user prompts copied mechanically from the session transcript with timestamps and line numbers (no reconstruction), apart from summaries; also `reports/YYYY-MM-DD-ai-usage-notes.md` with decisions and AI findings. Verify: the record exists before group 1 starts and A1..An match the transcript
+- [x] 0.1 Verify the current branch is `feature/document-ingestion`, created from `main` at `3960132` during planning, and that it contains only OpenSpec planning files (`git branch --show-current`, `git diff --stat main...HEAD`)
+- [x] 0.2 Confirm `main` is the published one (`git merge-base --is-ancestor 3960132 HEAD`), the stack is up (`docker compose up -d db`), `uv run pytest -q` is green (712 tests expected) and record the baseline of `asistenteia` and `asistenteia_test` (revision `0004`, tables, row counts, extension version) in `reports/YYYY-MM-DD-group-0-baseline.md`
+- [x] 0.3 Create `reports/YYYY-MM-DD-user-prompts-verbatim.md` now and extend it at every group: literal user prompts copied mechanically from the session transcript with timestamps and line numbers (no reconstruction), apart from summaries; also `reports/YYYY-MM-DD-ai-usage-notes.md` with decisions and AI findings. Verify: the record exists before group 1 starts and A1..An match the transcript
 
 ## 1. Isolated Spike (GATE; executed and approved on 2026-11-08; results integrated by `/opsx:update`)
 
