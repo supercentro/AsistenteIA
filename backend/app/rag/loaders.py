@@ -185,7 +185,6 @@ def _exit_error(returncode: int) -> DocumentLoadError | None:
             return _fail(DocumentErrorCode.PROCESSING_TIMEOUT)
         if -returncode == signal.SIGKILL:
             return _fail(DocumentErrorCode.RESOURCE_LIMIT_EXCEEDED)
-        return _fail(DocumentErrorCode.PROCESSING_FAILED)
     return None
 
 
@@ -259,7 +258,9 @@ def load_pdf(payload: bytes, limits: PdfLimits) -> list[Page]:
         start_new_session=True,
     )
     assert process.stdin is not None  # noqa: S101 - created with stdin=PIPE
-    feeder = threading.Thread(target=_feed, args=(process.stdin, payload), daemon=True)
+    feeder = threading.Thread(
+        target=_feed, args=(process.stdin, payload), name="pdf-input-feeder", daemon=True
+    )
     feeder.start()
     try:
         output = _collect(process, deadline, limits.max_output_bytes)
