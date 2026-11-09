@@ -24,3 +24,7 @@ Configuration and build files with no unit-test surface; the evidence is the ver
 ## Group 3: migration 0005 and models
 
 Failing-first runs, the passing runs and eight mutation checks of the migration are recorded in `2026-11-09-group-3-migration-0005.md`. Summary: the catalogue and integrity tests failed at collection (`ModuleNotFoundError: app.models.ingestion`), the catalog tests failed 8 of 12 before the migration, and every mutation of the migration (lease check, attempts check, uniqueness, cascade, error code check, partial index, downgrade, column width) was detected. Deviation: none.
+
+## Group 4: API contract and generated types
+
+Failing-first runs (the previous contract: 11 failed, 3 passed, 1 xfailed; the real application without the xfail marker: failed on the missing document routes; the stale generated types: `check:api-types` failed), the passing run (14 passed, 1 xfailed) and seven mutations (all detected) are in `2026-11-09-group-4-api-contract.md`. Deviation: the comparison against the real application is `xfail(strict=True)` until group 9, where the routes exist.
