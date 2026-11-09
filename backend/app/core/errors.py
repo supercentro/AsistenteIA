@@ -60,3 +60,26 @@ class RateLimitedError(AppError):
 class ServiceUnavailableError(AppError):
     status_code = 503
     code = "SERVICE_UNAVAILABLE"
+
+
+class DocumentQuotaExceededError(AppError):
+    """The subject already holds the maximum number of documents (change 6)."""
+
+    status_code = 409
+    code = "DOCUMENT_QUOTA_EXCEEDED"
+
+    def __init__(self) -> None:
+        super().__init__("The subject has reached the maximum number of documents")
+
+
+class IngestionQueueFullError(AppError):
+    """The ingestion queue is full by count or by pending bytes (change 6)."""
+
+    status_code = 503
+    code = "INGESTION_QUEUE_FULL"
+
+    def __init__(self, retry_after_seconds: int = 30) -> None:
+        super().__init__(
+            "The service cannot accept more documents right now",
+            headers={"Retry-After": str(max(1, retry_after_seconds))},
+        )
