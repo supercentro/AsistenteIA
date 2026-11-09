@@ -20,6 +20,21 @@ The embedder SHALL use the local `paraphrase-multilingual-MiniLM-L12-v2` model o
 - **WHEN** the same text is embedded twice
 - **THEN** the two vectors are equal within the numeric tolerance of the model
 
+### Requirement: Inference uses the CPU quota of the container
+The embedder SHALL set the number of inference threads from `EMBEDDING_THREADS`, whose default is the effective CPU quota of the process (never below 1) and which an explicit value overrides, before the first inference, so that a limited container is not oversubscribed.
+
+#### Scenario: Quota default
+- **WHEN** no explicit value is configured and the container is limited to N CPUs
+- **THEN** the inference uses N threads
+
+#### Scenario: Explicit value
+- **WHEN** `EMBEDDING_THREADS` is set
+- **THEN** that value is used, and zero or negative values are rejected at start
+
+#### Scenario: Set before use
+- **WHEN** the worker starts
+- **THEN** the thread count is applied before the probe embedding and before any job is claimed
+
 ### Requirement: The model is pinned and reproducible
 The model SHALL be obtained from a fixed revision and verified by file hashes, so that fetching it again yields identical files, and the worker SHALL run with the model hub offline.
 

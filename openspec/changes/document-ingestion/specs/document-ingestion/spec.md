@@ -36,12 +36,20 @@ Pending jobs SHALL be claimed with a time-limited lease so that two workers cann
 - **THEN** the third worker does not claim it while the second holds a valid lease
 
 #### Scenario: Stale worker cannot mark failure
-- **WHEN** a worker that lost its lease tries to mark the document `failed`, renew the lease or erase the bytes
+- **WHEN** a worker that lost its lease tries to mark the document `failed`, change its status, store chunks, renew the lease or erase the bytes
 - **THEN** nothing changes
 
 #### Scenario: Long job
-- **WHEN** a worker is making progress on a long document
-- **THEN** it renews its lease and keeps the job
+- **WHEN** a worker is making progress on a document whose processing lasts longer than one lease period
+- **THEN** it renews its lease periodically, without holding a transaction open, and keeps the job until it finishes
+
+#### Scenario: Late renewal
+- **WHEN** a renewal arrives after the lease expired or after another worker claimed the job
+- **THEN** it changes nothing, the lease is not revived and the worker stops without writing results
+
+#### Scenario: Deadline
+- **WHEN** an attempt runs past the job deadline
+- **THEN** its lease is no longer renewed and the document fails with `PROCESSING_TIMEOUT`
 
 ### Requirement: Work survives restarts and crashes
 A job whose worker stopped SHALL become claimable again when its lease expires. Each claim counts as an attempt; after `INGESTION_MAX_ATTEMPTS` (3) the document MUST end `failed` with code `PROCESSING_INTERRUPTED`, so a file that crashes the worker cannot loop forever.
@@ -99,8 +107,16 @@ While a file is parsed or embedded the worker SHALL hold no open transaction, no
 PDF parsing SHALL run in a separate short-lived process with a wall-clock timeout, a CPU limit and a memory limit, receiving the bytes by pipe and returning only bounded text, so that a hostile file cannot stall or exhaust the worker. Parser output other than extracted text MUST be discarded.
 
 #### Scenario: Parser exceeds a limit
-- **WHEN** the parsing process exceeds its time or memory limit
-- **THEN** it is killed and the document fails with `PROCESSING_TIMEOUT` or `RESOURCE_LIMIT_EXCEEDED` and the worker keeps running
+- **WHEN** the parsing process exceeds its wall-clock, CPU or memory limit, or its output cap
+- **THEN** it is killed and the document fails with `PROCESSING_TIMEOUT` (time or CPU) or `RESOURCE_LIMIT_EXCEEDED` (memory or output) and the worker keeps running
+
+#### Scenario: Small file, huge page
+- **WHEN** a small PDF holds a page that needs far more CPU than the limit
+- **THEN** the CPU limit stops the parsing process and the document fails with `PROCESSING_TIMEOUT`
+
+#### Scenario: Not parsed in the HTTP process
+- **WHEN** any PDF is processed
+- **THEN** it is parsed only in the isolated child of the worker, never in the API process
 
 #### Scenario: Too many pages
 - **WHEN** a PDF has more than `MAX_PDF_PAGES` (300) pages
@@ -196,6 +212,10 @@ The uploaded bytes SHALL be erased when the document becomes `ready` or `failed`
 #### Scenario: Leftover bytes
 - **WHEN** a job has bytes but its document is already terminal
 - **THEN** the cleanup erases the bytes
+
+#### Scenario: Cleanup is light
+- **WHEN** the cleanup runs
+- **THEN** it uses ordinary short statements and never rewrites the table or takes an exclusive table lock; reclaiming the file space of erased bytes is left to autovacuum or to approved manual maintenance
 
 ### Requirement: Failures use a closed catalogue of codes
 A failed document SHALL carry exactly one code from: `NO_EXTRACTABLE_TEXT`, `ENCRYPTED_PDF`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `TEXT_TOO_LARGE`, `TOO_MANY_CHUNKS`, `PROCESSING_TIMEOUT`, `RESOURCE_LIMIT_EXCEEDED`, `EMBEDDING_FAILED`, `PROCESSING_INTERRUPTED`, `JOB_EXPIRED`, `PROCESSING_FAILED`; and a fixed message per code that never includes parser, database or system text.

@@ -50,17 +50,27 @@ Defines how a teacher uploads, lists and deletes the course material of a subjec
 ### Requirement: Exactly one non-empty file is accepted
 The multipart request SHALL contain exactly one part named `file` with at least one byte. Anything else MUST be rejected with `422` before the file is processed.
 
+Each rejection SHALL be a controlled `422` whose `details.reason` is a fixed value (`MALFORMED_MULTIPART`, `FILE_PART_MISSING`, `UNEXPECTED_FIELDS`, `EMPTY_FILE` or `INVALID_FILENAME`), never the parser's default `400` and never parser text.
+
 #### Scenario: Missing part
 - **WHEN** the request has no `file` part
-- **THEN** the response is `422`
+- **THEN** the response is `422` with reason `FILE_PART_MISSING`
 
 #### Scenario: Several files
 - **WHEN** the request carries two or more file parts
-- **THEN** the response is `422` and nothing is stored
+- **THEN** the response is `422` with reason `UNEXPECTED_FIELDS` and nothing is stored
+
+#### Scenario: Unexpected form fields
+- **WHEN** the request carries fields other than `file`
+- **THEN** the response is `422` with reason `UNEXPECTED_FIELDS` and nothing is stored
+
+#### Scenario: Malformed multipart
+- **WHEN** the multipart structure is invalid or exceeds the limits of parts, fields or headers
+- **THEN** the response is `422` with reason `MALFORMED_MULTIPART` and nothing is stored
 
 #### Scenario: Empty file
 - **WHEN** the file has zero bytes
-- **THEN** the response is `422`
+- **THEN** the response is `422` with reason `EMPTY_FILE`
 
 ### Requirement: The filename is cleaned before it is stored
 The stored filename SHALL be the last path component of the client name, without control, line-separator or bidirectional characters, at most 255 characters, and never used as a filesystem path. A name that is empty after cleaning MUST be rejected with `422`.
@@ -75,7 +85,7 @@ The stored filename SHALL be the last path component of the client name, without
 
 #### Scenario: Too long
 - **WHEN** the cleaned name exceeds 255 characters
-- **THEN** the response is `422`
+- **THEN** the response is `422` with reason `INVALID_FILENAME`
 
 ### Requirement: The file type is decided from the content
 The upload SHALL be accepted only when the extension is `.pdf`, `.txt` or `.md` and the content agrees with it: a PDF signature for `.pdf`, and valid UTF-8 without NUL bytes for `.txt` and `.md`. The client `Content-Type` MUST be ignored. Otherwise the response is `415`.
@@ -101,7 +111,7 @@ The upload SHALL be accepted only when the extension is `.pdf`, `.txt` or `.md` 
 - **THEN** the response is `415`
 
 ### Requirement: The size limit is enforced while the body is read
-Uploads larger than `MAX_UPLOAD_MB` (10 MB by default) SHALL be rejected with `413` as soon as the bytes actually received exceed the limit, whatever `Content-Length` says or whether it is present, without reading or keeping the rest of the body. The stored size is the number of bytes received.
+Uploads larger than `MAX_UPLOAD_MB` (10 MB by default) SHALL be rejected with `413` (a different answer from a malformed request or a missing file) as soon as the bytes actually received exceed the limit, whatever `Content-Length` says or whether it is present, without reading or keeping the rest of the body. The stored size is the number of bytes received.
 
 #### Scenario: Declared size too large
 - **WHEN** `Content-Length` already exceeds the limit
@@ -158,15 +168,19 @@ Uploads SHALL be rate limited per client address (`429` with `Retry-After`), and
 - **THEN** the number of unfinished jobs and their total size never exceed the limits
 
 ### Requirement: A stalled upload is abandoned without side effects
-The service SHALL stop reading an upload body not completed within `UPLOAD_BODY_TIMEOUT_SECONDS` (60 by default), store nothing and release its resources, and SHALL refuse with the same `503` as a full queue when more than `UPLOAD_MAX_IN_FLIGHT` uploads are being received. A slow client MUST NOT hold a database connection while its body is read.
+The service SHALL stop reading an upload body not completed within `UPLOAD_BODY_TIMEOUT_SECONDS` (120 by default) or that makes no progress for `UPLOAD_BODY_IDLE_SECONDS` (20 by default), both configurable, store nothing and release its resources, and SHALL refuse with the same `503` as a full queue when more than `UPLOAD_MAX_IN_FLIGHT` uploads are being received. A slow client MUST NOT hold a database connection while its body is read.
 
 #### Scenario: Slow client that stays connected
 - **WHEN** a client keeps the connection open but sends the body too slowly to finish in time
-- **THEN** the body is abandoned, nothing is stored and the temporary data is released; the response is `408` only if the verification with a real server confirmed that the server emits it, otherwise the connection is closed
+- **THEN** the body is abandoned, nothing is stored, the temporary data is released and the client receives `408` with code `REQUEST_TIMEOUT`, whether it stays idle or sends the body too slowly
+
+#### Scenario: Idle client
+- **WHEN** a connected client sends no byte for longer than the idle limit
+- **THEN** it receives `408` after about that limit, even if the total deadline has not been reached
 
 #### Scenario: Client that disconnects
 - **WHEN** the client closes the connection while the body is being sent
-- **THEN** no response is expected, and nothing is stored or left behind
+- **THEN** no response is promised or attempted beyond what the transport allows, nothing is stored or left behind, and no error trace is logged for the disconnect
 
 #### Scenario: Too many uploads at once
 - **WHEN** more uploads than the in-flight limit arrive at the same time
@@ -218,7 +232,7 @@ Error responses and logs of these endpoints SHALL contain only fixed messages, s
 - **THEN** the response is the generic error and the log records only the exception type, the method and the path
 
 ### Requirement: The contract change is additive and published
-`docs/api-spec.yml` SHALL describe the new responses (`401`, `409`, `422`, `429`, `503`), the `error_code` field and the `required` fields of `Document`, without removing or renaming anything, and the generated frontend types SHALL be regenerated. `408` MUST appear only if it was verified against a real server.
+`docs/api-spec.yml` SHALL describe the new responses (`401`, `408` for clients that stay connected, `409`, `422` with its fixed reasons, `429`, `503`), the `error_code` field and the `required` fields of `Document`, without removing or renaming anything, and the generated frontend types SHALL be regenerated. The `408` behaviour was verified against a real server and MUST be covered by a real-server test.
 
 #### Scenario: Contract check
 - **WHEN** the type generation check runs against the updated contract
