@@ -42,12 +42,10 @@ services:
         "/app/app",
       ]
 
-  # Ingestion worker (change 6). The `worker` profile keeps it out of a plain `docker compose up`
-  # until `python -m app.worker` exists (group 8 of the change removes the profile). Start it with
-  # `docker compose --profile worker up -d worker`. CPU and memory are the values validated by the
-  # spike; EMBEDDING_THREADS is left unset so inference follows the CPU quota below.
+  # Ingestion worker (change 6): `python -m app.worker`, a process separate from the API. A plain
+  # `docker compose up` starts it. CPU and memory are the values validated by the spike;
+  # EMBEDDING_THREADS is left unset so inference follows the CPU quota below.
   worker:
-    profiles: ["worker"]
     build:
       context: ./backend
       target: worker
