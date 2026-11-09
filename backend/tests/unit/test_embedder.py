@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from app.core import config as config_module
+from app.core.config import Settings
+from app.core.vector_validation import EMBEDDING_DIMENSIONS, validate_embedding
+from app.rag import embedder as embedder_module
 from app.rag.embedder import (
     PROBE_TEXT,
     Embedder,
@@ -25,11 +30,6 @@ from app.rag.embedder import (
     build_embedder,
     startup_check,
 )
-
-from app.core import config as config_module
-from app.core.config import Settings
-from app.core.vector_validation import EMBEDDING_DIMENSIONS, validate_embedding
-from app.rag import embedder as embedder_module
 from tests.constants import TEST_JWT_SECRET
 
 SECRET = "TEXTO-CONFIDENCIAL-12345"
@@ -52,6 +52,7 @@ class FakeSentenceModel:
 
     events: list[Any] = []
     dimension: int = EMBEDDING_DIMENSIONS
+    reported_dimension: int | None = None  # what the model claims, when it differs from reality
     max_seq_length: int = 128
     vector: list[float] | None = None
     encode_error: Exception | None = None
@@ -65,7 +66,8 @@ class FakeSentenceModel:
         self.max_seq_length = FakeSentenceModel.max_seq_length
 
     def get_sentence_embedding_dimension(self) -> int:
-        return FakeSentenceModel.dimension
+        reported = FakeSentenceModel.reported_dimension
+        return FakeSentenceModel.dimension if reported is None else reported
 
     def encode(self, texts: Sequence[str], **kwargs: Any) -> list[list[float]]:
         FakeSentenceModel.events.append(("encode", len(texts), kwargs.get("batch_size")))
@@ -87,6 +89,7 @@ class FakeSentenceModel:
 def fake_modules(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     FakeSentenceModel.events = []
     FakeSentenceModel.dimension = EMBEDDING_DIMENSIONS
+    FakeSentenceModel.reported_dimension = None
     FakeSentenceModel.max_seq_length = 128
     FakeSentenceModel.vector = None
     FakeSentenceModel.encode_error = None
@@ -214,6 +217,7 @@ def test_the_startup_check_rejects_bad_embedders_with_fixed_text(
 
     assert SECRET not in str(exc.value)
     assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None or exc.value.__suppress_context__  # not chained
 
 
 # --- the local embedder ---------------------------------------------------------------------------
@@ -272,12 +276,22 @@ def test_a_model_that_cannot_be_loaded_fails_with_fixed_text(
 
     assert SECRET not in str(exc.value)
     assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None or exc.value.__suppress_context__  # not chained
 
 
 def test_a_wrong_dimension_fails_before_any_job(fake_modules: list[Any], model_dir: Path) -> None:
     FakeSentenceModel.dimension = 768
 
     with pytest.raises(EmbedderStartupError):
+        LocalEmbedder.load(model_dir, threads=1, batch_size=16)
+
+
+def test_a_model_that_reports_another_dimension_fails_even_if_its_vectors_look_right(
+    fake_modules: list[Any], model_dir: Path
+) -> None:
+    FakeSentenceModel.reported_dimension = 768
+
+    with pytest.raises(EmbedderStartupError, match="unexpected dimension"):
         LocalEmbedder.load(model_dir, threads=1, batch_size=16)
 
 
@@ -328,6 +342,7 @@ def test_embed_failures_become_a_fixed_error_without_the_text(
 
     assert SECRET not in str(exc.value)
     assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None or exc.value.__suppress_context__  # not chained
     assert SECRET not in caplog.text
 
 
@@ -346,7 +361,7 @@ def test_an_invalid_vector_from_the_model_is_an_embedding_error(
     local = LocalEmbedder.load(model_dir, threads=1, batch_size=16)
     FakeSentenceModel.vector = bad
 
-    with pytest.raises(EmbeddingError):
+    with pytest.raises(EmbeddingError, match="invalid embedding"):
         local.embed(["texto"])
 
 
