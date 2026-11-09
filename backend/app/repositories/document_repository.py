@@ -148,7 +148,6 @@ class DocumentRepository:
             delete(Document)
             .where(
                 Document.id == document_id,
-                Document.subject_id == subject_id,
                 Document.subject_id.in_(owned_subjects),
             )
             .returning(Document.id)
