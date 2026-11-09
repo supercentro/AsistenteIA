@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -141,6 +142,10 @@ class TestProtocol:
             pytest.param([PAGE_ONE, PAGE_ONE, END], id="page-repeated"),
             pytest.param(['{"page": 2, "text": "a"}', PAGE_ONE, END], id="pages-out-of-order"),
             pytest.param([PAGE_ONE, END, PAGE_ONE], id="data-after-the-end"),
+            pytest.param(
+                [PAGE_ONE, END, '{"page": 2, "text": "late"}'], id="new-page-after-the-end"
+            ),
+            pytest.param([PAGE_ONE, END, END], id="two-end-markers"),
             pytest.param([PAGE_ONE, '{"end": false}'], id="end-is-false"),
             pytest.param([PAGE_ONE, '{"end": true, "extra": 1}'], id="end-with-extra-keys"),
             pytest.param(['{"page": 1, "text": "a", "extra": 1}', END], id="page-with-extra-keys"),
@@ -417,6 +422,38 @@ class TestProcessHandling:
         assert process.poll() is not None  # already reaped: not running, not a zombie
         with pytest.raises(ProcessLookupError):
             os.kill(process.pid, 0)
+
+    def test_a_breach_also_kills_the_processes_the_child_started(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        pid_file = tmp_path / "grandchild.pid"
+        body = (
+            "import subprocess\n"
+            "grandchild = subprocess.Popen(['sleep', '60'])\n"
+            f"open({str(pid_file)!r}, 'w').write(str(grandchild.pid))\n"
+            "time.sleep(60)\n"
+        )
+        install(monkeypatch, tmp_path, body)
+
+        with pytest.raises(DocumentLoadError):
+            load_pdf(b"x", dataclasses.replace(LIMITS, timeout_seconds=2))
+
+        grandchild = int(pid_file.read_text())
+        try:
+            state = Path(f"/proc/{grandchild}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        except FileNotFoundError:
+            state = "gone"
+        assert state in {"gone", "Z"}  # a zombie is dead, only waiting to be reaped
+
+    def test_the_input_thread_has_ended_when_the_call_returns(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        install(monkeypatch, tmp_path, "time.sleep(0.2)\nsys.exit(0)\n")
+
+        with pytest.raises(DocumentLoadError):
+            load_pdf(b"x" * 20_000_000, LIMITS)
+
+        assert [t for t in threading.enumerate() if t.name == "pdf-input-feeder"] == []
 
     def test_pipes_are_closed_after_each_call(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
