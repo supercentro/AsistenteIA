@@ -80,7 +80,7 @@ All work happens in a temporary directory outside the repository and in disposab
 
 ## 11. Review and Update Existing Unit Tests (MANDATORY)
 
-- [ ] 11.1 Review every existing test affected by the new column, table, settings, dependencies and Compose service (fixtures that insert documents, catalog tests of `0004`, settings tests, CI), update them with justification, and record in `reports/YYYY-MM-DD-regression-review.md` which existing tests were touched and why; verify the full suite
+- [x] 11.1 Review every existing test affected by the new column, table, settings, dependencies and Compose service (fixtures that insert documents, catalog tests of `0004`, settings tests, CI), update them with justification, and record in `reports/YYYY-MM-DD-regression-review.md` which existing tests were touched and why; verify the full suite
 
 ## 12. Run Unit Tests and Verify Database State (MANDATORY)
 

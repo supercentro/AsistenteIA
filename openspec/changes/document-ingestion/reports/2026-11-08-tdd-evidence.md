@@ -48,3 +48,6 @@ Failing run before the code: 5 collection errors, `ModuleNotFoundError: No modul
 
 ## Group 10: real-server and process tests
 - Red first: the deterministic UploadSlots interleaving tests failed with TypeError before the seam existed (3 failed), then passed. The real-server and process tests verify behaviour of groups 8 and 9 and are proved by mutation (8 mutations, 2 first-pass survivors closed, all killed). Full Linux run: 1684 passed. See 2026-11-10-step-10-real-server-verification.md.
+
+## Group 11: review of the existing tests
+- 6 existing test files were modified by the change (reasons in 2026-11-10-regression-review.md); 11 new tests of the deployment files and 4 of the test seams were added for gaps found in the review. They test existing behaviour (green first run) and are proved by 15 mutations of the files themselves, all killed. Full Linux run: 1702 passed.
