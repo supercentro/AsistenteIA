@@ -206,7 +206,7 @@ TDD per group with the failing run recorded; unit tests with a fake embedder and
 - [Tests that depend on a dev server on the default ports] → the real-server tests choose a free port and never touch 8000 or 5173 (see `docs/development_guide.md`, "Ports already in use").
 
 ## Migration Plan
-1. Implement in this branch; apply `0005` to the isolated test database through the suite and to a scratch database for the round trip; the development database is migrated only in the verification group, after a backup copy, with the user's authorization in that group.
+1. Implement in this branch; apply `0005` to the isolated test database through the suite, to a scratch database for the round trip and, for the manual verification of group 13, to a disposable PostgreSQL 15 + pgvector database with Alembic (done and accepted by the user on 2026-11-10; evidence in `reports/2026-11-10-step-13-manual-verification.md`). The development database `asistenteia` stays at revision `0004`: no backup or restore of it was performed during group 13, and this change does not migrate it. Applying `0005` to `asistenteia` later is a separate operation that needs the user's independent approval, a verified backup copy (a restore test of that copy before the upgrade) and a written recovery procedure (`alembic downgrade 0004` for the schema, restore of the verified backup for data).
 2. Rollback: `alembic downgrade 0004` (drops `ingestion_jobs` and `documents.error_code`); data of in-flight jobs is lost by design; documents already `ready` and their chunks are kept.
 3. Deployment (change 13): the worker is a second service; the model layer or volume and the memory limits are part of that change.
 
