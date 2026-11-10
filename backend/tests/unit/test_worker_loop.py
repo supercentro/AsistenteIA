@@ -261,3 +261,57 @@ class TestStartupRefusals:
 
         assert code == EXIT_REFUSED
         assert "refused to start" in caplog.text
+
+
+class TestRunAndMain:
+    def test_a_stopped_worker_starts_and_exits_cleanly(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO)
+
+        code = run_worker(settings(tmp_path), platform="linux", stop=stopped(), handle_signals=True)
+
+        assert code == 0
+        assert "ingestion worker started" in caplog.text
+        assert "ingestion worker stopped" in caplog.text
+
+    def test_the_signal_handlers_are_restored_after_the_run(self, tmp_path: Path) -> None:
+        before = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+
+        run_worker(settings(tmp_path), platform="linux", stop=stopped(), handle_signals=True)
+
+        assert {sig: signal.getsignal(sig) for sig in before} == before
+
+    def test_main_runs_the_worker_with_the_loaded_settings(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from app import worker as worker_module
+
+        loaded = settings(tmp_path)
+        received: list[tuple[Settings, bool]] = []
+
+        def fake_run(config: Settings, *, handle_signals: bool = False, **_: object) -> int:
+            received.append((config, handle_signals))
+            return 0
+
+        monkeypatch.setattr(worker_module, "load_settings", lambda: loaded)
+        monkeypatch.setattr(worker_module, "run_worker", fake_run)
+
+        assert worker_module.main() == 0
+        assert received == [(loaded, True)]
+
+    def test_main_refuses_to_start_with_an_invalid_configuration(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from app import worker as worker_module
+        from app.core.config import ConfigurationError
+
+        def broken() -> Settings:
+            raise ConfigurationError("JWT_SECRET: SECRET-CONFIG-MARKER")
+
+        monkeypatch.setattr(worker_module, "load_settings", broken)
+        caplog.set_level(logging.INFO)
+
+        assert worker_module.main() == EXIT_REFUSED
+        assert "refused to start" in caplog.text
+        assert "SECRET-CONFIG-MARKER" not in caplog.text
