@@ -276,8 +276,8 @@ class IngestionService:
             return Outcome.LOST
         except _Failure as failure:
             return self._fail(job, failure.code)
-        except ValueError:  # the repository refused the chunks or vectors before any statement
-            return self._fail(job, DocumentErrorCode.EMBEDDING_FAILED)
+        except ValueError:  # the repository refused the input before any statement (a bug)
+            return self._fail(job, DocumentErrorCode.PROCESSING_FAILED)
         except SQLAlchemyError as error:
             logger.warning("ingestion job %s: database error %s", job.job_id, type(error).__name__)
             return Outcome.ABANDONED
