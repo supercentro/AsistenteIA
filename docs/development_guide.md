@@ -2,7 +2,7 @@
 
 How to set up the environment, run the stack and run quality checks for AsistenteIA.
 
-> Status: the scaffold (`project-scaffold`) and authentication (`auth-and-roles`: users, JWT, roles, consent, admin CLI) are implemented. Items marked _(planned)_ arrive with later OpenSpec changes. When a command changes, update this guide in the same change.
+> Status: the scaffold (`project-scaffold`), authentication (`auth-and-roles`: users, JWT, roles, consent, admin CLI), subjects and enrollments, the documents schema and document ingestion (`document-ingestion`: upload API and background worker) are implemented. Items marked _(planned)_ arrive with later OpenSpec changes. When a command changes, update this guide in the same change.
 
 ## Prerequisites
 
@@ -40,6 +40,17 @@ Backend variables (`backend/.env`):
 | `PRIVACY_POLICY_VERSION` | Current privacy-policy version (1-20 chars) that users must accept. Mirror any override in `frontend/src/lib/privacyPolicy.ts` | `2026-10-v1` |
 | `LOGIN_RATE_LIMIT` | Login attempts per client address, `<n>/<second\|minute\|hour>` | `10/minute` |
 | `REGISTER_RATE_LIMIT` | Registrations per client address (independent counters, same format) | `5/minute` |
+| `MAX_UPLOAD_MB`, `MAX_PDF_PAGES`, `MAX_EXTRACTED_CHARS`, `MAX_CHUNKS_PER_DOCUMENT` | Size, page, extracted-text and chunk limits of one document | `10`, `300`, `2000000`, `2000` |
+| `MAX_DOCUMENTS_PER_SUBJECT` | Documents of one subject in any status; the next upload gets `409` | `50` |
+| `INGESTION_QUEUE_MAX`, `INGESTION_PENDING_BYTES_MAX_MB`, `UPLOAD_MAX_IN_FLIGHT` | Unfinished jobs, bytes waiting for the worker and uploads being received at once; above them uploads get `503` | `100`, `200`, `4` |
+| `UPLOAD_RATE_LIMIT` | Uploads per client address (in memory, same limits as the login limiter) | `10/minute` |
+| `UPLOAD_BODY_TIMEOUT_SECONDS`, `UPLOAD_BODY_IDLE_SECONDS` | Total deadline for the upload body and longest silence inside it (`408`) | `120`, `20` |
+| `INGESTION_MAX_ATTEMPTS`, `INGESTION_LEASE_SECONDS`, `INGESTION_JOB_DEADLINE_SECONDS`, `INGESTION_JOB_MAX_AGE_HOURS`, `INGESTION_BATCH_SIZE` | Worker: attempts per job, lease, deadline per attempt (must be greater than the lease), age after which an unprocessed job expires, embedding batch | `3`, `120`, `600`, `24`, `16` |
+| `PDF_CHILD_MAX_MEMORY_MB`, `PDF_CHILD_CPU_SECONDS`, `PDF_CHILD_TIMEOUT_SECONDS`, `PDF_CHILD_MAX_OUTPUT_MB` | Limits of the isolated PDF process | `768`, `20`, `30`, `8` |
+| `DB_STATEMENT_TIMEOUT_API_SECONDS`, `DB_STATEMENT_TIMEOUT_WORKER_SECONDS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS` | PostgreSQL `statement_timeout` of the API and of the worker, and `idle_in_transaction_session_timeout` for both | `15`, `60`, `30` |
+| `EMBEDDER_BACKEND`, `ALLOW_FAKE_EMBEDDER` | `local` (real model) or `fake` (deterministic vectors). `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside production | `local`, `false` |
+| `EMBEDDING_MODEL_PATH` | Directory of the model inside the worker image | `/opt/models/paraphrase-multilingual-MiniLM-L12-v2` |
+| `EMBEDDING_THREADS` | Threads used for inference (1-256). Not in `.env.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
 | `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | Read only by `python -m app.cli seed`; no defaults exist | optional |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Read by the `db` compose service | required for compose |
 | `TEST_DATABASE_URL` | **Integration tests only**; never read by the application | required for integration tests |
@@ -50,7 +61,7 @@ Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
 > **Upgrading an existing checkout:** the backend now refuses to start without a valid `JWT_SECRET`. Add one to your local `backend/.env` (never commit it) and run `alembic upgrade head`.
 
-_(planned)_ Gemini, embedding, upload and similarity variables are added by the change that first uses them.
+The ingestion variables above are read only through `core/config.py` and documented with placeholders in `.env.example` (a test keeps the example equal to the defaults). _(planned)_ The Gemini and chat variables are added by the change that first uses them.
 
 ## 2. Run the full stack
 
@@ -58,7 +69,7 @@ _(planned)_ Gemini, embedding, upload and similarity variables are added by the 
 docker compose up --build
 ```
 
-Services: `db` (PostgreSQL 15 + pgvector, published on `127.0.0.1:5442`), `backend` (FastAPI on 127.0.0.1:8000, docs at `/docs`, auto-reload), `frontend` (Vite on 127.0.0.1:5173; file polling is enabled inside compose because bind mounts on Windows do not emit change events).
+Services: `db` (PostgreSQL 15 + pgvector, published on `127.0.0.1:5442`), `backend` (FastAPI on 127.0.0.1:8000, docs at `/docs`, auto-reload), `worker` (the ingestion worker, no published port, 4 CPUs and 2 GiB; see [Document ingestion](#document-ingestion-worker-model-and-limits)), `frontend` (Vite on 127.0.0.1:5173; file polling is enabled inside compose because bind mounts on Windows do not emit change events).
 
 The database image is pinned to `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15 with pgvector 0.8.7) in `docker-compose.yml` and in the CI service, so the extension version no longer changes silently; the digest of this tag was identical to the previous floating `pg15` tag when it was pinned, so existing data volumes keep working. To move to a newer pgvector, change the tag in both files together, rerun the magnitude experiment in `openspec/changes/archive/2026-11-08-documents-schema-pgvector/reports/` (or its archived copy) because the valid vector range depends on the pgvector version, and run `ALTER EXTENSION vector UPDATE;` in each database after the new container starts.
 
@@ -66,7 +77,7 @@ The database image is pinned to `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15 wi
 
 If port 8000 or 5173 is already used by another application, see [Ports already in use](#ports-already-in-use) instead of changing the project's defaults.
 
-_(planned)_ The first build of the ingestion change downloads the embedding model into a Docker volume (large image, several minutes).
+The first build of the `worker` image downloads the embedding model once, at a pinned revision verified by hash (`backend/docker/fetch_model.py`), and bakes it into the image (about 3.2 GB with the CPU-only `torch`; several minutes). The `backend` (API) image has no machine-learning packages and no model. The worker then runs with the hub offline: nothing is downloaded at runtime.
 
 ## 3. Database
 
@@ -88,6 +99,8 @@ WHERE t.typname = 'document_status' GROUP BY t.typname;
 No row is expected before the migration. After it, the labels must be exactly `pending, processing, ready, failed` in that order. If a row exists before the migration, inspect what uses the type, then drop or rename it before running `alembic upgrade head`.
 
 Local backups of the development database (for example the dump taken before applying `0004`) are kept outside the repository and outside temporary directories, for example under `%USERPROFILE%\Backups\AsistenteIA\` with permissions restricted to your user; verify the SHA-256 after copying and with `pg_restore --list`. A container's `/tmp` is not durable. Do not delete a backup until the change that produced it has been merged and the owner of the project agrees.
+
+Migration `0005` creates `ingestion_jobs` and adds `documents.error_code` with its check (see `data-model.md`). It has been verified on the isolated test database, on a scratch database for the upgrade/downgrade round trip and on a disposable PostgreSQL container during the manual verification of the change. **The development database `asistenteia` stays at `0004` until the owner approves applying `0005` to it as a separate operation**, with a verified backup (`pg_dump -Fc`, SHA-256, `pg_restore --list` and a restore test into a scratch database before the upgrade) and a recovery procedure (`alembic downgrade 0004` for the schema; restoring the verified backup for data). No backup or restore of that database was exercised by this change. The `downgrade` of `0005` drops `ingestion_jobs` with the jobs in flight and their bytes.
 
 Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
 
@@ -119,6 +132,35 @@ Create migrations with `alembic revision --autogenerate -m "describe change"` an
 
 Tests that run migrations or destructive cleanup use `TEST_DATABASE_URL` only. A guard (`app/core/db_safety.py`) runs before any such connection and refuses to continue unless the database name ends in `_test`, differs from the database in `DATABASE_URL`, and `APP_ENV` is not `production`. If `TEST_DATABASE_URL` is missing, integration tests abort before connecting. Use `127.0.0.1` (not `localhost`) in URLs from the host: `localhost` may resolve to IPv6 first and the port is published on IPv4 only.
 
+## Document ingestion: worker, model and limits
+
+Uploads (`POST /api/v1/subjects/{id}/documents`) store the file and a job in PostgreSQL and answer `202`; the **worker** (`python -m app.worker`, Compose service `worker`, image target `worker`) extracts text, chunks it, embeds it with the real model and writes the chunks. The API never loads the model. Follow the progress by listing the documents of the subject (`status`: `pending`, `processing`, `ready`, `failed`; a failed document has `error_code` and `error_message`).
+
+- **Start / stop:** `docker compose up -d --build worker` starts it (it waits for a healthy `db`); `docker compose logs worker` shows its log (job and document ids and failure codes only; never file names or text). `docker compose stop worker` is safe: its lease expires and another worker takes the job.
+- **Model:** `paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions, CPU, offline. The worker fails fast at start if the model is missing or returns vectors of another size. Fake embeddings (`EMBEDDER_BACKEND=fake`) exist for tests only and are refused in production.
+- **Limits and what happens when one is exceeded:** `MAX_UPLOAD_MB` (413), `MAX_DOCUMENTS_PER_SUBJECT` (409), `INGESTION_QUEUE_MAX`, `INGESTION_PENDING_BYTES_MAX_MB` and `UPLOAD_MAX_IN_FLIGHT` (503 with `Retry-After`), `UPLOAD_RATE_LIMIT` (429), `MAX_PDF_PAGES`, `MAX_EXTRACTED_CHARS`, `MAX_CHUNKS_PER_DOCUMENT` and the PDF child limits (the document ends `failed` with `TOO_MANY_PAGES`, `TEXT_TOO_LARGE`, `TOO_MANY_CHUNKS`, `RESOURCE_LIMIT_EXCEEDED` or `PROCESSING_TIMEOUT`). The values are in the variables table above and in `.env.example`.
+- **Database timeouts:** the API sets `statement_timeout` (`DB_STATEMENT_TIMEOUT_API_SECONDS`, 15 s) and the worker its own (60 s); both set `idle_in_transaction_session_timeout` (30 s), so a stalled client or process cannot hold a lock or a pooled connection indefinitely. A statement over the timeout is cancelled and the API answers `503`.
+- **Threads and CPU:** `EMBEDDING_THREADS` defaults to the effective CPU quota of the container. Measured with 4 CPUs and 2 GiB: a 420 KB text (1,649 chunks) in about 43 s, about 2.8 cores on average, memory peak about 1.04 GiB (about 0.7 GiB idle after loading the model).
+- **Linux only for PDFs:** the isolated PDF child needs Linux (resource limits). The worker image is the supported way to run it; tests that need the child run in that image.
+- **Pins and the `pypdf` upgrade rule:** `pypdf`, `python-multipart`, `sentence-transformers` and `torch` are pinned exactly in `backend/pyproject.toml` and `uv.lock`. Upgrading `pypdf` is a reviewed change: read its advisories, rerun the PDF tests (`backend/tests/unit/test_pdf_*.py`, `test_loaders_*.py`) and the real-process tests.
+- **Temporary bytes and backups (TD-029):** the uploaded bytes are held in `ingestion_jobs.payload` until the document is `ready` or `failed`, then set to NULL. The dead tuples, the table files, the write-ahead log and any backup, dump or replica made meanwhile still contain them (measured: about 21 MB of WAL per 10 MB job). Treat database backups as containing teachers' files for their retention period. To follow the cost (`pg_ls_waldir()` needs a superuser or `pg_monitor`):
+
+```sql
+-- dead tuples and last autovacuum of the queue table and of its TOAST table
+SELECT s.relname, s.n_live_tup, s.n_dead_tup, s.last_autovacuum
+FROM pg_stat_all_tables s
+WHERE s.relname = 'ingestion_jobs'
+   OR s.relid = (SELECT reltoastrelid FROM pg_class WHERE relname = 'ingestion_jobs');
+-- size of the table with its TOAST data and indexes
+SELECT pg_size_pretty(pg_total_relation_size('ingestion_jobs'));
+-- WAL generated since the statistics were reset, and the WAL directory size
+SELECT pg_size_pretty(wal_bytes) AS wal_generated FROM pg_stat_wal;
+SELECT pg_size_pretty(sum(size)) AS wal_directory FROM pg_ls_waldir();
+```
+
+  Autovacuum removes the dead tuples but does not overwrite free pages. `VACUUM FULL ingestion_jobs` removes the bytes from the data files (about 30 ms for this small table, with a short exclusive lock) and is **manual maintenance approved by the operator** (for example before a base backup or after a sensitive upload); neither the worker nor its sweep ever runs it, and it does not clear the WAL or existing backups.
+- **Manual verification without touching the development database:** use a disposable PostgreSQL 15 + pgvector container (internal Docker network, no published port, data on `tmpfs`), run `alembic upgrade head` and `alembic check` there, start the real API and worker on free ports and drive them with `curl`. The scripts and the evidence of the verification of this change are in `openspec/changes/document-ingestion/reports/step-13-evidence/`.
+
 ## 4. Quality commands
 
 Backend (from `backend/`):
@@ -129,7 +171,10 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy --strict app tests
 uv run pytest tests/unit
 uv run pytest tests/integration --cov=app --cov-report=term-missing   # needs the db service and TEST_DATABASE_URL
+uv run pytest -m realmodel tests/unit/test_embedder_realmodel.py tests/unit/test_chunker_realmodel.py   # real model; only inside the worker image (excluded by default and in CI)
 ```
+
+The real-server and real-process tests (Uvicorn started with the production arguments, killed workers, PDF child limits) run on Linux. On a Windows host where Application Control blocks the virtual environment, run the suite in the worker image with the repository mounted and `TEST_DATABASE_URL` pointing to the test database through `host.docker.internal:5442`. Coverage of `app` is 99 %: every module created by the ingestion change is at 100 % and the lines missed belong to older modules.
 
 Frontend (from `frontend/`):
 
@@ -163,6 +208,8 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 
 ## 7. Troubleshooting
 
+- A document stays `pending`: the worker is not running or cannot reach the database (`docker compose ps worker`, `docker compose logs worker`); after `INGESTION_JOB_MAX_AGE_HOURS` an unprocessed job ends `failed` with `JOB_EXPIRED`. A document `failed` with `PROCESSING_INTERRUPTED` lost its worker `INGESTION_MAX_ATTEMPTS` times.
+- Uploads answer `503 INGESTION_QUEUE_FULL`: the queue, the pending bytes or the uploads in flight are at their limit; wait for the worker (`Retry-After`) or raise the corresponding setting.
 - `extension "vector" is not available`: the database image must be a pgvector-enabled image (the pinned `pgvector/pgvector:0.8.7-pg15`).
 - `port is already allocated` on 5432: the compose database is published on `127.0.0.1:5442` to avoid clashes with other local PostgreSQL instances; change the mapping in `docker-compose.yml` and `TEST_DATABASE_URL` together if 5442 is taken.
 - Integration tests hang or time out connecting: use `127.0.0.1`, not `localhost`, in `TEST_DATABASE_URL`.
