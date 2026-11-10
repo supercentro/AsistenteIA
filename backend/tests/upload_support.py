@@ -99,9 +99,7 @@ def part(name: str, value: bytes, filename: str | None = None) -> bytes:
     disposition = f'form-data; name="{name}"'
     if filename is not None:
         disposition += f'; filename="{filename}"'
-    return (
-        f"--{BOUNDARY}\r\nContent-Disposition: {disposition}\r\n\r\n".encode() + value + b"\r\n"
-    )
+    return f"--{BOUNDARY}\r\nContent-Disposition: {disposition}\r\n\r\n".encode() + value + b"\r\n"
 
 
 def multipart_body(*parts: bytes) -> bytes:

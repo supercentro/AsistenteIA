@@ -7,6 +7,7 @@ are hard: they are counted and the row is inserted under the subject and admissi
 
 import uuid
 from collections import Counter
+from collections.abc import Sequence
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,7 +28,7 @@ from tests.upload_support import PDF, TEXT, documents_url
 THREADS = 24
 
 
-def statuses(results: list[object]) -> Counter[int]:
+def statuses(results: Sequence[object]) -> Counter[int]:
     """Status codes of the results; an exception in a thread counts as 0 (and fails the tests)."""
     return Counter(getattr(r, "status_code", 0) for r in results)
 

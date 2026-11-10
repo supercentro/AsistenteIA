@@ -20,7 +20,7 @@ import tempfile
 import time
 import uuid
 from collections.abc import Iterator
-from contextlib import closing, contextmanager
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -221,8 +221,7 @@ def upload_head(scene: Scene, *, length: int | None, chunked: bool = False) -> b
 
 def beginning_of_a_file() -> bytes:
     return (
-        f"--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; "
-        'filename="slow.txt"\r\n\r\n'
+        f'--{BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="slow.txt"\r\n\r\n'
     ).encode() + b"a" * 100
 
 

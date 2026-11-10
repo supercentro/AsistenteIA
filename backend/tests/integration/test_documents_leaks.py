@@ -7,6 +7,7 @@ A successful response legitimately returns the cleaned name of the owner's own d
 """
 
 import logging
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,8 +15,8 @@ from sqlalchemy import event
 from sqlalchemy.exc import OperationalError
 
 from app.services.document_service import DocumentService
+from tests.ingestion_support import insert_pending
 from tests.integration.helpers import build_app
-from tests.sql_support import run
 from tests.service_support import capture_logs, log_text
 from tests.upload_support import (
     MULTIPART,
@@ -138,32 +139,19 @@ def test_the_quota_and_queue_rejections_are_clean(
 ) -> None:
     capture_logs(caplog)
     client = TestClient(
-        build_app(clean_db, max_documents_per_subject=1, ingestion_queue_max=1),
+        build_app(clean_db, max_documents_per_subject=1, ingestion_queue_max=2),
         raise_server_exceptions=False,
     )
     headers = auth(client, world.teacher)
     assert upload(client, headers, world.subject, NAME + ".txt", CONTENT_BYTES).status_code == 202
-
-    quota = upload(client, headers, world.subject, NAME + ".txt", CONTENT_BYTES)
-    run(
-        clean_db,
-        "INSERT INTO subjects (id, name, teacher_id) "
-        "VALUES (gen_random_uuid(), 'B', CAST(:t AS uuid))",
-        t=world.teacher.id,
-    )
-    other = run_scalar_subject(clean_db, "B")
-    queue = upload(client, headers, other, NAME + ".txt", CONTENT_BYTES)
+    quota = upload(client, headers, world.subject, NAME + ".txt", CONTENT_BYTES)  # 1 of 2 jobs
+    insert_pending(clean_db, uuid.UUID(world.other_subject))  # now the queue holds 2 of 2
+    queue = upload(client, headers, world.subject, NAME + ".txt", CONTENT_BYTES)
 
     assert quota.status_code == 409
     assert queue.status_code == 503
     for response in (quota, queue):
         assert_clean(response.text, response.headers, caplog)
-
-
-def run_scalar_subject(url: str, name: str) -> str:
-    from tests.sql_support import scalar
-
-    return str(scalar(url, "SELECT id FROM subjects WHERE name = :n", n=name))
 
 
 def test_a_database_error_at_commit_is_clean(

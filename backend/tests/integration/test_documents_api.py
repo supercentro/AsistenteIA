@@ -7,8 +7,10 @@ proof that nothing was stored, the explicit commit before the `202`, and listing
 """
 
 import uuid
+from typing import Any, cast
 
 import pytest
+from fastapi import Response
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.exc import OperationalError
@@ -16,6 +18,7 @@ from sqlalchemy.exc import OperationalError
 from app.core.database import create_db_engine, create_session_factory
 from app.main import create_app
 from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
+from app.rag.chunker import Chunk
 from app.repositories.ingestion_job_repository import IngestionJobRepository
 from tests.ingestion_support import insert_pending
 from tests.integration.helpers import FAST_PASSWORDS, build_app, build_settings
@@ -221,23 +224,27 @@ def test_the_document_its_job_and_the_bytes_are_stored_together(
     assert response.status_code == 202
     document = uuid.UUID(response.json()["id"])
     assert stored(world.url) == {"documents": 1, "jobs": 1, "payloads": 1, "chunks": 0}
-    assert scalar(
-        world.url,
-        "SELECT status::text FROM documents WHERE id = :d",
-        d=document,
-    ) == "pending"
+    assert (
+        scalar(
+            world.url,
+            "SELECT status::text FROM documents WHERE id = :d",
+            d=document,
+        )
+        == "pending"
+    )
     assert scalar(
         world.url,
         "SELECT j.payload = :p FROM ingestion_jobs j WHERE j.document_id = :d",
         d=document,
         p=PDF,
     )
-    assert scalar(
-        world.url, "SELECT attempts FROM ingestion_jobs WHERE document_id = :d", d=document
-    ) == 0
-    assert scalar(
-        world.url, "SELECT size_bytes FROM documents WHERE id = :d", d=document
-    ) == len(PDF)
+    assert (
+        scalar(world.url, "SELECT attempts FROM ingestion_jobs WHERE document_id = :d", d=document)
+        == 0
+    )
+    assert scalar(world.url, "SELECT size_bytes FROM documents WHERE id = :d", d=document) == len(
+        PDF
+    )
 
 
 @pytest.mark.parametrize(
@@ -330,7 +337,7 @@ def test_the_upload_is_committed_before_the_response_is_built(
     seen: list[dict[str, int]] = []
     original = schema.Document.model_validate.__func__  # type: ignore[attr-defined]
 
-    def probing(cls: type, *args: object, **kwargs: object) -> object:
+    def probing(cls: Any, *args: Any, **kwargs: Any) -> Any:
         seen.append(stored(clean_db))
         return original(cls, *args, **kwargs)
 
@@ -493,9 +500,7 @@ def test_a_type_that_is_not_allowed_or_does_not_match_is_415(
 # --- the multipart request ----------------------------------------------------------------------
 
 
-def post_parts(
-    client: TestClient, headers: dict[str, str], subject: str, *parts: bytes
-) -> object:
+def post_parts(client: TestClient, headers: dict[str, str], subject: str, *parts: bytes) -> object:
     return raw_upload(client, headers, subject, multipart_body(*parts), MULTIPART)
 
 
@@ -655,10 +660,11 @@ def test_parser_text_never_reaches_the_response(
 ) -> None:
     response = raw_upload(client, teacher_headers, world.subject, b"x", "multipart/form-data")
 
-    text = response.text.lower()
-    assert "boundary" not in text
-    assert "multipart" not in text.replace("malformed_multipart", "")
-    assert response.json()["message"]
+    assert response.json() == {
+        "code": "VALIDATION_ERROR",
+        "message": "The upload is not a valid multipart request",
+        "details": {"reason": "MALFORMED_MULTIPART"},
+    }  # a fixed sentence: nothing of the parser's own text ("Missing boundary ...")
 
 
 # --- quotas and saturation ----------------------------------------------------------------------
@@ -715,9 +721,10 @@ def test_space_freed_by_a_deletion_is_usable_at_once(clean_db: str) -> None:
     upload(client, headers, world.subject)
     assert upload(client, headers, world.subject).status_code == 409
 
-    assert client.delete(
-        document_url(world.subject, first.json()["id"]), headers=headers
-    ).status_code == 204
+    assert (
+        client.delete(document_url(world.subject, first.json()["id"]), headers=headers).status_code
+        == 204
+    )
 
     assert upload(client, headers, world.subject).status_code == 202
 
@@ -790,7 +797,7 @@ def test_an_obviously_full_queue_is_refused_before_the_body_is_read(clean_db: st
 
             await self.app(scope, counting, send)  # type: ignore[operator]
 
-    counted = TestClient(Counting(guard_scope_receive), raise_server_exceptions=False)
+    counted = TestClient(cast(Any, Counting(guard_scope_receive)), raise_server_exceptions=False)
     body = multipart_body(part("file", b"a" * 200_000, "a.txt"))
 
     response = raw_upload(counted, headers, world.subject, body, MULTIPART)
@@ -910,9 +917,10 @@ def test_the_list_is_newest_first_with_the_state_of_every_document(
     assert by_name["ready.txt"]["chunks_count"] == 1
     assert by_name["failed.pdf"]["status"] == "failed"
     assert by_name["failed.pdf"]["error_code"] == "ENCRYPTED_PDF"
-    assert by_name["failed.pdf"]["error_message"] == DOCUMENT_ERROR_MESSAGES[
-        DocumentErrorCode.ENCRYPTED_PDF
-    ]
+    assert (
+        by_name["failed.pdf"]["error_message"]
+        == DOCUMENT_ERROR_MESSAGES[DocumentErrorCode.ENCRYPTED_PDF]
+    )
 
 
 def test_the_list_never_carries_content_embeddings_or_bytes(
@@ -1002,7 +1010,8 @@ def test_a_worker_whose_document_is_deleted_ends_without_writing(
     with factory() as session:
         repository = IngestionJobRepository(session)
         assert repository.renew(job.job_id, job.token, 120) is False
-        assert repository.complete(job.job_id, job.token, [], []) is False
+        chunk = Chunk(index=0, text="a chunk", page_number=1)
+        assert repository.complete(job.job_id, job.token, [chunk], [[1.0] + [0.0] * 383]) is False
         session.rollback()
     assert stored(world.url) == NOTHING
 
@@ -1029,20 +1038,18 @@ def test_a_second_delete_is_404(
 def test_the_delete_is_committed_before_the_response(
     clean_db: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from app.api.v1.endpoints import documents as router
-
     world = make_world(clean_db)
     client = make_client(clean_db)
     headers = auth(client, world.teacher)
     document = upload(client, headers, world.subject).json()["id"]
     seen: list[int] = []
-    original = router.Response
+    original = Response
 
-    def probing(*args: object, **kwargs: object) -> object:
+    def probing(*args: Any, **kwargs: Any) -> Any:
         seen.append(count(clean_db, "documents"))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(router, "Response", probing)
+    monkeypatch.setattr("app.api.v1.endpoints.documents.Response", probing)
 
     response = client.delete(document_url(world.subject, document), headers=headers)
 
