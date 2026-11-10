@@ -33,14 +33,14 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 | L15 | Editing tools collapsed backslash escapes; the dev container did not see a new migration | subjects-and-enrollments | implemented (guide), pending (tooling note) |
 | L16 | Mocks hid a server header and a layout defect; dependency changes need a new container volume | frontend-foundation | implemented (standard) |
 | L17 | A design promise and a test can claim a control that does not exist | documents-schema-pgvector | implemented (practice) |
-| L18 | A cached lint result gave a local green that CI refuted | document-ingestion (group 5) | implemented (practice) |
+| L18 | A cached lint result gave a local green that CI refuted | document-ingestion (group 5) | implemented (rule in base-standards 9.6) |
 | L19 | Windows and Linux test runs are not equivalent | document-ingestion (group 6) | implemented (practice; the Linux image and CI run the isolation tests) |
 | L20 | Lock order must be designed from every path that locks, including cascades | document-ingestion (group 7) | implemented (repositories, service, worker and endpoints) |
 | L21 | A lease only fences if the clock and the token are checked at write time | document-ingestion (group 7) | implemented (fence and heartbeat) |
 | L22 | Erased `bytea` stays in dead tuples, WAL and backups | document-ingestion (design, group 7) | accepted (TD-029; operations guide written) |
 | L23 | Mutation testing found real gaps and has known limits | document-ingestion (group 7) | implemented (practice) |
 | L24 | The response leaves before a `yield` dependency exits, so a durable promise needs an explicit commit | document-ingestion (groups 9 and 10) | implemented (code, real-server test, standard) |
-| L25 | A late edit after the last green gate broke CI | document-ingestion (group 9) | implemented (practice) |
+| L25 | A late edit after the last green gate broke CI | document-ingestion (group 9) | implemented (rule in base-standards 9.9) |
 | L26 | Files that a change modifies but no test reads, and test seams in production code | document-ingestion (groups 10 and 11) | implemented (tests) |
 | L27 | A verification task must not depend on writing to the development database | document-ingestion (group 13) | implemented (tasks.md, development guide) |
 
@@ -207,7 +207,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Root cause:** the Ruff cache held the result computed before the modules `app.rag.*` existed; once they were created, those imports changed from third-party to first-party and the cached verdict was stale.
 - **Impact / repetition risk:** a false green before a push; any change that creates a new top-level package or module can repeat it. Low severity, recurring.
 - **Solution applied:** `ruff check --fix` (import order only, no behaviour change) in a new commit; every later local gate runs `ruff check --no-cache`.
-- **Preventive measure:** implemented as a practice, not as a rule: run `ruff check --no-cache` (and `ruff format --check`) as the local gate, especially after adding modules. The standard only says "`ruff check` clean" (`docs/base-standards.md` section 9.6); adding the flag there is a decision for the documentation group.
+- **Preventive measure:** run `ruff check --no-cache` (and `ruff format --check`) as the local gate, especially after adding modules. It is now a rule in `docs/base-standards.md` section 9.6.
 - **Evidence:** `DI/2026-11-09-group-5-embedder-normalizer-chunker.md` (CI failure paragraph); the quality-gate lines of `DI/2026-11-09-group-6-loaders-and-pdf-child.md` and `DI/2026-11-10-group-7-repositories-and-queue.md`.
 
 ### L19. Windows and Linux test runs are not equivalent
@@ -271,7 +271,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Root cause:** the gates were run before the last edit, not after it, and test files were treated as outside the typing gate.
 - **Impact / repetition risk:** a red CI on a published branch; the same slip is likely whenever a small edit follows a green run. Low severity, recurring (see L18).
 - **Solution applied:** the test was typed with a covariant `Sequence` (commit `e0355d6`) and all gates were repeated.
-- **Preventive measure:** every group repeats `ruff check --no-cache`, `ruff format --check`, `mypy --strict app tests` and `pip-audit` **after the last change, including tests and documentation scripts**, and the report says so. It is a practice of this change, not yet a rule in `docs/base-standards.md`.
+- **Preventive measure:** every group repeats `ruff check --no-cache`, `ruff format --check`, `mypy --strict app tests` and `pip-audit` **after the last change, including tests and documentation scripts**, and the report says so. It is now part of the Definition of Done in `docs/base-standards.md` section 9.9.
 - **Evidence:** commit `e0355d6`; the "Results" lines of `DI/2026-11-10-group-9-endpoints-and-upload-guard.md` and of every later group report.
 
 ### L26. Files that a change modifies but no test reads, and test seams in production code

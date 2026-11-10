@@ -138,7 +138,7 @@ Legend: **MUST** = blocks merge/delivery. **SHOULD** = recommended; deviations n
 - SHOULD: a small golden set (≥ 15 question/expected-source pairs) evaluated with retrieval hit-rate before final delivery.
 
 ### 9.6 Linting and formatting
-- MUST: backend `ruff check` and `ruff format --check`; frontend ESLint and Prettier; both clean before commit.
+- MUST: backend `ruff check --no-cache` and `ruff format --check`; frontend ESLint and Prettier; both clean before commit. The local `ruff check` runs without the cache, because a cached verdict computed before new modules existed can hide import-order errors that CI reports.
 
 ### 9.7 Migrations and reproducibility
 - MUST: every schema change is an Alembic migration with a working `downgrade`; migrations run on a clean database.
@@ -154,4 +154,4 @@ Legend: **MUST** = blocks merge/delivery. **SHOULD** = recommended; deviations n
 - MUST: accepted residual risks are added to `docs/technical-debt.md`; lessons from review findings or process deviations are added to `docs/lessons-learned.md` (see `documentation-standards.md`).
 
 ### 9.9 Definition of Done
-A task is done when: acceptance criteria met; failing-first tests now pass; all MUST gates above pass; docs (`data-model.md`, `api-spec.yml`, standards) updated; OpenSpec `tasks.md` checked off; no TODOs without ticket; and the change was verified running (manual call or E2E), not just by unit tests.
+A task is done when: acceptance criteria met; failing-first tests now pass; all MUST gates above pass, **re-run after the last change (code, tests, scripts or documentation) and before publishing**, since earlier green results do not cover a later edit; docs (`data-model.md`, `api-spec.yml`, standards) updated; OpenSpec `tasks.md` checked off; no TODOs without ticket; and the change was verified running (manual call or E2E), not just by unit tests.
