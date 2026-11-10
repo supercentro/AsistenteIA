@@ -38,3 +38,6 @@ Failing run before the code: 4 collection errors, `ModuleNotFoundError: No modul
 
 ## Group 7 (repositories and queue)
 Failing run before the code: 4 collection errors, `ModuleNotFoundError: No module named 'app.repositories.ingestion_job_repository'` (commit `8723900`). After: 139 passed against PostgreSQL with real concurrency. About 50 mutations; 15 first-pass survivors closed by new tests, the single-check fence redundancy accepted as equivalent. Details: `2026-11-10-group-7-repositories-and-queue.md`.
+
+## Group 8 (ingestion service, heartbeat and worker)
+Failing run before the code: 5 collection errors, `ModuleNotFoundError: No module named 'app.services.ingestion_service'` (commit `ca3673e`); the engine option tests failed first with `TypeError: unexpected keyword argument 'statement_timeout_seconds'`. After: 85 tests of the group pass in the Linux image against PostgreSQL. 45 mutations in two passes; 12 first-pass survivors closed with new tests; 2 accepted as equivalent. Details and deviations (including the loss of the host virtual environment to an Application Control policy and the move to the Linux image) are in `2026-11-10-group-8-service-and-worker.md`.
