@@ -95,7 +95,7 @@ All work happens in a temporary directory outside the repository and in disposab
 
 ## 14. E2E Verification (not applicable to UI; regression only)
 
-- [ ] 14.1 Run the committed Playwright suite (mocked) and the frontend checks to confirm that the regenerated types did not break anything (`npm run typecheck`, `npm test`, `npm run build`, mocked Playwright on a free port), and record that no UI flow exists yet for this change
+- [x] 14.1 Run the committed Playwright suite (mocked) and the frontend checks to confirm that the regenerated types did not break anything (`npm run typecheck`, `npm test`, `npm run build`, mocked Playwright on a free port), and record that no UI flow exists yet for this change
 
 ## 15. Update Technical Documentation (MANDATORY)
 
