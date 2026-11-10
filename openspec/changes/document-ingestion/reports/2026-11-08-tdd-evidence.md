@@ -51,3 +51,6 @@ Failing run before the code: 5 collection errors, `ModuleNotFoundError: No modul
 
 ## Group 11: review of the existing tests
 - 6 existing test files were modified by the change (reasons in 2026-11-10-regression-review.md); 11 new tests of the deployment files and 4 of the test seams were added for gaps found in the review. They test existing behaviour (green first run) and are proved by 15 mutations of the files themselves, all killed. Full Linux run: 1702 passed.
+
+## Group 12: unit tests and database state
+- Coverage gaps of security-relevant modules were closed with tests of existing behaviour (green on first run) and proved by 8 mutations, all killed; the only new test of a race uses two real transactions. Full Linux run: 1712 passed, coverage 99 percent. See 2026-11-10-step-12-unit-test-and-db-verification.md.

@@ -84,7 +84,7 @@ All work happens in a temporary directory outside the repository and in disposab
 
 ## 12. Run Unit Tests and Verify Database State (MANDATORY)
 
-- [ ] 12.1 Prepare the test environment, run the targeted tests, then the full backend suite with coverage (target 98 % for `app`, 100 % for the new security-relevant modules), verify that `asistenteia_test` is empty afterwards and that `asistenteia` is untouched, and write `reports/YYYY-MM-DD-step-12-unit-test-and-db-verification.md`
+- [x] 12.1 Prepare the test environment, run the targeted tests, then the full backend suite with coverage (target 98 % for `app`, 100 % for the new security-relevant modules), verify that `asistenteia_test` is empty afterwards and that `asistenteia` is untouched, and write `reports/YYYY-MM-DD-step-12-unit-test-and-db-verification.md`
 
 ## 13. Manual Verification with the Real Model (MANDATORY - AGENT MUST EXECUTE)
 
