@@ -87,3 +87,8 @@ markers = [
 
 [tool.ruff.lint.isort]
 known-third-party = ["alembic"]
+
+# The `if __name__ == "__main__"` guards of `app.worker` and `app.rag.pdf_child` run only in the
+# processes the real-process tests start (coverage does not follow child processes).
+[tool.coverage.report]
+exclude_also = ["if __name__ == .__main__.:"]

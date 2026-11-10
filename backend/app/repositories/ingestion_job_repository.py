@@ -126,7 +126,7 @@ class IngestionJobRepository:
                 ),
                 {"doc": claimed.document_id},
             ).first()
-            if document is None:  # cannot happen: the document row is locked and active
+            if document is None:  # pragma: no cover - cannot happen: the document row is locked
                 return None
             return ClaimedJob(
                 job_id=claimed.id,
