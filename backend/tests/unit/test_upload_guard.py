@@ -7,8 +7,10 @@ a disconnect without a trace) is covered in `tests/integration/test_upload_serve
 """
 
 import asyncio
+import threading
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -363,3 +365,80 @@ def test_slots_are_exact_under_threads() -> None:
 
     assert sum(granted) == 5
     assert slots.in_flight == 5
+
+
+# --- the atomicity of the slot counter, with the interleaving forced (task 10, review of 9) -----
+
+
+def meeting_point() -> Callable[[], None]:
+    """A pause that makes two threads reach the same point of the critical section together.
+
+    With the lock, the second thread cannot get in, so the meeting never happens and the barrier
+    times out (the first thread then goes on alone). Without the lock both threads meet here,
+    between reading the counter and writing it: the interleaving that loses an update.
+    """
+    barrier = threading.Barrier(2, timeout=0.5)
+
+    def pause() -> None:
+        with suppress(threading.BrokenBarrierError):
+            barrier.wait()
+
+    return pause
+
+
+def together(count: int, work: Callable[[], object]) -> list[object]:
+    results: list[object] = []
+    start = threading.Barrier(count)
+
+    def task() -> None:
+        start.wait()
+        results.append(work())
+
+    threads = [threading.Thread(target=task) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return results
+
+
+def test_two_uploads_cannot_both_take_the_last_slot_even_if_interleaved() -> None:
+    slots = UploadSlots(1, pause_between_read_and_write=meeting_point())
+
+    granted = together(2, slots.try_acquire)
+
+    assert granted.count(True) == 1
+    assert slots.in_flight == 1
+
+
+def test_two_releases_cannot_lose_an_update_even_if_interleaved() -> None:
+    slots = UploadSlots(2, pause_between_read_and_write=meeting_point())
+    assert slots.try_acquire() and slots.try_acquire()
+
+    together(2, slots.release)
+
+    assert slots.in_flight == 0  # a lost update would leave one slot taken forever
+
+
+def test_a_release_interleaved_with_an_acquire_keeps_the_count_exact() -> None:
+    slots = UploadSlots(2, pause_between_read_and_write=meeting_point())
+    assert slots.try_acquire()
+    results: list[object] = []
+    start = threading.Barrier(2)
+
+    def acquire() -> None:
+        start.wait()
+        results.append(slots.try_acquire())
+
+    def release() -> None:
+        start.wait()
+        slots.release()
+
+    threads = [threading.Thread(target=acquire), threading.Thread(target=release)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert results == [True]
+    assert slots.in_flight == 1  # one taken before, one released, one acquired
