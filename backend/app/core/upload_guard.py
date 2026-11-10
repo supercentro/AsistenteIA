@@ -119,12 +119,21 @@ class UploadBodyGuard:
 
 
 class UploadSlots:
-    """A counter of uploads being received; `try_acquire` never blocks."""
+    """A counter of uploads being received; `try_acquire` never blocks.
 
-    def __init__(self, limit: int) -> None:
+    Every read-modify-write of the counter happens under `_lock`: without it two threads could both
+    pass the limit check (or both lose an update on release). `pause_between_read_and_write` is a
+    test seam called inside the critical section between the read and the write, so the tests can
+    force the interleaving that the lock prevents; production leaves it unset.
+    """
+
+    def __init__(
+        self, limit: int, *, pause_between_read_and_write: Callable[[], None] | None = None
+    ) -> None:
         self._limit = limit
         self._in_flight = 0
         self._lock = threading.Lock()
+        self._pause = pause_between_read_and_write
 
     @property
     def in_flight(self) -> int:
@@ -132,11 +141,19 @@ class UploadSlots:
 
     def try_acquire(self) -> bool:
         with self._lock:
-            if self._in_flight >= self._limit:
+            current = self._in_flight
+            if current >= self._limit:
                 return False
-            self._in_flight += 1
+            self._between()
+            self._in_flight = current + 1
             return True
 
     def release(self) -> None:
         with self._lock:
-            self._in_flight = max(0, self._in_flight - 1)
+            current = self._in_flight
+            self._between()
+            self._in_flight = max(0, current - 1)
+
+    def _between(self) -> None:
+        if self._pause is not None:
+            self._pause()
