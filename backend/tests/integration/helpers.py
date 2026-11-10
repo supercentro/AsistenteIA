@@ -44,6 +44,7 @@ def build_settings(database_url: str, **overrides: object) -> Settings:
         # High by default so ordinary tests never hit the limiter; rate-limit tests lower it.
         "login_rate_limit": "1000/minute",
         "register_rate_limit": "1000/minute",
+        "upload_rate_limit": "1000/minute",
     }
     values.update(overrides)
     return Settings(**values)  # type: ignore[arg-type]

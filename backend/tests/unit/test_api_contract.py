@@ -194,10 +194,6 @@ def test_the_document_schema_requires_the_fields_a_client_depends_on(spec: Spec)
 # --- the application ----------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The document routes are implemented in group 9 (task 9.1), which removes this marker.",
-)
 def test_the_application_publishes_the_document_contract(spec: Spec) -> None:
     app = create_app(build_settings("postgresql+psycopg://user:pw@localhost:5432/contract_test"))
 
