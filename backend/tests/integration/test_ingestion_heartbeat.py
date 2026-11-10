@@ -216,7 +216,7 @@ class TestLostLease:
 
         # Renewals fail for a whole lease: the worker cannot prove it still owns the job.
         assert outcome is Outcome.LOST
-        assert embedder.calls < 6
+        assert embedder.calls <= 4  # it stopped after about one lease (3 s), not at the end
         assert chunk_count(scene.url, document) == 0
         assert job_state(scene.url, job)["has_payload"] is True
 
@@ -250,3 +250,28 @@ class TestDeadline:
         assert elapsed < 7  # it did not run to the end of the nine batches
         assert chunk_count(scene.url, document) == 0
         assert job_state(scene.url, job)["has_payload"] is False
+
+    def test_nothing_is_renewed_after_the_deadline_while_the_worker_is_blocked(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        document, _ = add_text(scene, SHORT_TEXT)
+        renewals: list[float] = []
+        original = IngestionJobRepository.renew
+
+        def recording(self, job_id, token, lease_seconds):  # type: ignore[no-untyped-def]
+            renewals.append(time.monotonic())
+            return original(self, job_id, token, lease_seconds)
+
+        monkeypatch.setattr(IngestionJobRepository, "renew", recording)
+
+        with built_service(
+            scene.url, sleeping(5.6), lease_seconds=4, deadline_seconds=5, batch_size=16
+        ) as built:
+            started = time.monotonic()
+            outcome = built.service.run_once()
+
+        # One blocking call crosses the deadline; the heartbeat renews at 1.3, 2.7 and 4.0 s
+        # and must not renew at 5.3 s.
+        assert outcome is Outcome.FAILED
+        assert document_state(scene.url, document)["error_code"] == "PROCESSING_TIMEOUT"
+        assert renewals and max(renewals) - started <= 5.1

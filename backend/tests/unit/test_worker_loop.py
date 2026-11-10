@@ -202,6 +202,13 @@ def settings(tmp_path: Path, **overrides: object) -> Settings:
     return Settings(_env_file=None, **values)  # type: ignore[arg-type]
 
 
+def stopped() -> threading.Event:
+    """An already-set stop event: a worker that wrongly starts exits at once instead of hanging."""
+    event = threading.Event()
+    event.set()
+    return event
+
+
 class TestStartupRefusals:
     def test_pdf_parsing_outside_linux_is_refused(self) -> None:
         with pytest.raises(UnsupportedPlatformError):
@@ -215,7 +222,7 @@ class TestStartupRefusals:
     ) -> None:
         caplog.set_level(logging.INFO)
 
-        code = run_worker(settings(tmp_path), platform="win32", stop=threading.Event())
+        code = run_worker(settings(tmp_path), platform="win32", stop=stopped())
 
         assert code == EXIT_REFUSED
         assert "refused to start" in caplog.text
@@ -226,7 +233,7 @@ class TestStartupRefusals:
         caplog.set_level(logging.INFO)
 
         code = run_worker(
-            settings(tmp_path, embedder_backend="local"), platform="linux", stop=threading.Event()
+            settings(tmp_path, embedder_backend="local"), platform="linux", stop=stopped()
         )
 
         assert code == EXIT_REFUSED
@@ -250,7 +257,7 @@ class TestStartupRefusals:
         monkeypatch.setattr(worker_module, "startup_check", probe)
         caplog.set_level(logging.INFO)
 
-        code = run_worker(settings(tmp_path), platform="linux", stop=threading.Event())
+        code = run_worker(settings(tmp_path), platform="linux", stop=stopped())
 
         assert code == EXIT_REFUSED
         assert "refused to start" in caplog.text

@@ -216,29 +216,34 @@ class TestFailures:
         assert outcome is Outcome.FAILED
         self.assert_failed(scene, document, job, "EMBEDDING_FAILED")
 
-    def test_an_invalid_vector_is_an_embedding_failure(self, scene: Scene) -> None:
-        document, job = add_text(scene)
+    def test_an_invalid_vector_fails_at_once_as_an_embedding_failure(self, scene: Scene) -> None:
+        document, job = add_text(scene, LONG_TEXT)
 
         class Zeros(HookEmbedder):
             def embed(self, texts):  # type: ignore[no-untyped-def]
+                self.calls += 1
                 return [[0.0] * 384 for _ in texts]
 
-        with built_service(scene.url, Zeros()) as built:
+        embedder = Zeros()
+        with built_service(scene.url, embedder) as built:
             built.service.run_once()
 
         self.assert_failed(scene, document, job, "EMBEDDING_FAILED")
+        assert embedder.calls == 1  # the first bad batch ends the job; no more batches run
 
-    def test_a_missing_vector_is_an_embedding_failure(self, scene: Scene) -> None:
-        document, job = add_text(scene)
+    def test_a_missing_vector_fails_at_once_as_an_embedding_failure(self, scene: Scene) -> None:
+        document, job = add_text(scene, LONG_TEXT)
 
         class Short(HookEmbedder):
             def embed(self, texts):  # type: ignore[no-untyped-def]
                 return super().embed(texts)[:-1]
 
-        with built_service(scene.url, Short()) as built:
+        embedder = Short()
+        with built_service(scene.url, embedder) as built:
             built.service.run_once()
 
         self.assert_failed(scene, document, job, "EMBEDDING_FAILED")
+        assert embedder.calls == 1
 
     def test_an_unexpected_exception_is_processing_failed(self, scene: Scene) -> None:
         document, job = add_text(scene)
@@ -453,6 +458,138 @@ class TestCancellationAndLease:
         assert outcome is Outcome.LOST
         assert chunk_count(scene.url, document) == 0
         assert document_state(scene.url, document)["status"] == "processing"
+
+
+class TestTerminalWritesAreFenced:
+    def test_a_final_transaction_the_fence_refuses_is_a_lost_job(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        document, _ = add_text(scene)
+        monkeypatch.setattr(IngestionJobRepository, "complete", lambda *args, **kwargs: False)
+
+        with built_service(scene.url) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.LOST
+        assert document_state(scene.url, document)["status"] == "processing"
+
+    def test_a_failure_mark_the_fence_refuses_is_a_lost_job(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        document, job = add_pdf(scene)
+        monkeypatch.setattr(IngestionJobRepository, "mark_failed", lambda *args, **kwargs: False)
+
+        def loader(payload: bytes) -> list[Page]:
+            raise DocumentLoadError(DocumentErrorCode.CORRUPT_FILE)
+
+        with built_service(scene.url, pdf_loader=loader) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.LOST
+        assert document_state(scene.url, document)["status"] == "processing"
+        assert job_state(scene.url, job)["has_payload"] is True
+
+    def test_a_database_error_while_failing_the_job_abandons_it(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        document, _ = add_pdf(scene)
+
+        def broken(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise OperationalError("stmt", {}, Exception("connection lost"))
+
+        monkeypatch.setattr(IngestionJobRepository, "mark_failed", broken)
+
+        def loader(payload: bytes) -> list[Page]:
+            raise DocumentLoadError(DocumentErrorCode.CORRUPT_FILE)
+
+        with built_service(scene.url, pdf_loader=loader) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.ABANDONED
+        assert document_state(scene.url, document)["status"] == "processing"
+
+
+class TestOddInputs:
+    def test_a_refusal_of_the_repository_is_processing_failed(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        document, _ = add_text(scene)
+
+        def refuse(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ValueError("refused before any statement")
+
+        monkeypatch.setattr(IngestionJobRepository, "complete", refuse)
+
+        with built_service(scene.url) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.FAILED
+        assert document_state(scene.url, document)["error_code"] == "PROCESSING_FAILED"
+
+    def test_the_lease_is_renewed_at_every_phase_boundary(
+        self, scene: Scene, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        add_text(scene)
+        renewals: list[int] = []
+        original = IngestionJobRepository.renew
+
+        def counting(self, job_id, token, lease_seconds):  # type: ignore[no-untyped-def]
+            renewals.append(1)
+            return original(self, job_id, token, lease_seconds)
+
+        monkeypatch.setattr(IngestionJobRepository, "renew", counting)
+
+        with built_service(scene.url, batch_size=16) as built:  # one batch
+            built.service.run_once()
+
+        # before loading, after loading, before the batch and before the final write
+        assert len(renewals) == 4
+
+    def test_pages_that_produce_no_chunk_have_no_extractable_text(self, scene: Scene) -> None:
+        document, _ = add_pdf(scene)
+
+        with built_service(scene.url, pdf_loader=lambda payload: [Page(1, "   ")]) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.FAILED
+        assert document_state(scene.url, document)["error_code"] == "NO_EXTRACTABLE_TEXT"
+
+    def test_an_unknown_content_type_is_processing_failed(self, scene: Scene) -> None:
+        document, _ = insert_pending(
+            scene.url, scene.subject, payload=SHORT_TEXT, content_type="image/png"
+        )
+
+        with built_service(scene.url) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.FAILED
+        assert document_state(scene.url, document)["error_code"] == "PROCESSING_FAILED"
+
+    def test_a_pdf_without_a_loader_or_limits_is_processing_failed(self, scene: Scene) -> None:
+        document, _ = add_pdf(scene)
+
+        with built_service(scene.url) as built:  # no loader and no PDF limits configured
+            built.service.run_once()
+
+        assert document_state(scene.url, document)["error_code"] == "PROCESSING_FAILED"
+
+    @pytest.mark.parametrize("outcome_case", ["ready", "failed", "lost"])
+    def test_the_heartbeat_thread_never_outlives_the_job(
+        self, scene: Scene, outcome_case: str
+    ) -> None:
+        import threading
+
+        document, job = add_text(scene, b"   " if outcome_case == "failed" else SHORT_TEXT)
+
+        def hook(call: int) -> None:
+            if outcome_case == "lost":
+                expire_lease(scene.url, job)
+
+        with built_service(scene.url, HookEmbedder(hook), batch_size=1) as built:
+            built.service.run_once()
+
+        assert [t for t in threading.enumerate() if t.name == "ingestion-heartbeat"] == []
+        assert document_state(scene.url, document)
 
 
 class TestRetries:
