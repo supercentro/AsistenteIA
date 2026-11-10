@@ -10,6 +10,7 @@ upload slot always comes back. The same behaviours against a real Uvicorn are in
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -62,7 +63,7 @@ async def call(
     app: FastAPI,
     world: World,
     token_headers: dict[str, str],
-    script: list[Message | float],
+    script: list[Message | float | Callable[[], None]],
     *,
     declared: int | None = None,
 ) -> Exchange:
@@ -91,6 +92,9 @@ async def call(
     async def receive() -> Message:
         while queue:
             item = queue.pop(0)
+            if callable(item):
+                item()
+                continue
             if isinstance(item, (int, float)):
                 await asyncio.sleep(item)
                 continue
@@ -250,3 +254,28 @@ def test_the_api_engine_has_the_statement_and_idle_timeouts(clean_db: str) -> No
 
     assert statement == "7s"
     assert idle == "30s"
+
+
+def test_no_database_connection_or_transaction_is_held_while_the_body_is_read(
+    clean_db: str, world: World
+) -> None:
+    from tests.service_support import activity, checked_out
+
+    app = make_app(clean_db)
+    headers = token(app, world)
+    seen: list[tuple[int, int, int]] = []
+
+    def probe() -> None:
+        state = activity(clean_db)
+        seen.append(
+            (
+                checked_out(app.state.session_factory.kw["bind"]),
+                state.open_transactions,
+                state.idle_in_transaction,
+            )
+        )
+
+    exchange = asyncio.run(call(app, world, headers, [probe, body_chunk(start_of_a_file())]))
+
+    assert exchange.status == 408  # the client then stalled
+    assert seen == [(0, 0, 0)]  # no pooled connection, no transaction, nothing idle in one
