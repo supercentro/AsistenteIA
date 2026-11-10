@@ -108,9 +108,6 @@ class DocumentRepository:
         self._session.flush()
         self._session.add(IngestionJob(document_id=document.id, payload=payload))
         self._session.flush()
-        # Load the columns the database fills in (creation time, counters) while the session is
-        # open: the caller builds its answer after the commit and the session closing.
-        self._session.refresh(document)
         return document
 
     def owns_subject(self, subject_id: uuid.UUID, teacher_id: uuid.UUID) -> bool:

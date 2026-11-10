@@ -243,7 +243,11 @@ def test_a_client_that_goes_silent_hits_the_idle_limit() -> None:
 
 
 def test_the_idle_limit_is_measured_from_the_last_byte() -> None:
-    outcome = run(drive([chunk(10), 0.1, chunk(10), 0.1, chunk(10, more=False)], idle=0.3))
+    script: list[Message | float] = [chunk(10)]
+    for _ in range(4):
+        script += [0.15, chunk(10)]
+    script[-1] = chunk(10, more=False)
+    outcome = run(drive(script, idle=0.3, total=30))
 
     assert outcome.finished  # no single gap reached the idle limit although the total is longer
 
@@ -268,6 +272,7 @@ def test_empty_chunks_are_not_progress() -> None:
     outcome = run(drive(spam, idle=0.25, total=30))
 
     assert isinstance(outcome.error, UploadTimedOut)
+    assert outcome.seen == []  # the application never woke up for an empty chunk
 
 
 def test_the_total_deadline_starts_with_the_first_read() -> None:

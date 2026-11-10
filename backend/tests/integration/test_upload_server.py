@@ -53,6 +53,7 @@ class Server:
     port: int
     temp_dir: Path
     log: Path
+    pid: int
 
 
 def wait_for_port(port: int, process: subprocess.Popen[bytes], timeout: float = 60.0) -> None:
@@ -79,7 +80,7 @@ def server(migrated_db: str) -> Iterator[Server]:
             APP_ENV="test",
             DATABASE_URL=migrated_db,
             JWT_SECRET=TEST_JWT_SECRET,
-            MAX_UPLOAD_MB="1",
+            MAX_UPLOAD_MB="2",
             INGESTION_PENDING_BYTES_MAX_MB="50",
             UPLOAD_BODY_IDLE_SECONDS=str(IDLE_SECONDS),
             UPLOAD_BODY_TIMEOUT_SECONDS=str(TOTAL_SECONDS),
@@ -110,7 +111,7 @@ def server(migrated_db: str) -> Iterator[Server]:
             )
             try:
                 wait_for_port(port, process)
-                yield Server(port, temp_dir, log)
+                yield Server(port, temp_dir, log, process.pid)
             finally:
                 process.terminate()
                 try:
@@ -229,6 +230,13 @@ def quiet(scene: Scene) -> None:
     """No temporary file is left in the server process's temporary directory."""
     time.sleep(0.3)
     assert list(scene.server.temp_dir.iterdir()) == []
+    # Temporary files are unlinked when created on Linux: an open (deleted) one shows in /proc.
+    held = [
+        target
+        for fd in Path(f"/proc/{scene.server.pid}/fd").iterdir()
+        if (target := os.readlink(fd)).startswith(str(scene.server.temp_dir))
+    ]
+    assert held == []
 
 
 # --- the size limit ------------------------------------------------------------------------------
@@ -298,7 +306,9 @@ def test_a_valid_upload_over_a_raw_connection_is_accepted_and_the_size_is_what_a
 
 
 def test_a_large_valid_upload_spools_to_disk_and_leaves_nothing_behind(scene: Scene) -> None:
-    body = multipart_body(part("file", b"a" * (ONE_MB - 1024), "big.txt"))
+    body = multipart_body(
+        part("file", b"a" * (ONE_MB + ONE_MB // 2), "big.txt")
+    )  # > 1 MiB: spools to disk
     with closing(connect(scene.server)) as sock:
         sock.sendall(upload_head(scene, length=len(body)) + body)
 

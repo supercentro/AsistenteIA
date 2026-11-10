@@ -391,6 +391,44 @@ def test_a_failure_while_writing_the_job_rolls_the_document_back(clean_db: str) 
     assert stored(clean_db) == NOTHING
 
 
+def test_a_database_error_that_is_not_a_connection_failure_is_also_503(clean_db: str) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    world = make_world(clean_db)
+    client = make_client(clean_db)
+    headers = auth(client, world.teacher)
+    engine = client.app.state.session_factory.kw["bind"]  # type: ignore[attr-defined]
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def refuse_job(conn: object, cursor: object, statement: str, *rest: object) -> None:
+        if statement.startswith("INSERT INTO ingestion_jobs"):
+            raise IntegrityError(statement, {}, Exception("DB-TEXT-MARKER-integrity"))
+
+    response = upload(client, headers, world.subject)
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "SERVICE_UNAVAILABLE",
+        "message": "The upload could not be stored right now",
+    }
+    assert stored(clean_db) == NOTHING
+
+
+def test_the_default_ten_megabyte_limit_is_exact(clean_db: str) -> None:
+    world = make_world(clean_db)
+    client = make_client(clean_db)  # the real default: MAX_UPLOAD_MB = 10
+    headers = auth(client, world.teacher)
+    limit = 10 * ONE_MB
+
+    at_limit = upload(client, headers, world.subject, "a.txt", b"a" * limit)
+    over = upload(client, headers, world.subject, "b.txt", b"a" * (limit + 1))
+
+    assert at_limit.status_code == 202
+    assert at_limit.json()["size_bytes"] == limit
+    assert over.status_code == 413
+    assert count(clean_db, "documents") == 1
+
+
 # --- size -----------------------------------------------------------------------------------------
 
 

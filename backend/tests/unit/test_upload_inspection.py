@@ -55,6 +55,11 @@ def test_a_name_at_the_length_limit_is_kept() -> None:
     assert clean_filename(name) == name
 
 
+def test_a_name_one_character_over_the_limit_is_rejected() -> None:
+    with pytest.raises(UploadValidationError):
+        clean_filename("a" * (MAX_FILENAME_LENGTH - 3) + ".txt")  # 256 characters
+
+
 def test_a_name_over_the_length_limit_is_rejected_after_cleaning() -> None:
     with pytest.raises(UploadValidationError) as error:
         clean_filename("a" * MAX_FILENAME_LENGTH + ".txt")
