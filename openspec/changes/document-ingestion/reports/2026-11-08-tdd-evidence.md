@@ -41,3 +41,7 @@ Failing run before the code: 4 collection errors, `ModuleNotFoundError: No modul
 
 ## Group 8 (ingestion service, heartbeat and worker)
 Failing run before the code: 5 collection errors, `ModuleNotFoundError: No module named 'app.services.ingestion_service'` (commit `ca3673e`); the engine option tests failed first with `TypeError: unexpected keyword argument 'statement_timeout_seconds'`. After: 85 tests of the group pass in the Linux image against PostgreSQL. 45 mutations in two passes; 12 first-pass survivors closed with new tests; 2 accepted as equivalent. Details and deviations (including the loss of the host virtual environment to an Application Control policy and the move to the Linux image) are in `2026-11-10-group-8-service-and-worker.md`.
+
+## Group 9: endpoints, upload guard and leak tests
+- Failing run before the implementation (commit `cd84041`): `102 failed, 17 passed, 18 errors`; collection errors for `app.services.upload_inspection`, `app.core.upload_guard` and `app.services.document_service`; the contract test failed without its `xfail`.
+- After the implementation: 1645 passed, 0 xfailed in the full Linux run. Mutations: 56, all killed except two accepted equivalents. Details in `2026-11-10-group-9-endpoints-and-upload-guard.md`.
