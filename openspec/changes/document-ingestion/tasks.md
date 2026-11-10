@@ -74,9 +74,9 @@ All work happens in a temporary directory outside the repository and in disposab
 
 ## 10. Real-Server and Process Tests (MANDATORY: behaviour depends on Uvicorn and transport)
 
-- [ ] 10.1 Start the application with the production Uvicorn arguments on a free port (never 8000 or 5173) and test: early `413` for a chunked body above the limit, `Content-Length` above the limit, a stalled body and a slow drip answered `408` to connected clients, abusive multipart structures answered `422` quickly, many slow clients, `202` only after the commit (kill the process between steps), the order of the dependency exit and the response, and that temporary files do not accumulate
-- [ ] 10.2 With real API and worker processes: upload, poll until `ready`, delete during processing, kill the worker during processing and verify recovery, restart the API with `pending` documents, and verify the exhausted-attempts path ends `failed` with `PROCESSING_INTERRUPTED`
-- [ ] 10.3 Record why Playwright does not apply (no UI) and which real-server tests replace it in `reports/YYYY-MM-DD-step-10-real-server-verification.md`
+- [x] 10.1 Start the application with the production Uvicorn arguments on a free port (never 8000 or 5173) and test: early `413` for a chunked body above the limit, `Content-Length` above the limit, a stalled body and a slow drip answered `408` to connected clients, abusive multipart structures answered `422` quickly, many slow clients, `202` only after the commit (kill the process between steps), the order of the dependency exit and the response, and that temporary files do not accumulate
+- [x] 10.2 With real API and worker processes: upload, poll until `ready`, delete during processing, kill the worker during processing and verify recovery, restart the API with `pending` documents, and verify the exhausted-attempts path ends `failed` with `PROCESSING_INTERRUPTED`
+- [x] 10.3 Record why Playwright does not apply (no UI) and which real-server tests replace it in `reports/YYYY-MM-DD-step-10-real-server-verification.md`
 
 ## 11. Review and Update Existing Unit Tests (MANDATORY)
 

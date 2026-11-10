@@ -45,3 +45,6 @@ Failing run before the code: 5 collection errors, `ModuleNotFoundError: No modul
 ## Group 9: endpoints, upload guard and leak tests
 - Failing run before the implementation (commit `cd84041`): `102 failed, 17 passed, 18 errors`; collection errors for `app.services.upload_inspection`, `app.core.upload_guard` and `app.services.document_service`; the contract test failed without its `xfail`.
 - After the implementation: 1645 passed, 0 xfailed in the full Linux run. Mutations: 56, all killed except two accepted equivalents. Details in `2026-11-10-group-9-endpoints-and-upload-guard.md`.
+
+## Group 10: real-server and process tests
+- Red first: the deterministic UploadSlots interleaving tests failed with TypeError before the seam existed (3 failed), then passed. The real-server and process tests verify behaviour of groups 8 and 9 and are proved by mutation (8 mutations, 2 first-pass survivors closed, all killed). Full Linux run: 1684 passed. See 2026-11-10-step-10-real-server-verification.md.
