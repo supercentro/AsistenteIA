@@ -196,6 +196,21 @@ class TestFailures:
 
         self.assert_failed(scene, document, job, "NO_EXTRACTABLE_TEXT")
 
+    @pytest.mark.parametrize(
+        "blank",
+        ["  ", "\u0085", " \u0085​ ﻿", "‮⁠ \t"],
+    )
+    def test_text_that_only_looks_blank_is_rejected_before_the_database(
+        self, scene: Scene, blank: str
+    ) -> None:
+        """TD-027: no chunk reaches the `content ~ '\\S'` CHECK with look-alike blank content."""
+        document, job = add_text(scene, blank.encode("utf-8"))
+
+        with built_service(scene.url) as built:
+            built.service.run_once()
+
+        self.assert_failed(scene, document, job, "NO_EXTRACTABLE_TEXT")
+
     def test_invalid_utf8(self, scene: Scene) -> None:
         document, job = add_text(scene, b"\xff\xfe broken")
 
