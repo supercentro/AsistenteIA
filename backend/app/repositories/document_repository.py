@@ -108,7 +108,21 @@ class DocumentRepository:
         self._session.flush()
         self._session.add(IngestionJob(document_id=document.id, payload=payload))
         self._session.flush()
+        # Load the columns the database fills in (creation time, counters) while the session is
+        # open: the caller builds its answer after the commit and the session closing.
+        self._session.refresh(document)
         return document
+
+    def owns_subject(self, subject_id: uuid.UUID, teacher_id: uuid.UUID) -> bool:
+        """True when the teacher owns the subject (no lock, no side effect)."""
+        return self._owns(subject_id, teacher_id)
+
+    def unfinished_jobs(self) -> int:
+        """Jobs that still hold bytes: a cheap, lock-free count for an early refusal."""
+        value = self._session.execute(
+            select(func.count()).select_from(IngestionJob).where(IngestionJob.payload.is_not(None))
+        ).scalar_one()
+        return int(value)
 
     def list_for_teacher(
         self, subject_id: uuid.UUID, teacher_id: uuid.UUID

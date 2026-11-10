@@ -12,6 +12,7 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimiter
 from app.core.security import PasswordService
 from app.core.security_headers import SecureHeadersMiddleware
+from app.core.upload_guard import MULTIPART_OVERHEAD_BYTES, UploadBodyGuard, UploadSlots
 
 
 def create_app(
@@ -21,7 +22,12 @@ def create_app(
     configure_logging(settings.log_level)
 
     app = FastAPI(title="AsistenteIA API", version="0.1.0")
-    engine = create_db_engine(settings.database_url, settings.db_connect_timeout_seconds)
+    engine = create_db_engine(
+        settings.database_url,
+        settings.db_connect_timeout_seconds,
+        statement_timeout_seconds=settings.db_statement_timeout_api_seconds,
+        idle_in_transaction_timeout_seconds=settings.db_idle_in_transaction_timeout_seconds,
+    )
     app.state.settings = settings
     app.state.session_factory = create_session_factory(engine)
     app.state.password_service = password_service or PasswordService()
@@ -32,6 +38,19 @@ def create_app(
         settings.register_rate_limit, "register", "Too many registrations. Try again later."
     )
 
+    app.state.upload_rate_limiter = RateLimiter(
+        settings.upload_rate_limit, "upload", "Too many uploads. Try again later."
+    )
+    app.state.upload_slots = UploadSlots(settings.upload_max_in_flight)
+
+    # Innermost: it wraps `receive` of the upload route only (limit and deadlines on the bytes
+    # actually received); the endpoint turns its refusals into the 413 and 408 answers.
+    app.add_middleware(
+        UploadBodyGuard,
+        max_body_bytes=settings.max_upload_mb * 1024 * 1024 + MULTIPART_OVERHEAD_BYTES,
+        body_timeout_seconds=settings.upload_body_timeout_seconds,
+        idle_seconds=settings.upload_body_idle_seconds,
+    )
     app.add_middleware(SecureHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,

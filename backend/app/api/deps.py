@@ -100,10 +100,8 @@ def enforce_register_rate_limit(request: Request) -> None:
     limiter.check(_client_key(request))
 
 
-def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    settings: AppSettings,
-    users: Annotated[UserRepository, Depends(get_user_repository)],
+def authenticate(
+    credentials: HTTPAuthorizationCredentials | None, settings: Settings, users: UserRepository
 ) -> User:
     """Authenticate the Bearer token; the user, and therefore the role, comes from the database."""
     challenge = {"WWW-Authenticate": "Bearer"}
@@ -119,6 +117,14 @@ def get_current_user(
         logger.info("token rejected: unknown user id=%s", user_id)
         raise UnauthorizedError(TOKEN_ERROR_MESSAGE, headers=challenge)
     return user
+
+
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    settings: AppSettings,
+    users: Annotated[UserRepository, Depends(get_user_repository)],
+) -> User:
+    return authenticate(credentials, settings, users)
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
