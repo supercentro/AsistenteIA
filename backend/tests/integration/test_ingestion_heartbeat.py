@@ -275,3 +275,12 @@ class TestDeadline:
         assert outcome is Outcome.FAILED
         assert document_state(scene.url, document)["error_code"] == "PROCESSING_TIMEOUT"
         assert renewals and max(renewals) - started <= 5.1
+
+
+def test_the_heartbeat_interval_is_a_third_of_the_lease_unless_set_explicitly() -> None:
+    from tests.service_support import default_limits
+
+    assert default_limits(lease_seconds=120).heartbeat_interval == 40
+    assert (
+        default_limits(lease_seconds=120, heartbeat_interval_seconds=0.5).heartbeat_interval == 0.5
+    )

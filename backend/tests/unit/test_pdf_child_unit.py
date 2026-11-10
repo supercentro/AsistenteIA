@@ -216,3 +216,34 @@ def test_a_page_failure_after_some_pages_is_reported_as_corrupt(
     assert status == 1
     assert streams.records()[-1] == {"error": "CORRUPT_FILE"}
     assert b"detail" not in streams.stdout.buffer.getvalue()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="resource limits exist on Linux only")
+def test_every_resource_limit_is_set_with_its_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    import resource
+
+    calls: list[tuple[int, tuple[int, int]]] = []
+    monkeypatch.setattr(resource, "setrlimit", lambda kind, pair: calls.append((kind, pair)))
+
+    pdf_child.apply_limits(64, 5)
+
+    memory = 64 << 20
+    assert dict(calls) == {
+        resource.RLIMIT_AS: (memory, memory),
+        resource.RLIMIT_CPU: (5, 5 + pdf_child._CPU_GRACE_SECONDS),
+        resource.RLIMIT_FSIZE: (0, 0),  # the child cannot write files
+        resource.RLIMIT_NOFILE: (pdf_child.NOFILE_LIMIT, pdf_child.NOFILE_LIMIT),
+        resource.RLIMIT_CORE: (0, 0),
+    }
+    assert len(calls) == 5
+
+
+def test_a_failure_while_reporting_a_code_still_ends_with_status_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(record: object) -> None:
+        raise OSError("the pipe is closed")
+
+    monkeypatch.setattr(pdf_child, "_write", broken)
+
+    assert pdf_child._report("CORRUPT_FILE") == 1

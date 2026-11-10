@@ -519,3 +519,24 @@ class TestPdfLimits:
         assert (derived.max_pages, derived.max_chars, derived.memory_mb) == (12, 3456, 200)
         assert (derived.cpu_seconds, derived.timeout_seconds) == (5, 8)
         assert derived.max_output_bytes == 2 * 1024 * 1024
+
+
+@linux_only
+class TestEdgesOfTheWrapper:
+    def test_an_error_code_that_is_not_a_string_is_a_processing_failure(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        install(monkeypatch, tmp_path, emit('{"error": 5}') + "sys.exit(1)" + chr(10))
+
+        assert failure().code is DocumentErrorCode.PROCESSING_FAILED
+
+    def test_a_child_that_closes_its_output_but_does_not_exit_is_stopped_at_the_deadline(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        install(monkeypatch, tmp_path, "os.close(1)" + chr(10) + "time.sleep(60)" + chr(10))
+        started = time.monotonic()
+
+        error = failure(dataclasses.replace(LIMITS, timeout_seconds=1))
+
+        assert error.code is DocumentErrorCode.PROCESSING_TIMEOUT
+        assert time.monotonic() - started < 8

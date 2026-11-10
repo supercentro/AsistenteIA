@@ -318,3 +318,44 @@ class TestRenewalIsOneShortTransaction:
 def test_helper_vector_is_a_unit_vector() -> None:
     assert sum(value * value for value in vector(5)) == 1.0
     assert unit_vector(0).startswith("[")
+
+
+def test_a_lease_that_expires_while_the_document_lock_is_awaited_writes_nothing(
+    clean_db: str,
+) -> None:
+    """The fence is proved twice: before the document lock and again after it was obtained.
+
+    Another transaction holds the document row; the worker's first check passes (the lease is
+    valid), it then waits for the lock, the lease expires meanwhile, and the second check must
+    refuse the write although the first one had passed.
+    """
+    import threading
+    import time
+
+    scene = make_scene(clean_db)
+    document, job_id = insert_pending(clean_db, scene.subject)
+    with session_for(clean_db) as session:
+        claimed = IngestionJobRepository(session).claim(2, 3)
+        session.commit()
+    assert claimed is not None
+    outcome: dict[str, object] = {}
+
+    def worker() -> None:
+        with session_for(clean_db) as session:
+            outcome["written"] = IngestionJobRepository(session).erase_payload(
+                job_id, claimed.token
+            )
+            session.rollback()
+
+    with session_for(clean_db) as blocker:
+        blocker.execute(text("SELECT 1 FROM documents WHERE id = :d FOR UPDATE"), {"d": document})
+        thread = threading.Thread(target=worker)
+        thread.start()
+        time.sleep(0.5)  # the worker passed the first check and waits for the document lock
+        assert thread.is_alive()
+        time.sleep(2.0)  # the lease (2 s) expires while it waits
+        blocker.rollback()
+    thread.join(timeout=30)
+
+    assert outcome == {"written": False}
+    assert job_state(clean_db, job_id)["has_payload"] is True  # nothing was erased

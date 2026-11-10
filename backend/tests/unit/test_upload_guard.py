@@ -454,3 +454,34 @@ def test_a_release_interleaved_with_an_acquire_keeps_the_count_exact() -> None:
 
     assert results == [True]
     assert slots.in_flight == 1  # one taken before, one released, one acquired
+
+
+# --- coverage of the security-relevant edges (group 12) -----------------------------------------
+
+
+def test_a_deadline_that_passes_between_two_reads_is_caught_before_waiting() -> None:
+    """The check happens before `receive` is awaited: an expired client is not waited for."""
+    now = [0.0]
+    outcome = Outcome()
+    asked = {"times": 0}
+
+    async def receive() -> Message:
+        asked["times"] += 1
+        return chunk(10)
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await receive()
+            now[0] += 10  # the application took longer than the idle limit
+            await receive()
+        except UploadAborted as error:
+            outcome.error = error
+
+    guard = UploadBodyGuard(
+        app, max_body_bytes=LIMIT, body_timeout_seconds=100, idle_seconds=5, clock=lambda: now[0]
+    )
+
+    run(guard(scope(), receive, nothing))
+
+    assert isinstance(outcome.error, UploadTimedOut)
+    assert asked["times"] == 1  # the second read never reached the client

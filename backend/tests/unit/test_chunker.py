@@ -232,3 +232,20 @@ def test_chunks_are_immutable_values() -> None:
 
     with pytest.raises(AttributeError):
         chunk.text = "y"  # type: ignore[misc]
+
+
+class LengthCounter:
+    """One token per character."""
+
+    def count_tokens(self, text: str, *, include_special: bool = True) -> int:
+        return len(text)
+
+
+def test_a_fragment_made_only_of_invisible_characters_is_not_a_chunk() -> None:
+    zero_width = chr(0x200B) * 4  # zero-width space: not whitespace, not visible
+    pages = [Page(1, f"aaaa {zero_width}")]
+
+    chunks = chunk_pages(pages, LengthCounter(), size=100, overlap=0, max_tokens=5)
+
+    assert [chunk.text for chunk in chunks] == ["aaaa"]
+    assert [chunk.index for chunk in chunks] == [0]

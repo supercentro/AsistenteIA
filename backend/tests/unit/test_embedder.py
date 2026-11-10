@@ -435,3 +435,17 @@ def test_importing_the_module_does_not_import_the_machine_learning_libraries() -
     top_level = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
 
     assert not any("torch" in line or "sentence_transformers" in line for line in top_level)
+
+
+def test_a_model_that_returns_fewer_vectors_than_texts_is_an_embedding_error(
+    fake_modules: list[Any], model_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local = LocalEmbedder.load(model_dir, threads=1, batch_size=16)
+    monkeypatch.setattr(
+        FakeSentenceModel, "encode", lambda self, texts, **kw: [[1.0] + [0.0] * 383]
+    )
+
+    with pytest.raises(EmbeddingError) as exc:
+        local.embed(["one", "two", "three"])
+
+    assert str(exc.value) == "embedding failed"
