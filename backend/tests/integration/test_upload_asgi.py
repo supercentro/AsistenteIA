@@ -10,7 +10,7 @@ upload slot always comes back. The same behaviours against a real Uvicorn are in
 import asyncio
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -63,7 +63,7 @@ async def call(
     app: FastAPI,
     world: World,
     token_headers: dict[str, str],
-    script: list[Message | float | Callable[[], None]],
+    script: Sequence[Message | float | Callable[[], None]],
     *,
     declared: int | None = None,
 ) -> Exchange:
