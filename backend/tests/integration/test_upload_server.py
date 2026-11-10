@@ -333,7 +333,7 @@ def test_an_idle_client_that_stays_connected_gets_408(scene: Scene) -> None:
     assert reply is not None
     assert reply.status == 408
     assert reply.json()["code"] == "REQUEST_TIMEOUT"
-    assert IDLE_SECONDS * 0.8 <= elapsed < TOTAL_SECONDS + 3  # about the idle limit
+    assert IDLE_SECONDS * 0.8 <= elapsed < TOTAL_SECONDS - 0.5  # the idle limit, not the total
     assert stored(scene.url) == NOTHING
     quiet(scene)
 

@@ -370,20 +370,26 @@ def test_slots_are_exact_under_threads() -> None:
 # --- the atomicity of the slot counter, with the interleaving forced (task 10, review of 9) -----
 
 
-def meeting_point() -> Callable[[], None]:
+class Meeting:
     """A pause that makes two threads reach the same point of the critical section together.
 
-    With the lock, the second thread cannot get in, so the meeting never happens and the barrier
-    times out (the first thread then goes on alone). Without the lock both threads meet here,
-    between reading the counter and writing it: the interleaving that loses an update.
+    With the lock the second thread cannot get in, so the meeting never happens and the barrier
+    times out (the first thread then goes on alone). Without the lock both threads meet between
+    reading the counter and writing it: the interleaving that loses an update. It does nothing
+    until `arm()` (so the set-up of a test does not use up the barrier).
     """
-    barrier = threading.Barrier(2, timeout=0.5)
 
-    def pause() -> None:
-        with suppress(threading.BrokenBarrierError):
-            barrier.wait()
+    def __init__(self) -> None:
+        self._barrier: threading.Barrier | None = None
 
-    return pause
+    def arm(self) -> None:
+        self._barrier = threading.Barrier(2, timeout=0.5)
+
+    def __call__(self) -> None:
+        barrier = self._barrier
+        if barrier is not None:
+            with suppress(threading.BrokenBarrierError):
+                barrier.wait()
 
 
 def together(count: int, work: Callable[[], object]) -> list[object]:
@@ -403,7 +409,9 @@ def together(count: int, work: Callable[[], object]) -> list[object]:
 
 
 def test_two_uploads_cannot_both_take_the_last_slot_even_if_interleaved() -> None:
-    slots = UploadSlots(1, pause_between_read_and_write=meeting_point())
+    meeting = Meeting()
+    slots = UploadSlots(1, pause_between_read_and_write=meeting)
+    meeting.arm()
 
     granted = together(2, slots.try_acquire)
 
@@ -412,8 +420,10 @@ def test_two_uploads_cannot_both_take_the_last_slot_even_if_interleaved() -> Non
 
 
 def test_two_releases_cannot_lose_an_update_even_if_interleaved() -> None:
-    slots = UploadSlots(2, pause_between_read_and_write=meeting_point())
+    meeting = Meeting()
+    slots = UploadSlots(2, pause_between_read_and_write=meeting)
     assert slots.try_acquire() and slots.try_acquire()
+    meeting.arm()
 
     together(2, slots.release)
 
@@ -421,8 +431,10 @@ def test_two_releases_cannot_lose_an_update_even_if_interleaved() -> None:
 
 
 def test_a_release_interleaved_with_an_acquire_keeps_the_count_exact() -> None:
-    slots = UploadSlots(2, pause_between_read_and_write=meeting_point())
+    meeting = Meeting()
+    slots = UploadSlots(2, pause_between_read_and_write=meeting)
     assert slots.try_acquire()
+    meeting.arm()
     results: list[object] = []
     start = threading.Barrier(2)
 
