@@ -166,6 +166,14 @@ class _Lease:
             else:
                 self.lost.set()
 
+    def poll(self) -> None:
+        """Inside a long phase: stop if the job was lost or is out of time; renewal stays with the
+        heartbeat thread, so this costs no database round trip."""
+        if self.lost.is_set():
+            raise _LeaseLost
+        if self._clock() >= self._deadline:
+            raise _Failure(DocumentErrorCode.PROCESSING_TIMEOUT)
+
     def checkpoint(self) -> None:
         """Between phases and batches: stop if the job was lost or is out of time, else renew."""
         if self.lost.is_set():
@@ -255,7 +263,9 @@ class IngestionService:
                 lease.checkpoint()
                 pages = self._load(job)
                 lease.checkpoint()
-                chunks = chunk_pages(pages, self._embedder, max_chunks=self._limits.max_chunks)
+                chunks = chunk_pages(
+                    pages, self._embedder, max_chunks=self._limits.max_chunks, poll=lease.poll
+                )
                 if not chunks:
                     raise _Failure(DocumentErrorCode.NO_EXTRACTABLE_TEXT)
                 vectors = self._embed(chunks, lease)

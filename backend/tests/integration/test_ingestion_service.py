@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
-from app.rag.chunker import Page
+from app.rag.chunker import DEFAULT_WINDOW_CHARS, Page
 from app.rag.embedder import EmbeddingError, FakeEmbedder
 from app.rag.loaders import DocumentLoadError, UnsupportedPlatformError
 from app.repositories.ingestion_job_repository import IngestionJobRepository
@@ -307,6 +307,49 @@ class TestFailures:
 
         assert outcome is Outcome.FAILED
         self.assert_failed(scene, document, job, "PROCESSING_TIMEOUT")
+
+    def test_the_deadline_is_checked_while_chunking_not_only_between_phases(
+        self, scene: Scene
+    ) -> None:
+        # Review finding R-01: one non-cooperative phase used to run to its end before any check.
+        text = ("palabra " * 100_000).encode()  # 800,000 characters, about 1,000 chunks
+        document, job = add_text(scene, text)
+        clock = FakeClock()
+
+        class SlowCounting(HookEmbedder):
+            def __init__(self) -> None:
+                super().__init__()
+                self.characters = 0
+
+            def count_tokens(self, text: str, *, include_special: bool = True) -> int:
+                clock.now += 601  # the very first measurement "takes" longer than the deadline
+                self.characters += len(text)
+                return super().count_tokens(text, include_special=include_special)
+
+        embedder = SlowCounting()
+        with built_service(scene.url, embedder, clock=clock) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.FAILED
+        self.assert_failed(scene, document, job, "PROCESSING_TIMEOUT")
+        assert embedder.calls == 0  # it never reached the embedding phase
+        assert embedder.characters < 4 * DEFAULT_WINDOW_CHARS  # stopped after the first window
+
+    def test_a_text_over_the_chunk_cap_fails_without_chunking_all_of_it(self, scene: Scene) -> None:
+        document, job = add_text(scene, ("palabra " * 100_000).encode())
+
+        class Counting(HookEmbedder):
+            characters = 0
+
+            def count_tokens(self, text: str, *, include_special: bool = True) -> int:
+                Counting.characters += len(text)
+                return super().count_tokens(text, include_special=include_special)
+
+        with built_service(scene.url, Counting(), max_chunks=20) as built:
+            built.service.run_once()
+
+        self.assert_failed(scene, document, job, "TOO_MANY_CHUNKS")
+        assert Counting.characters < 8 * DEFAULT_WINDOW_CHARS
 
     def test_the_deadline_is_checked_before_any_work(self, scene: Scene) -> None:
         document, job = add_pdf(scene)
