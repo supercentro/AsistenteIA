@@ -64,14 +64,14 @@ Memory: 7.8 to 9.1 GB free on the host before and during every heavy run (never 
 
 | ID | Severity | Finding | Handling |
 |---|---|---|---|
-| T-01 | Medium (minor residual, not a regression) | `x` + 2,000,000 of U+FFFD or U+2581 (the two visible symbols the tokenizer maps to zero tokens) is not capped and costs about 36 s with 100 chunks, equal to before the fix | Recorded in TD-034; it is outside the wording of the user's acceptance, so **it needs the user's explicit confirmation or a fix** (cap those code points or any code point the tokenizer maps to zero tokens) |
+| T-01 | Medium (minor residual, not a regression) | `x` + 2,000,000 of U+FFFD or U+2581 (the two visible symbols the tokenizer maps to zero tokens) is not capped and costs about 36 s with 100 chunks, equal to before the fix | Accepted by the user on 2026-11-11 (option A) as a residual risk for the controlled MVP only; recorded in TD-034 with its conditions and the future solution (offsets or a deterministic budget) |
 | T-02 | Low | TD-034 understated the worst case (55 s, about 46 minutes for 50 files), claimed 52 s before the fix (not reproduced, about 45 s) and named the normaliser as the whole cause | Corrected in TD-034 |
 | T-03 | Low | "real text is unchanged" is false for runs above 16 (40 spaces of indentation, 30 of table padding, 20 blank lines become 16) | Corrected in the guide; nothing meaningful is lost |
 | T-04 | Low | Tests did not pin 16 nor the claim about punctuation and symbols | Tests added; the three mutants are killed |
 | T-05 | Informational | The user's acceptance is not in `prompts.md` | TD-034 quotes the user's sentence and date; `prompts.md` is not touched |
 
 ### 9.4 Status of the findings
-R-01 resolved (residual accepted: TD-034); R-02 resolved; R-03 accepted for the controlled MVP (TD-035); R-04 documented (preflight verified); R-05 accepted for the controlled MVP (TD-030, open, not a sandbox); R-06 resolved; R-07 to R-10 informational or minor; S-01 resolved for the invisible-character class; the residual of about 44 to 55 s is accepted provisionally by the user (TD-034); S-02 resolved; S-03, S-06, S-07 documented; S-04 and S-05 resolved; T-01 open pending the user's decision; T-02 to T-04 resolved; T-05 recorded.
+R-01 resolved (residual accepted: TD-034); R-02 resolved; R-03 accepted for the controlled MVP (TD-035); R-04 documented (preflight verified); R-05 accepted for the controlled MVP (TD-030, open, not a sandbox); R-06 resolved; R-07 to R-10 informational or minor; S-01 resolved for the invisible-character class; the residual of about 44 to 55 s is accepted provisionally by the user (TD-034); S-02 resolved; S-03, S-06, S-07 documented; S-04 and S-05 resolved; T-01 accepted for the controlled MVP (TD-034); T-02 to T-04 resolved; T-05 recorded.
 
 ### 9.5 Task 16.2
-**Not ticked.** The criteria are not all met: T-01 is outside the wording of the accepted residual and needs the user's confirmation (or a fix), and the third review gave PASS WITH GAPS, not PASS.
+**Ticked** after the user's decision on T-01 (2026-11-11, option A). T-01 was checked against the conditions: it is not a regression (the normaliser treats the two symbols as content, as before the fix; the same 36 s is measured by the review), there is no Critical or High risk, and it does not compromise authentication, authorisation, data isolation or integrity. The final verdict of the third review stays PASS WITH GAPS: its only open gap (T-01) is accepted, and T-02 to T-05 are resolved or recorded.
