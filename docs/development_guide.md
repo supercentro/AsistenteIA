@@ -16,44 +16,49 @@ How to set up the environment, run the stack and run quality checks for Asistent
 git clone https://github.com/supercentro/AsistenteIA.git
 cd AsistenteIA
 cp backend/.env.example backend/.env
+cp backend/.env.worker.example backend/.env.worker
+cp backend/.env.db.example backend/.env.db
 cp frontend/.env.example frontend/.env
 ```
 
-`.env.example` files document every variable with **placeholder** values. Replace every `CHANGE_ME` locally and never commit `.env`:
+Each Compose service reads **only its own file**, so a process never receives a variable it does not use: `backend/.env` (API), `backend/.env.worker` (ingestion worker, no `JWT_SECRET`, no CORS or HTTP setting) and `backend/.env.db` (PostgreSQL, only `POSTGRES_*`). The example files document every variable with **placeholder** values. Replace every `CHANGE_ME` locally and never commit the real files (`.env`, `.env.worker`, `.env.db` are git-ignored; the `*.example` files are tracked):
 
 ```bash
-python -c "import secrets; print(secrets.token_hex(16))"   # e.g. for POSTGRES_PASSWORD (use the same value in both URLs)
+python -c "import secrets; print(secrets.token_hex(16))"   # e.g. for POSTGRES_PASSWORD (use the same value in .env.db and in the DATABASE_URL of .env and .env.worker)
 ```
 
-Backend variables (`backend/.env`):
+Backend variables. The column **File** says where each one lives: `API` = `backend/.env`, `worker` = `backend/.env.worker`, `both` = `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL`, `DB_CONNECT_TIMEOUT_SECONDS` and `DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS` in each of the two files, `db` = `backend/.env.db`. A variable placed in the wrong file is ignored: neither process rejects settings it does not read, so a tuning put in `backend/.env` that belongs to the worker has no effect.
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `DATABASE_URL` | Application database (`postgresql+psycopg://...`). Host `db` inside compose, `127.0.0.1:5442` from the host | required |
-| `APP_ENV` | `development`, `test` or `production` | `development` |
-| `CORS_ORIGINS` | Comma-separated allowed origins. `*` is rejected. Mandatory and explicit when `APP_ENV=production` | `http://localhost:5173` (development only) |
-| `LOG_LEVEL` | Python log level | `INFO` |
-| `DB_CONNECT_TIMEOUT_SECONDS` | Seconds allowed to open a PostgreSQL connection (1-60); keeps `/health` from hanging | `5` |
-| `JWT_SECRET` | HS256 signing key. **Required in every environment**, at least 32 bytes; values containing `CHANGE_ME`/`changeme` or with fewer than 8 distinct characters are rejected. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` | required |
-| `JWT_ISSUER`, `JWT_AUDIENCE` | `iss` and `aud` claims, both validated on every request | `asistenteia`, `asistenteia-api` |
-| `JWT_EXPIRE_MINUTES` | Access-token lifetime (1-1440) | `60` |
-| `PRIVACY_POLICY_VERSION` | Current privacy-policy version (1-20 chars) that users must accept. Mirror any override in `frontend/src/lib/privacyPolicy.ts` | `2026-10-v1` |
-| `LOGIN_RATE_LIMIT` | Login attempts per client address, `<n>/<second\|minute\|hour>` | `10/minute` |
-| `REGISTER_RATE_LIMIT` | Registrations per client address (independent counters, same format) | `5/minute` |
-| `MAX_UPLOAD_MB`, `MAX_PDF_PAGES`, `MAX_EXTRACTED_CHARS`, `MAX_CHUNKS_PER_DOCUMENT` | Size, page, extracted-text and chunk limits of one document | `10`, `300`, `2000000`, `2000` |
-| `MAX_DOCUMENTS_PER_SUBJECT` | Documents of one subject in any status; the next upload gets `409` | `50` |
-| `INGESTION_QUEUE_MAX`, `INGESTION_PENDING_BYTES_MAX_MB`, `UPLOAD_MAX_IN_FLIGHT` | Unfinished jobs, bytes waiting for the worker and uploads being received at once; above them uploads get `503` | `100`, `200`, `4` |
-| `UPLOAD_RATE_LIMIT` | Uploads per client address (in memory, same limits as the login limiter) | `10/minute` |
-| `UPLOAD_BODY_TIMEOUT_SECONDS`, `UPLOAD_BODY_IDLE_SECONDS` | Total deadline for the upload body and longest silence inside it (`408`) | `120`, `20` |
-| `INGESTION_MAX_ATTEMPTS`, `INGESTION_LEASE_SECONDS`, `INGESTION_JOB_DEADLINE_SECONDS`, `INGESTION_JOB_MAX_AGE_HOURS`, `INGESTION_BATCH_SIZE` | Worker: attempts per job, lease, deadline per attempt (must be greater than the lease), age after which an unprocessed job expires, embedding batch | `3`, `120`, `600`, `24`, `16` |
-| `PDF_CHILD_MAX_MEMORY_MB`, `PDF_CHILD_CPU_SECONDS`, `PDF_CHILD_TIMEOUT_SECONDS`, `PDF_CHILD_MAX_OUTPUT_MB` | Limits of the isolated PDF process | `768`, `20`, `30`, `8` |
-| `DB_STATEMENT_TIMEOUT_API_SECONDS`, `DB_STATEMENT_TIMEOUT_WORKER_SECONDS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS` | PostgreSQL `statement_timeout` of the API and of the worker, and `idle_in_transaction_session_timeout` for both | `15`, `60`, `30` |
-| `EMBEDDER_BACKEND`, `ALLOW_FAKE_EMBEDDER` | `local` (real model) or `fake` (deterministic vectors). `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside production | `local`, `false` |
-| `EMBEDDING_MODEL_PATH` | Directory of the model inside the worker image | `/opt/models/paraphrase-multilingual-MiniLM-L12-v2` |
-| `EMBEDDING_THREADS` | Threads used for inference (1-256). Not in `.env.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
-| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | Read only by `python -m app.cli seed`; no defaults exist | optional |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Read by the `db` compose service | required for compose |
-| `TEST_DATABASE_URL` | **Integration tests only**; never read by the application | required for integration tests |
+| Variable | File | Purpose | Default |
+|---|---|---|---|
+| `DATABASE_URL` | both | Application database (`postgresql+psycopg://...`). Host `db` inside compose, `127.0.0.1:5442` from the host | required |
+| `APP_ENV` | both | `development`, `test` or `production` | `development` |
+| `CORS_ORIGINS` | API | Comma-separated allowed origins. `*` is rejected. Mandatory and explicit when `APP_ENV=production` | `http://localhost:5173` (development only) |
+| `LOG_LEVEL` | both | Python log level | `INFO` |
+| `DB_CONNECT_TIMEOUT_SECONDS` | both | Seconds allowed to open a PostgreSQL connection (1-60); keeps `/health` from hanging | `5` |
+| `JWT_SECRET` | API | HS256 signing key. **Required in every environment**, at least 32 bytes; values containing `CHANGE_ME`/`changeme` or with fewer than 8 distinct characters are rejected. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` | required |
+| `JWT_ISSUER`, `JWT_AUDIENCE` | API | `iss` and `aud` claims, both validated on every request | `asistenteia`, `asistenteia-api` |
+| `JWT_EXPIRE_MINUTES` | API | Access-token lifetime (1-1440) | `60` |
+| `PRIVACY_POLICY_VERSION` | API | Current privacy-policy version (1-20 chars) that users must accept. Mirror any override in `frontend/src/lib/privacyPolicy.ts` | `2026-10-v1` |
+| `LOGIN_RATE_LIMIT` | API | Login attempts per client address, `<n>/<second\|minute\|hour>` | `10/minute` |
+| `REGISTER_RATE_LIMIT` | API | Registrations per client address (independent counters, same format) | `5/minute` |
+| `MAX_UPLOAD_MB` | API | Size limit of one upload | `10` |
+| `MAX_PDF_PAGES`, `MAX_EXTRACTED_CHARS`, `MAX_CHUNKS_PER_DOCUMENT` | worker | Page, extracted-text and chunk limits of one document | `300`, `2000000`, `2000` |
+| `MAX_DOCUMENTS_PER_SUBJECT` | API | Documents of one subject in any status; the next upload gets `409` | `50` |
+| `INGESTION_QUEUE_MAX`, `INGESTION_PENDING_BYTES_MAX_MB`, `UPLOAD_MAX_IN_FLIGHT` | API | Unfinished jobs, bytes waiting for the worker and uploads being received at once; above them uploads get `503` | `100`, `200`, `4` |
+| `UPLOAD_RATE_LIMIT` | API | Uploads per client address (in memory, same limits as the login limiter) | `10/minute` |
+| `UPLOAD_BODY_TIMEOUT_SECONDS`, `UPLOAD_BODY_IDLE_SECONDS` | API | Total deadline for the upload body and longest silence inside it (`408`) | `120`, `20` |
+| `INGESTION_MAX_ATTEMPTS`, `INGESTION_LEASE_SECONDS`, `INGESTION_JOB_DEADLINE_SECONDS`, `INGESTION_JOB_MAX_AGE_HOURS`, `INGESTION_BATCH_SIZE` | worker | Worker: attempts per job, lease, deadline per attempt (must be greater than the lease), age after which an unprocessed job expires, embedding batch | `3`, `120`, `600`, `24`, `16` |
+| `PDF_CHILD_MAX_MEMORY_MB`, `PDF_CHILD_CPU_SECONDS`, `PDF_CHILD_TIMEOUT_SECONDS`, `PDF_CHILD_MAX_OUTPUT_MB` | worker | Limits of the isolated PDF process | `768`, `20`, `30`, `8` |
+| `DB_STATEMENT_TIMEOUT_API_SECONDS` | API | PostgreSQL `statement_timeout` of the API | `15` |
+| `DB_STATEMENT_TIMEOUT_WORKER_SECONDS` | worker | PostgreSQL `statement_timeout` of the worker | `60` |
+| `DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS` | both | `idle_in_transaction_session_timeout` of each engine | `30` |
+| `EMBEDDER_BACKEND`, `ALLOW_FAKE_EMBEDDER` | worker | `local` (real model) or `fake` (deterministic vectors). `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside production | `local`, `false` |
+| `EMBEDDING_MODEL_PATH` | worker | Directory of the model inside the worker image | `/opt/models/paraphrase-multilingual-MiniLM-L12-v2` |
+| `EMBEDDING_THREADS` | worker | Threads used for inference (1-256). Commented out in `.env.worker.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
+| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | API | Read only by `python -m app.cli seed`; no defaults exist | optional |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | db | Read by the `db` compose service | required for compose |
+| `TEST_DATABASE_URL` | API (tests) | **Integration tests only**; never read by the application | required for integration tests |
 
 Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
@@ -61,7 +66,11 @@ Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
 > **Upgrading an existing checkout:** the backend now refuses to start without a valid `JWT_SECRET`. Add one to your local `backend/.env` (never commit it) and run `alembic upgrade head`.
 
-The ingestion variables above are read only through `core/config.py` and documented with placeholders in `.env.example` (a test keeps the example equal to the defaults). _(planned)_ The Gemini and chat variables are added by the change that first uses them.
+The variables above are read only through `core/config.py`: `WorkerSettings` (what the worker reads) and `Settings` (the API, which extends it with authentication, CORS and the upload limits). They are documented with placeholders in the three example files, and tests keep each example equal to the defaults of its settings class, free of secrets, and in agreement with Compose and `.gitignore`.
+
+**One value is duplicated on purpose:** `DATABASE_URL` appears in `backend/.env` and in `backend/.env.worker` (and its user, password and database name must match `backend/.env.db`). Keeping one value in one file would require Compose interpolation from a root `.env` or an external secret store, which this project does not use. The risk is drift: after changing the password in one file, the worker (or the API) fails to connect with an authentication error in its log, never silently. Change the three files together, then `docker compose up -d --force-recreate`. Note that `POSTGRES_PASSWORD` only takes effect when the data volume is created; to change the password of an existing database use `ALTER USER` first.
+
+> **Upgrading an existing checkout (hardening before group 16):** the worker and the database used to receive the whole `backend/.env`. Now run `cp backend/.env.worker.example backend/.env.worker` and `cp backend/.env.db.example backend/.env.db`, copy the real `DATABASE_URL` into `.env.worker` and the three `POSTGRES_*` values into `.env.db` (the same ones as before, so the existing data volume keeps working), keep any worker tuning you had in `.env` (`INGESTION_*`, `PDF_CHILD_*`, `EMBEDDER_*`) in `.env.worker`, and recreate the containers. `backend/.env` can keep its old lines: the API ignores what it does not read. `alembic` and `python -m app.cli` read the API settings, so run them in the `backend` container (or with `JWT_SECRET` set), not in the worker. _(planned)_ The Gemini and chat variables are added by the change that first uses them.
 
 ## 2. Run the full stack
 

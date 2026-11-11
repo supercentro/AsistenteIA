@@ -138,7 +138,8 @@ The contract is `api-spec.yml` and the behaviour is specified in `openspec/chang
 
 ## 8. Security and Secrets
 
-- MUST: configuration only via environment variables loaded by `core/config.py` (`pydantic-settings`); `.env` git-ignored; `.env.example` committed with placeholders.
+- MUST: configuration only via environment variables loaded by `core/config.py` (`pydantic-settings`); real `.env*` files git-ignored; `*.example` files committed with placeholders.
+- MUST: least privilege for settings. `WorkerSettings` holds what the ingestion worker reads and no secret of the API; `Settings` (API) extends it with authentication, CORS and HTTP limits. Each Compose service reads only its own file (`backend/.env` API, `backend/.env.worker` worker, `backend/.env.db` PostgreSQL). A new setting goes to the class of the process that reads it; the worker must start without `JWT_SECRET` (tests pin this, and that importing the worker does not load the API).
 - MUST: no secrets, tokens or personal data in logs, error responses or test fixtures.
 - MUST: uploaded file names are sanitised; files are never executed or served back; the bytes held for processing are temporary and, once erased, can still remain in WAL, dead tuples and backups (TD-029): treat backups as containing teachers' files.
 - MUST: HTTPS-only in deployed environments (enforced by the platform); secure headers via middleware.
