@@ -63,6 +63,25 @@ class FakeClock:
 
 
 class TestSuccess:
+    def test_one_visible_character_and_two_million_invisible_ones_is_a_small_valid_document(
+        self, scene: Scene
+    ) -> None:
+        # Second review S-01: the padding is bounded before it reaches the chunker; the visible
+        # text is kept and the document is stored as one short chunk.
+        payload = ("x" + "\u200b" * 1_999_998 + "y").encode()
+        document, job = add_text(scene, payload)
+
+        with built_service(scene.url) as built:
+            outcome = built.service.run_once()
+
+        assert outcome is Outcome.READY
+        stored = scalar(
+            scene.url, "SELECT content FROM document_chunks WHERE document_id = :d", d=document
+        )
+        assert isinstance(stored, str)
+        assert stored.startswith("x") and stored.endswith("y")
+        assert len(stored) <= 2 + 16 + 1
+
     def test_a_text_document_becomes_ready_with_its_chunks_and_no_bytes(self, scene: Scene) -> None:
         document, job = add_text(scene, LONG_TEXT)
 
@@ -198,7 +217,7 @@ class TestFailures:
 
     @pytest.mark.parametrize(
         "blank",
-        ["  ", "\u0085", " \u0085​ ﻿", "‮⁠ \t"],
+        ["\u00a0\u00a0", "\u0085", "\u00a0\u0085\u200b\u2003\ufeff", "\u202e\u2060 \t"],
     )
     def test_text_that_only_looks_blank_is_rejected_before_the_database(
         self, scene: Scene, blank: str

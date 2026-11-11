@@ -4,6 +4,7 @@ Proves the 128-token limit with special tokens on the kinds of text that tokenis
 """
 
 import os
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 
 from app.rag.chunker import Page, chunk_pages
 from app.rag.embedder import LocalEmbedder
+from app.rag.loaders import load_text
 
 pytestmark = pytest.mark.realmodel
 
@@ -61,3 +63,30 @@ def test_ordinary_spanish_prose_is_chunked_near_the_target_size(local: LocalEmbe
     sizes = [local.count_tokens(chunk.text, include_special=False) for chunk in chunks]
     assert max(sizes) <= 100
     assert sum(sizes) / len(sizes) >= 60  # chunks are not tiny
+
+
+S01_PADDINGS = [
+    pytest.param("\u200b", id="zero width space"),
+    pytest.param("\u200d", id="zero width joiner"),
+    pytest.param("\u2060", id="word joiner"),
+    pytest.param("\u0301", id="combining acute"),
+    pytest.param("\ue000", id="private use"),
+    pytest.param(" ", id="space"),
+    pytest.param("\t", id="tab"),
+]
+
+
+@pytest.mark.parametrize("padding", S01_PADDINGS)
+def test_one_visible_character_and_two_million_padding_characters_cost_seconds_not_minutes(
+    local: LocalEmbedder, padding: str
+) -> None:
+    # Second review S-01: this input took 17 to 60 s of tokenizer work on 2 CPUs before the
+    # normaliser bounded the runs of characters without content.
+    payload = ("x" + padding * 1_999_998 + "y").encode()
+    started = time.perf_counter()
+
+    pages = load_text(payload, max_chars=2_000_000)
+    chunks = chunk_pages(pages, local, max_chunks=2_000)
+
+    assert 1 <= len(chunks) <= 2
+    assert time.perf_counter() - started < 5
