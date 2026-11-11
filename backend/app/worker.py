@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from types import FrameType
 from typing import Protocol
 
@@ -27,6 +28,7 @@ from app.rag.embedder import (
 from app.rag.loaders import UnsupportedPlatformError
 from app.repositories.ingestion_job_repository import SweepResult
 from app.services.ingestion_service import IngestionLimits, IngestionService, Outcome
+from app.worker_health import BUSY_MARGIN_SECONDS, HEALTH_FILE, Beacon
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,12 @@ def ensure_supported_platform(platform: str = sys.platform) -> None:
         raise UnsupportedPlatformError
 
 
+class _Progress(Protocol):
+    def step_started(self) -> None: ...
+
+    def step_finished(self) -> None: ...
+
+
 class WorkerLoop:
     """Sweep on a schedule, claim and process jobs, back off while idle, stop on request."""
 
@@ -69,7 +77,9 @@ class WorkerLoop:
         sweep_every: float = SWEEP_EVERY_SECONDS,
         clock: Callable[[], float] = time.monotonic,
         wait: Callable[[float], bool] | None = None,
+        beacon: _Progress | None = None,
     ) -> None:
+        self._beacon = beacon
         self._service = service
         self._stop = stop
         self._idle_min = idle_min
@@ -93,14 +103,18 @@ class WorkerLoop:
             else:
                 delay = self._idle_min  # more work may be waiting: no pause between jobs
 
-    @staticmethod
-    def _guarded[T](step: Callable[[], T]) -> T | None:
+    def _guarded[T](self, step: Callable[[], T]) -> T | None:
         """Run a step; an unexpected error is logged by type only and never ends the worker."""
+        if self._beacon is not None:
+            self._beacon.step_started()
         try:
             return step()
         except Exception as error:  # noqa: BLE001 - the text of the error is never logged
             logger.error("worker step failed: %s", type(error).__name__)
             return None
+        finally:
+            if self._beacon is not None:
+                self._beacon.step_finished()
 
 
 def install_signal_handlers(stop: threading.Event) -> Callable[[], None]:
@@ -126,6 +140,7 @@ def run_worker(
     platform: str = sys.platform,
     stop: threading.Event | None = None,
     handle_signals: bool = False,
+    health_file: Path = HEALTH_FILE,
 ) -> int:
     """Start-up checks, then the loop until `stop`; returns the process exit code."""
     stop = stop if stop is not None else threading.Event()
@@ -147,10 +162,15 @@ def run_worker(
         create_session_factory(engine), embedder, IngestionLimits.from_settings(settings)
     )
     restore = install_signal_handlers(stop) if handle_signals else None
+    beacon = Beacon(
+        health_file, busy_limit=settings.ingestion_job_deadline_seconds + BUSY_MARGIN_SECONDS
+    )
+    beacon.start()
     logger.info("ingestion worker started")
     try:
-        WorkerLoop(service, stop).run()
+        WorkerLoop(service, stop, beacon=beacon).run()
     finally:
+        beacon.stop()
         if restore is not None:
             restore()
         engine.dispose()

@@ -58,8 +58,18 @@ services:
         condition: service_healthy
     cpus: 4
     mem_limit: 2g
+    # Restart after any exit: a crash, an out-of-memory kill, or the worker ending itself when it
+    # stalls (app/worker_health.py). A healthcheck alone would not restart anything.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker_health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s # the model loads before the first beat
     volumes:
-      - ./backend/app:/app/app
+      # Read-only: the worker parses untrusted files and has no reason to write its code.
+      - ./backend/app:/app/app:ro
 
   frontend:
     build: ./frontend

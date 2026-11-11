@@ -5,6 +5,7 @@ import signal
 import threading
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -63,7 +64,7 @@ class Timeline:
 
 
 def make_loop(
-    outcomes: Sequence[Outcome | BaseException], **kwargs: float
+    outcomes: Sequence[Outcome | BaseException], **kwargs: Any
 ) -> tuple[WorkerLoop, FakeService, Timeline, threading.Event]:
     stop = threading.Event()
     service = FakeService(outcomes, stop)

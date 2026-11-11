@@ -370,6 +370,40 @@ def test_the_worker_has_the_resources_validated_by_the_spike(
     assert "EMBEDDING_THREADS" not in str(worker.get("environment", ""))  # follows the CPU quota
 
 
+def test_the_worker_restarts_by_itself_and_has_a_real_healthcheck(
+    compose: dict[str, dict[str, object]],
+) -> None:
+    # Review finding R-02. A healthcheck alone restarts nothing: the restart policy handles an
+    # exit (crash, out-of-memory kill, or the worker's own exit when it stalls).
+    worker = compose["worker"]
+    healthcheck = worker["healthcheck"]
+    assert isinstance(healthcheck, dict)
+
+    assert worker["restart"] == "unless-stopped"
+    assert healthcheck["test"] == ["CMD", "python", "-m", "app.worker_health"]
+    # the model needs time to load before the first beat
+    assert int(str(healthcheck["start_period"]).rstrip("s")) >= 60
+    assert int(str(healthcheck["interval"]).rstrip("s")) <= 60
+    assert int(healthcheck["retries"]) >= 2
+
+
+def test_the_worker_source_mount_is_read_only_and_the_api_mount_is_not(
+    compose: dict[str, dict[str, object]],
+) -> None:
+    # Review finding R-06: the worker parses untrusted files and has no reason to write its code.
+    assert compose["worker"]["volumes"] == ["./backend/app:/app/app:ro"]
+    assert compose["backend"]["volumes"] == ["./backend/app:/app/app"]  # auto-reload needs it
+
+
+def test_the_worker_has_no_other_writable_mount_and_the_container_is_not_read_only(
+    compose: dict[str, dict[str, object]],
+) -> None:
+    worker = compose["worker"]
+
+    assert len(worker["volumes"]) == 1  # type: ignore[arg-type]
+    assert "read_only" not in worker  # not validated for every write path yet (change 13)
+
+
 def test_the_api_service_publishes_only_on_loopback_and_keeps_its_arguments(
     compose: dict[str, dict[str, object]],
 ) -> None:
