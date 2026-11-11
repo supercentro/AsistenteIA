@@ -28,7 +28,7 @@ from app.core.vector_validation import (
 )
 
 if TYPE_CHECKING:
-    from app.core.config import Settings
+    from app.core.config import WorkerSettings
 
 # Model input limit in tokens, special tokens included (the model ignores everything after it).
 MODEL_MAX_SEQ_LENGTH = 128
@@ -168,7 +168,7 @@ class LocalEmbedder:
         return len(encoded)
 
 
-def build_embedder(settings: "Settings") -> Embedder:
+def build_embedder(settings: "WorkerSettings") -> Embedder:
     """Build the embedder chosen by the settings; fail fast, never fall back.
 
     `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside

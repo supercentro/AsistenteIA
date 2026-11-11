@@ -30,7 +30,7 @@ from app.rag.chunker import Page
 from app.rag.normalizer import normalize_text
 
 if TYPE_CHECKING:
-    from app.core.config import Settings
+    from app.core.config import WorkerSettings
 
 DEFAULT_MAX_EXTRACTED_CHARS = 2_000_000
 _BYTES_PER_MB = 1024 * 1024
@@ -73,7 +73,7 @@ class PdfLimits:
     max_output_bytes: int
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> "PdfLimits":
+    def from_settings(cls, settings: "WorkerSettings") -> "PdfLimits":
         return cls(
             max_pages=settings.max_pdf_pages,
             max_chars=settings.max_extracted_chars,

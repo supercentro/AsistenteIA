@@ -47,7 +47,7 @@ from app.repositories.ingestion_job_repository import (
 )
 
 if TYPE_CHECKING:
-    from app.core.config import Settings
+    from app.core.config import WorkerSettings
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ _TEXT = "text/plain"
 
 @dataclass(frozen=True)
 class IngestionLimits:
-    """Every number the service needs (the worker builds it from `Settings`)."""
+    """Every number the service needs (the worker builds it from `WorkerSettings`)."""
 
     lease_seconds: int
     deadline_seconds: int
@@ -78,7 +78,7 @@ class IngestionLimits:
         return self.lease_seconds / 3
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> "IngestionLimits":
+    def from_settings(cls, settings: "WorkerSettings") -> "IngestionLimits":
         return cls(
             lease_seconds=settings.ingestion_lease_seconds,
             deadline_seconds=settings.ingestion_job_deadline_seconds,

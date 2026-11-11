@@ -1,8 +1,9 @@
 services:
   db:
     image: pgvector/pgvector:0.8.7-pg15
+    # Only the POSTGRES_* variables: the container never sees the API or worker settings.
     env_file:
-      - ./backend/.env
+      - ./backend/.env.db
     ports:
       - "127.0.0.1:5442:5432" # host port 5442 avoids clashes with other local PostgreSQL instances
     volumes:
@@ -49,8 +50,9 @@ services:
     build:
       context: ./backend
       target: worker
+    # Its own file: the worker holds no JWT secret and no API setting (copy .env.worker.example).
     env_file:
-      - ./backend/.env
+      - ./backend/.env.worker
     depends_on:
       db:
         condition: service_healthy

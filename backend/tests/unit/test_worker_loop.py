@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.config import Settings
+from app.core.config import WorkerSettings
 from app.rag.loaders import UnsupportedPlatformError
 from app.repositories.ingestion_job_repository import SweepResult
 from app.services.ingestion_service import Outcome
@@ -19,7 +19,6 @@ from app.worker import (
     install_signal_handlers,
     run_worker,
 )
-from tests.constants import TEST_JWT_SECRET
 
 DB_URL = "postgresql+psycopg://user:pw@localhost:5432/asistenteia"
 
@@ -190,16 +189,15 @@ class TestResilienceAndStop:
         assert {sig: signal.getsignal(sig) for sig in previous} == previous
 
 
-def settings(tmp_path: Path, **overrides: object) -> Settings:
+def settings(tmp_path: Path, **overrides: object) -> WorkerSettings:
     values: dict[str, object] = {
         "app_env": "test",
         "database_url": DB_URL,
-        "jwt_secret": TEST_JWT_SECRET,
         "embedder_backend": "fake",
         "embedding_model_path": tmp_path / "missing-model",
     }
     values.update(overrides)
-    return Settings(_env_file=None, **values)  # type: ignore[arg-type]
+    return WorkerSettings(_env_file=None, **values)  # type: ignore[arg-type]
 
 
 def stopped() -> threading.Event:
@@ -243,7 +241,7 @@ class TestStartupRefusals:
     def test_the_fake_embedder_is_refused_in_production(self, tmp_path: Path) -> None:
         # The settings validator already refuses it; the worker must never fall back silently.
         with pytest.raises(ValueError, match="EMBEDDER_BACKEND=fake"):
-            settings(tmp_path, app_env="production", cors_origins=["https://x.example"])
+            settings(tmp_path, app_env="production")
 
     def test_a_failing_startup_probe_refuses_to_start(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -288,13 +286,13 @@ class TestRunAndMain:
         from app import worker as worker_module
 
         loaded = settings(tmp_path)
-        received: list[tuple[Settings, bool]] = []
+        received: list[tuple[WorkerSettings, bool]] = []
 
-        def fake_run(config: Settings, *, handle_signals: bool = False, **_: object) -> int:
+        def fake_run(config: WorkerSettings, *, handle_signals: bool = False, **_: object) -> int:
             received.append((config, handle_signals))
             return 0
 
-        monkeypatch.setattr(worker_module, "load_settings", lambda: loaded)
+        monkeypatch.setattr(worker_module, "load_worker_settings", lambda: loaded)
         monkeypatch.setattr(worker_module, "run_worker", fake_run)
 
         assert worker_module.main() == 0
@@ -306,10 +304,10 @@ class TestRunAndMain:
         from app import worker as worker_module
         from app.core.config import ConfigurationError
 
-        def broken() -> Settings:
-            raise ConfigurationError("JWT_SECRET: SECRET-CONFIG-MARKER")
+        def broken() -> WorkerSettings:
+            raise ConfigurationError("DATABASE_URL: SECRET-CONFIG-MARKER")
 
-        monkeypatch.setattr(worker_module, "load_settings", broken)
+        monkeypatch.setattr(worker_module, "load_worker_settings", broken)
         caplog.set_level(logging.INFO)
 
         assert worker_module.main() == EXIT_REFUSED

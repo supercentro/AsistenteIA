@@ -15,7 +15,7 @@ from collections.abc import Callable
 from types import FrameType
 from typing import Protocol
 
-from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
 from app.core.database import create_db_engine, create_session_factory
 from app.core.logging import configure_logging
 from app.rag.embedder import (
@@ -121,7 +121,7 @@ def install_signal_handlers(stop: threading.Event) -> Callable[[], None]:
 
 
 def run_worker(
-    settings: Settings,
+    settings: WorkerSettings,
     *,
     platform: str = sys.platform,
     stop: threading.Event | None = None,
@@ -160,7 +160,7 @@ def run_worker(
 
 def main() -> int:
     try:
-        settings = load_settings()
+        settings = load_worker_settings()
     except ConfigurationError:
         configure_logging("INFO")
         logger.error("worker refused to start: %s", _REFUSAL_REASONS[ConfigurationError])
