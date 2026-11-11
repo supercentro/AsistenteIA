@@ -101,6 +101,14 @@ class Beacon:
             self.beat()
 
 
+def clear(path: Path = HEALTH_FILE) -> None:
+    """Remove a file left by a previous run, so a restarted worker is not reported healthy by it."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as error:
+        logger.warning("cannot remove the old health file: %s", type(error).__name__)
+
+
 def check(path: Path = HEALTH_FILE, *, now: float | None = None) -> int:
     """0 when the health file exists and is recent, otherwise 1."""
     try:

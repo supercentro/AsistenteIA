@@ -28,7 +28,7 @@ from app.rag.embedder import (
 from app.rag.loaders import UnsupportedPlatformError
 from app.repositories.ingestion_job_repository import SweepResult
 from app.services.ingestion_service import IngestionLimits, IngestionService, Outcome
-from app.worker_health import BUSY_MARGIN_SECONDS, HEALTH_FILE, Beacon
+from app.worker_health import BUSY_MARGIN_SECONDS, HEALTH_FILE, Beacon, clear
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +144,7 @@ def run_worker(
 ) -> int:
     """Start-up checks, then the loop until `stop`; returns the process exit code."""
     stop = stop if stop is not None else threading.Event()
+    clear(health_file)  # the file of a previous run must not make this one look healthy
     try:
         ensure_supported_platform(platform)
         embedder = build_embedder(settings)

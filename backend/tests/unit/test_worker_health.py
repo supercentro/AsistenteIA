@@ -325,3 +325,42 @@ def test_run_worker_starts_the_beacon_gives_it_to_the_loop_and_stops_it(
     assert isinstance(seen["loop_beacon"], FakeBeacon)
     assert seen["path"] == tmp_path / "health"
     assert seen["busy_limit"] == 600 + BUSY_MARGIN_SECONDS
+
+
+# --- a stale health file must not outlive its process (second review, S-02) ------------------
+
+
+def test_clear_removes_a_stale_file_and_tolerates_a_missing_one(tmp_path: Path) -> None:
+    from app.worker_health import clear
+
+    path = tmp_path / "health"
+    path.touch()
+
+    clear(path)
+    clear(path)  # already gone: no error
+
+    assert not path.exists()
+
+
+def test_run_worker_removes_the_previous_health_file_before_anything_else(
+    tmp_path: Path,
+) -> None:
+    from app import worker as worker_module
+    from app.core.config import WorkerSettings
+
+    stale = tmp_path / "health"
+    stale.touch()
+    settings = WorkerSettings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        app_env="test",
+        embedder_backend="fake",
+        embedding_model_path=tmp_path / "missing-model",
+    )
+
+    code = worker_module.run_worker(
+        settings, platform="win32", stop=threading.Event(), health_file=stale
+    )
+
+    assert code == worker_module.EXIT_REFUSED  # it refused to start, yet the old file is gone
+    assert not stale.exists()
