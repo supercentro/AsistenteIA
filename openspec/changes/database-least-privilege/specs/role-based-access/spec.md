@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: The runtime database role cannot create teacher accounts
-Public registration SHALL create students only, and the database identity used by the running API MUST be unable to insert a user whose role is teacher or to change any user's role, whatever the application code does. Teacher accounts SHALL be provisioned only through the administrative command, which uses a database identity that the API process does not hold.
+Public registration SHALL create students only, and the database identity used by the running API MUST be unable to insert a user whose role is teacher or to change any user's role, whatever the application code does. Teacher accounts SHALL be provisioned only through the administrative command, which uses the CLI database identity that the API process does not hold.
 
 #### Scenario: Forged teacher through the runtime role
 - **WHEN** a session of the runtime API role inserts a `users` row with role teacher, or updates `users.role`

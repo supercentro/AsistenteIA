@@ -1,6 +1,6 @@
 # Tasks
 
-Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. Tests come first (TDD) in every implementation group. Task 1 was executed in the planning stage (2026-11-12); every other group is **not started and not authorised**: the owner authorises them one at a time. Groups 16 and 17 touch the real development database and need their own explicit authorisation; group 8 is blocked until the owner approves decision DD-9 of `design.md`. Archive rule: the change is not archived until group 8 is done or the owner explicitly moves the `role-based-access` delta to a follow-up change. TDD evidence: each implementation group records its failing run (command and failure summary) in its report under `reports/`.
+Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. Tests come first (TDD) in every implementation group. Task 1 was executed in the planning stage and group 2 on 2026-11-12 (reports in `reports/`); every other group is **not started and not authorised**: the owner authorises them one at a time. Groups 16 and 17 touch the real development database and need their own explicit authorisation; group 8 is blocked until the owner approves decision DD-9 of `design.md`. Archive rule: the change is not archived until group 8 is done or the owner explicitly moves the `role-based-access` delta to a follow-up change. TDD evidence: each implementation group records its failing run (command and failure summary) in its report under `reports/`.
 
 ## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
 
@@ -15,11 +15,11 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 2. Privilege inventory and matrix (TDD)
 
-- [ ] 2.1 Write the failing tests first: every table of the model has a decision in the matrix; the matrix grants nothing no statement uses; the inventory finds every statement of the API, CLI and worker; record the failing run in the change report
-- [ ] 2.2 Write the inventory script that lists, per module, every ORM attribute mutation, `insert/update/delete`, `RETURNING`, row lock and raw `text()` statement (machine-derived, not remembered), and keep its output as evidence
-- [ ] 2.3 Implement the declarative matrix module with the rows of `design.md` DD-3 (including `SELECT (id)` on `document_chunks` for the worker and `UPDATE (consent_*)` on `users` for the application role)
-- [ ] 2.4 Make a new table or column without a decision fail the suite; mutation-check the matrix tests (remove a grant, add an extra one, drop a table from the matrix: each must fail a test)
-- [ ] 2.5 Decide with evidence whether an advisory lock keyed on the subject replaces `SELECT ... FOR UPDATE` on `subjects` (removing the only write grant on `subjects`); record the decision
+- [x] 2.1 Write the failing tests first: every table of the model has a decision in the matrix; the matrix grants nothing no statement uses; the inventory finds every statement of the API, CLI and worker; record the failing run in the change report (`tests/unit/test_db_privileges_matrix.py`, `test_db_privileges_inventory.py`; failing run in `reports/group-2/tdd-failing-run.txt`, taken with `app/db_privileges.py` absent; deviation: the inventory of 2.2 was written first because the tests need it, see the group 2 report)
+- [x] 2.2 Write the inventory script that lists, per module, every ORM attribute mutation, `insert/update/delete`, `RETURNING`, row lock and raw `text()` statement (machine-derived, not remembered), and keep its output as evidence
+- [x] 2.3 Implement the declarative matrix module with the rows of `design.md` DD-3 (including `SELECT (id)` on `document_chunks` for the worker and `UPDATE (consent_*)` on `users` for the application role)
+- [x] 2.4 Make a new table or column without a decision fail the suite; mutation-check the matrix tests (remove a grant, add an extra one, drop a table from the matrix: each must fail a test)
+- [x] 2.5 Decide with evidence whether an advisory lock keyed on the subject replaces `SELECT ... FOR UPDATE` on `subjects` (removing the only write grant on `subjects`); record the decision
 
 ## 3. Settings and environment files
 
@@ -40,7 +40,7 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 5. Privilege tests (positive, negative, persisted state, concurrency, planting)
 
-- [ ] 5.1 Role attributes and memberships of the three roles; connection limits derived from the real pools and a test at the limit
+- [ ] 5.1 Role attributes and memberships of the four roles; connection limits derived from the real pools and a test at the limit
 - [ ] 5.2 SCRAM storage and absence of secrets in outputs and logs
 - [ ] 5.3 Ownership after migration and after adoption on a database with data; drift reported
 - [ ] 5.4 Matrix tests under the roles: the worker on a one-chunk and a multi-chunk document (with a mutation that removes `SELECT (id)` on `document_chunks` and shows the one-chunk document fails), cascades without `DELETE` on children, the ungranted columns (including `document_chunks.content`/`embedding` and `alembic_version`), the account columns the application role must not change
@@ -64,9 +64,9 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 - [ ] 7.2 Add the explicit `commit()` before the response in the consent endpoint and handle the database error as the other endpoints do (HTTP 500 with the standard error body); verify the consent responses in `docs/api-spec.yml`
 - [ ] 7.3 Add the rule "an endpoint that promises persistence commits explicitly" to `docs/backend-standards.md` and an audit of the other endpoints (subjects, enrollments and registration flush inside the handler; documents commit explicitly)
 
-## 8. Teacher provisioning separated at database level (BLOCKED until the owner approves DD-9)
+## 8. Teacher provisioning separated at database level (design approved 2026-11-12, option A; implementation NOT authorised)
 
-- [ ] 8.1 Obtain the owner's decision on the option of DD-9 and record it in `design.md`
+- [x] 8.1 Obtain the owner's decision on the option of DD-9 and record it in `design.md` (done in the group 2 stage at the owner's instruction: option A, five identities)
 - [ ] 8.2 Write the failing tests first (option A): the application role cannot insert or update `users.role` (42501); public registration still stores `student`; the administrative command creates a teacher with its own identity; the API container holds no credential of that identity; `seed` follows the same path
 - [ ] 8.3 Migration `0006` (reversible): server default `'student'` on `users.role`, with migration tests (and `alembic check`); `0004` and `0005` are not edited
 - [ ] 8.4 Registration path omits the role column; model default updated; matrix: `INSERT` on `users` without `role` for the application role

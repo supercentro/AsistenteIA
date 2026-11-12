@@ -5,30 +5,30 @@ Defines the PostgreSQL identities, object ownership, privilege matrix, bootstrap
 
 ## ADDED Requirements
 
-### Requirement: Four database identities exist
-The system SHALL use four distinct PostgreSQL identities: the **administrator** (the bootstrap superuser of the database image, used only for cluster administration), a **migrator**, an **application role** (API and administrative CLI until the teacher-provisioning requirement of `role-based-access` is implemented) and a **worker role**.
+### Requirement: Five database identities exist
+The system SHALL use five distinct PostgreSQL identities: the **administrator** (the bootstrap superuser of the database image, used only for cluster administration), a **migrator**, an **application role** (API), a **worker role** and a **CLI role** (administrative commands such as teacher provisioning and the seed). Until the teacher-provisioning requirement of `role-based-access` is implemented (group 8 of the tasks), the CLI keeps using the application role.
 
 #### Scenario: One identity per component
 - **WHEN** the effective database URLs of the API, the worker, the migration service and the bootstrap are inspected by role name
-- **THEN** the API uses the application role, the worker the worker role, the migration service the migrator, and only the bootstrap uses the administrator
+- **THEN** the API uses the application role, the worker the worker role, the administrative commands the CLI role, the migration service the migrator, and only the bootstrap uses the administrator
 
-### Requirement: The three working roles have minimal attributes
-The migrator, application and worker roles MUST be login roles without superuser, create-database, create-role, replication and bypass-row-security attributes, MUST NOT be members of any role (predefined roles included) and MUST have a connection limit derived from the connection pools of their consumers.
+### Requirement: The four working roles have minimal attributes
+The migrator, application, worker and CLI roles MUST be login roles without superuser, create-database, create-role, replication and bypass-row-security attributes, MUST NOT be members of any role (predefined roles included) and MUST have a connection limit derived from the connection pools of their consumers.
 
-#### Scenario: Attributes of the three roles
+#### Scenario: Attributes of the four roles
 - **WHEN** the catalog is read after the bootstrap
-- **THEN** the migrator, application and worker roles are login roles and every one of the attributes superuser, create-database, create-role, replication and bypass-row-security is false for each of them
+- **THEN** the migrator, application, worker and CLI roles are login roles and every one of the attributes superuser, create-database, create-role, replication and bypass-row-security is false for each of them
 
 #### Scenario: No memberships
 - **WHEN** role memberships are read
-- **THEN** none of the three roles is a member of any role, including `pg_read_all_data`, `pg_write_all_data` and `pg_execute_server_program`
+- **THEN** none of the four roles is a member of any role, including `pg_read_all_data`, `pg_write_all_data` and `pg_execute_server_program`
 
 #### Scenario: Connection limit equals real consumption
 - **WHEN** a role opens connections up to its limit and one more
 - **THEN** the extra connection is refused with "too many connections for role", and the limits of the application and worker roles are not lower than the pools of the API and the worker plus their maintenance sessions
 
 ### Requirement: Passwords are stored as client-computed SCRAM verifiers
-The passwords of the three working roles SHALL be stored as SCRAM verifiers computed by the client, so the clear text never reaches the server.
+The passwords of the four working roles SHALL be stored as SCRAM verifiers computed by the client, so the clear text never reaches the server.
 
 #### Scenario: Clear text never reaches the server
 - **WHEN** the bootstrap creates or updates the roles
@@ -46,7 +46,7 @@ The migrator SHALL own every application table, index and enum type, including t
 - **THEN** `db-verify` reports the table and exits non-zero
 
 ### Requirement: Privileges are exactly the declared matrix
-The privileges of the application and worker roles on application tables SHALL be exactly those of one declarative matrix, at table or column level, derived from the statements the code issues (including those implied by `RETURNING`, `SELECT ... FOR UPDATE` and foreign-key actions); every other privilege MUST be denied. The matrix MUST contain a decision for every table of the model, and a table without one MUST fail the test suite.
+The privileges of the application, worker and CLI roles on application tables SHALL be exactly those of one declarative matrix, at table or column level, derived from the statements the code issues (including those implied by `RETURNING`, `SELECT ... FOR UPDATE` and foreign-key actions); every other privilege MUST be denied. The matrix MUST contain a decision for every table of the model, and a table without one MUST fail the test suite.
 
 #### Scenario: Worker minimum
 - **WHEN** the worker runs the real ingestion service on a one-chunk document and on a multi-chunk document
@@ -63,6 +63,14 @@ The privileges of the application and worker roles on application tables SHALL b
 #### Scenario: Worker cannot reach accounts or subjects
 - **WHEN** the worker reads or writes `users`, `subjects` or `enrollments`, or reads a `documents` column outside its list
 - **THEN** PostgreSQL refuses with insufficient privilege
+
+#### Scenario: Application role cannot read the fencing token
+- **WHEN** the application role reads `ingestion_jobs.locked_by`, `ingestion_jobs.locked_until` or `ingestion_jobs.document_id`
+- **THEN** PostgreSQL refuses with insufficient privilege, while the admission query that sums the queued payload sizes still works
+
+#### Scenario: CLI role is limited to accounts
+- **WHEN** the CLI role reads or writes any table other than `users`, or updates or deletes a `users` row
+- **THEN** PostgreSQL refuses with insufficient privilege, while it can read `users` and insert an account with every column the administrative command sets
 
 #### Scenario: Worker cannot read chunk text or embeddings
 - **WHEN** the worker reads `document_chunks.content`, `document_chunks.embedding` or any column other than `id`
@@ -168,7 +176,7 @@ The verifier command (`db-verify`) SHALL change nothing, SHALL compare the catal
 
 #### Scenario: Run with the least privileges it needs
 - **WHEN** `db-verify` runs as the migrator
-- **THEN** it reads every catalog it needs and the login probe uses only the passwords of the three roles
+- **THEN** it reads every catalog it needs and the login probe uses only the passwords of the four roles
 
 ### Requirement: Rollback never destroys application objects
 The documented rollback SHALL return ownership before removing anything: in every database of the cluster `REASSIGN OWNED BY` the migrator to the administrator, verify the owners, then `DROP OWNED` for the three roles (which then only revokes), re-grant what must remain (for example `CONNECT`), and `DROP ROLE` only when every database is clean. `DROP OWNED` of a table owner before reassigning MUST NOT appear in any procedure.
