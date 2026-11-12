@@ -1,0 +1,13 @@
+# group 4 mutation run 2026-11-12T20:54:57Z | free RAM before: 7.19 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-backend:main-f455234
+# env files in the copy: 0
+29 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[22] CAUGHT | bootstrap: settings a role gave itself for one database are not reset | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_bootstrap.py::test_settings_a_role_gave_itself_for_one_database_are_hea
+[23] CAUGHT | connection: the TLS parameters of the URL are dropped | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_connection.py::test_only_the_tls_parameters_of_the_url_are_passed_on
+[24] CAUGHT | verify: the login probe drops the TLS parameters | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_connection.py::test_the_login_probe_keeps_the_tls_requirement_of_the_url
+[25] CAUGHT | grants: any user may run them (migrator check removed) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_grants.py::test_the_grants_refuse_to_run_as_anyone_but_the_migrator[adm
+[26] CAUGHT | sql: control characters accepted in catalog names | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_catalog_names_that_cannot_be_quoted_safely_are_refused[control-1]
+[27] CAUGHT | bootstrap: roles that are members of a working role are not revoked | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_bootstrap.py::test_roles_that_are_members_of_a_working_role_are_revoked
+[28] CAUGHT | connection: slow-statement logging is not silenced for the bootstrap | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_connection.py::test_the_bootstrap_connection_silences_statement_logging
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)

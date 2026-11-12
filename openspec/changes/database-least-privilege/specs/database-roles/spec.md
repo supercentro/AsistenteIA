@@ -129,6 +129,14 @@ The bootstrap SHALL run as the administrator with `search_path = pg_catalog` and
 - **WHEN** the migrator has planted `public.lower(varchar)` and an operator `=(varchar, varchar)` in schema `public` and the bootstrap or `db-verify` runs
 - **THEN** neither runs, because the administrator session uses `search_path = pg_catalog`
 
+#### Scenario: Search path per role
+- **WHEN** the catalog is read after the bootstrap
+- **THEN** the persistent `search_path` of the migrator is `public` (it creates objects with unqualified names) and that of each runtime role is `pg_catalog, public`, and no role has settings for a single database
+
+#### Scenario: Ownership drift is reported with a failure
+- **WHEN** the bootstrap runs against a database whose tables belong to another role
+- **THEN** the objects are not re-owned and the command exits with a non-zero code that names `db-adopt`
+
 #### Scenario: Nothing secret is printed
 - **WHEN** the bootstrap runs with any outcome
 - **THEN** the output contains neither a password nor a verifier nor a connection string

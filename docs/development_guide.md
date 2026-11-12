@@ -100,13 +100,18 @@ docker compose exec backend alembic upgrade head      # apply migrations (manual
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
 
-**Alembic now reads `MIGRATION_DATABASE_URL`, not `DATABASE_URL`** (change `database-least-privilege`, group 3). The two commands above fail with `MIGRATION_DATABASE_URL: Field required` in a container created before the change, on purpose: the API environment is never used as a fallback. Until the migrator role exists (group 4 onwards) the development database has one role, so give the URL explicitly and knowingly:
+**Migrations go through `python -m app.cli db-migrate`** (change `database-least-privilege`, groups 3 and 4). `alembic/env.py` reads `MIGRATION_DATABASE_URL` (never `DATABASE_URL`) and refuses an online run without an explicit URL, because the privileges of a recreated table vanish unless the grants run afterwards. The two commands above therefore stop working once the image contains this change; they keep working in the containers that exist today, which were built before it. The commands of the new tooling (all of them read only their own file, none needs `JWT_SECRET`):
 
 ```bash
-docker compose exec -e MIGRATION_DATABASE_URL="$(docker compose exec -T backend printenv DATABASE_URL)" backend alembic upgrade head
+python -m app.cli db-bootstrap [--database asistenteia]   # administrator: roles, access, extension (.env.roles)
+python -m app.cli db-adopt [--database asistenteia]       # dry run; add --apply to change ownership (.env.roles)
+python -m app.cli db-adopt --rollback [--remove-roles]    # give the objects back (and drop the roles)
+python -m app.cli db-migrate [--downgrade REVISION]       # Alembic as the migrator, then the grants (.env.migrate)
+python -m app.cli db-grants                               # only the grants, in one transaction (.env.migrate)
+python -m app.cli db-verify                               # read-only; exit 1 on any difference (.env.migrate + .env.roles)
 ```
 
-From the host, put `MIGRATION_DATABASE_URL` in `backend/.env.migrate`. Tests are unaffected: they pass an explicit URL to Alembic after the isolation guard.
+None of them has been run against the development database: that needs the owner's separate authorisation (group 16 of the change). `db-adopt` never runs by itself.
 
 Migration `0004` creates `documents`, `document_chunks` and the `document_status` type. A development database created before it stays at `0003` until you rebuild the backend image (`docker compose up -d --build backend`, or `docker compose build backend` followed by `docker compose run --rm --no-deps backend alembic upgrade head`) and apply the migration. Its `downgrade` drops both tables **with their data**, so use it only on development data, and take a `pg_dump -Fc` first if the database holds anything you want to keep. After a pgvector upgrade, also run `ALTER EXTENSION vector UPDATE;` (see section 2).
 

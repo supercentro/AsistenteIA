@@ -1,0 +1,28 @@
+# group 4 mutation run 2026-11-12T20:41:58Z | free RAM before: 6.68 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-backend:main-f455234
+# env files in the copy: 0
+22 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | bootstrap: RESET ALL removed from the role steps | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_settings_are_reset_before_the_intended_ones_are_set
+[1] CAUGHT | bootstrap: memberships are no longer revoked | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_bootstrap.py::test_persistent_role_settings_and_memberships_are_healed
+[2] CAUGHT | bootstrap: PUBLIC is not closed on the other databases | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_every_other_database_is_closed_to_public_including_templates
+[3] CAUGHT | bootstrap: schema public stays open to PUBLIC | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_the_application_database_steps
+[4] CAUGHT | bootstrap: new functions of the migrator are executable by PUBLIC | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_the_application_database_steps
+[5] CAUGHT | bootstrap: NOSUPERUSER dropped from the role attributes | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_missing_roles_are_created_with_every_restricting_attribute
+[6] CAUGHT | sql: a sensitive step shows its statement | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_only_the_steps_that_carry_a_verifier_are_sensitive_and_they_are_m
+[7] CAUGHT | sql: identifiers are no longer validated | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_unsafe_identifiers_are_refused[]
+[8] CAUGHT | connection: the search_path=pg_catalog option is removed | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_connection.py::test_every_session_runs_with_the_catalog_search_path_only
+[9] CAUGHT | connection: errors include the driver message | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_connection.py::test_a_failed_connection_names_the_server_and_the_sqlstate_but_
+[10] CAUGHT | grants: not atomic (autocommit) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_grants.py::test_a_failure_in_the_grants_rolls_back_every_statement
+[11] CAUGHT | grants: the table-level revoke from the runtime roles is skipped | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_sql.py::test_public_and_unlisted_roles_lose_everything_first
+[12] CAUGHT | adopt: sessions on the database are not checked | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_adoption_is_refused_while_a_runtime_session_exists_and_n
+[13] CAUGHT | adopt: unexpected objects are ignored | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_adoption_refuses_unexpected_objects_and_changes_nothing[
+[14] CAUGHT | adopt: not atomic (autocommit) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_adoption_is_atomic_when_a_statement_fails
+[15] CAUGHT | adopt: roles are dropped even while they own objects (DROP OWNED before REASSIGN) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_removing_the_roles_is_refused_while_they_own_objects
+[16] CAUGHT | verify: the login probe is skipped | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_verify.py::test_each_drift_is_reported_with_the_check_that_found_it[cha
+[17] CAUGHT | verify: extra privileges are not reported | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_verify.py::test_each_drift_is_reported_with_the_check_that_found_it[ext
+[18] CAUGHT | verify: wrong owners are not reported | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_verify.py::test_each_drift_is_reported_with_the_check_that_found_it[tab
+[19] CAUGHT | verify: connection rights on other databases are not reported | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_verify.py::test_each_drift_is_reported_with_the_check_that_found_it[rol
+[20] SURVIVED | verify: PUBLIC default execute on functions is accepted | baseline rc=0 mutant rc=0 | no failing test
+[21] CAUGHT | env.py: a direct online run is allowed again | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_grants.py::test_a_direct_alembic_run_with_the_settings_url_is_refused
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)
