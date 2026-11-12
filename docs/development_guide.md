@@ -121,6 +121,59 @@ If it prints `BLOCKED`, let the worker finish (or delete the documents from the 
 
 Migration `0005` creates `ingestion_jobs` and adds `documents.error_code` with its check (see `data-model.md`). It has been verified on the isolated test database, on a scratch database for the upgrade/downgrade round trip and on a disposable PostgreSQL container during the manual verification of the change. **The development database `asistenteia` stays at `0004` until the owner approves applying `0005` to it as a separate operation**, with a verified backup (`pg_dump -Fc`, SHA-256, `pg_restore --list` and a restore test into a scratch database before the upgrade) and a recovery procedure (`alembic downgrade 0004` for the schema; restoring the verified backup for data). No backup or restore of that database was exercised by this change. The `downgrade` of `0005` drops `ingestion_jobs` with the jobs in flight and their bytes.
 
+#### Plan: applying `0005` to the development database (prepared on 2026-11-12, **not executed**)
+
+Nothing below has been run against `asistenteia`; every step that changes it needs the owner's explicit authorisation. The commands are marked *planned*. The read-only checks of section 1 were run and their results are recorded.
+
+**1. Read-only state (checked 2026-11-12)**
+
+| Item | Observed |
+|---|---|
+| Migration chain | `0001` → `0002` → `0003` → `0004` → `0005` (single head); `0005` adds `documents.error_code` with `ck_documents_error_code_only_when_failed`, creates `ingestion_jobs` (primary key, unique `document_id`, foreign key with `ON DELETE CASCADE`, two CHECKs, partial index `ix_ingestion_jobs_claimable`) and its `downgrade` drops them; `0004` is unchanged (the SHA-256 is pinned by a test) |
+| Development database | `asistenteia`, revision `0004`; tables `users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `alembic_version`; **0 rows** in every application table; 8 MB; no `ingestion_jobs` |
+| Server | container `asistenteia-db-1` (project `asistenteia`), PostgreSQL 15.19, pgvector 0.8.7 (the pinned image `pgvector/pgvector:0.8.7-pg15`), data in the named volume `asistenteia_db_data`, 915 GB free; port published on `127.0.0.1:5442` only |
+| Account | the application account is the bootstrap superuser of the image (can create objects; also what API and worker use, see TD-030) |
+| Images | `asistenteia-backend:latest` and `asistenteia-worker:latest` were built on 2026-11-09 and **do not contain `0005`** (their `alembic/versions` stops at `0004`): they must be rebuilt before the migration can run in a container |
+| Environment files | `backend/.env`, `backend/.env.worker`, `backend/.env.db` and `frontend/.env` exist and are git-ignored; the three backend files hold the expected variable names (values not recorded here); API and worker point at `db:5432`, the tests at `127.0.0.1:5442/asistenteia_test` |
+| Models, migrations, code | `alembic check` on the isolated test database is part of the suite (`test_migrations_ingestion.py`: upgrade, downgrade, round trip, CHECKs and index predicate read from the catalog) and passed on `main` |
+| Earlier backup | the dump taken before `0004` is outside the repository (`%USERPROFILE%\Backups\AsistenteIA\`); it is the owner's and must not be touched |
+
+**2. Preconditions (planned)**
+1. `main` is at the merged commit, `docker compose config -q` is valid, the three backend environment files exist with real values, and the owner has authorised the operation.
+2. No uploads or jobs in flight: stop the API first (`docker compose stop backend`). At `0004` there is no queue, so the database holds no work to lose; the downgrade preflight above applies to any later downgrade.
+3. Versions: `SELECT version()` reports PostgreSQL 15 and `SELECT extversion FROM pg_extension WHERE extname = 'vector'` reports `0.8.7`; free space is at least ten times the database size (the database is 8 MB).
+4. Tag the current images so the previous state can be restored: `docker tag asistenteia-backend:latest asistenteia-backend:pre-0005` and the same for `asistenteia-worker`.
+
+**3. Backup and restore test (planned)**
+1. Dump inside the container, so no shell re-encodes the binary stream: `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d asistenteia -Fc -f /tmp/asistenteia_pre_0005.dump'`.
+2. Verify inside the container: `sha256sum /tmp/asistenteia_pre_0005.dump` and `pg_restore --list /tmp/asistenteia_pre_0005.dump` (the list must name the six tables, the `vector` extension and the `document_status` type).
+3. Copy it out to a durable place outside the repository and outside temporary directories (`docker cp`), restrict its permissions to your user, and check that the SHA-256 of the copy equals the one inside the container.
+4. Restore test in a disposable server, never in the development one: `docker run -d --name asistenteia-restore-check` with the same image `pgvector/pgvector:0.8.7-pg15`, data on `tmpfs`, a random password, no published port; copy the dump in, `CREATE DATABASE`, `CREATE EXTENSION vector` is part of the dump, `pg_restore -d`; then check `alembic_version` = `0004`, the table list, the row counts and `\dx`. Remove only that container afterwards.
+5. Keep the dump until the owner agrees to delete it.
+
+**4. Apply (planned)**
+1. `docker compose stop backend worker`.
+2. `docker compose build backend worker` (the worker image is 3.2 GB and downloads the model from its pinned revision; if the network fails, repeat; do not use `--no-cache` unless needed).
+3. `docker compose run --rm --no-deps backend alembic upgrade head`; expected last line `Running upgrade 0004 -> 0005`. Alembic runs with the API settings (`load_settings`), so it needs `backend/.env`, not the worker file. PostgreSQL DDL is transactional: if the upgrade fails, nothing is applied.
+4. Verify: `alembic current` reports `0005 (head)`; `alembic check` reports no new upgrade operations; catalog queries find `ingestion_jobs`, `uq_ingestion_jobs_document_id`, `ck_ingestion_jobs_attempts_non_negative`, `ck_ingestion_jobs_lease_consistent`, `ix_ingestion_jobs_claimable` with its predicate `payload IS NOT NULL`, `documents.error_code` and its check; the application tables still have 0 rows.
+5. Start `docker compose up -d backend worker` and wait for the worker to be `healthy` (the first beat takes up to the 120 s start period). **Start the worker only after the migration**: before it, the worker has no `ingestion_jobs` table to claim from.
+6. Optional smoke test (needs its own authorisation because it writes data): create a teacher with the documented administrative command, upload a small text file, wait for `ready`, then delete the document and the test account.
+
+**5. Recovery (planned)**
+- *The upgrade fails or is interrupted:* nothing was applied; confirm `alembic current` is still `0004`, fix the cause and repeat.
+- *`0005` is applied but not wanted yet, before any upload:* stop the API and the worker, run the downgrade preflight, then `alembic downgrade 0004`; the schema returns to `0004` exactly (round trip tested); start the previous images (`:pre-0005` tags).
+- *Anything else, or doubt about the data:* stop API and worker, recreate the database and restore the verified dump (`DROP DATABASE`, `CREATE DATABASE`, `pg_restore`), then check `alembic current` = `0004`. The development database is empty today, so recreating it by `alembic upgrade 0004` is equivalent.
+
+**6. Risk classification for the deployment decision** (the text of each risk stays in `technical-debt.md`)
+
+| Class | Items |
+|---|---|
+| Needed before the migration operation | authorisation; rebuilt images; verified backup and restore test; API and worker stopped during the upgrade; migration before worker start |
+| Blocks any deployment beyond the controlled MVP (public, untrusted uploaders, more than one API process) | TD-030 (one superuser account for API and worker, PDF child bounded but not a sandbox); TD-035 (upload limiter and slots in the memory of each API process); TD-034 (one worker, occupation up to about 55 s per pathological file, T-01 included, no fairness between subjects) |
+| Accepted for the controlled MVP (local or course deployment, trusted teachers, one API process) | the three above, TD-029 (bytes in the table until terminal), TD-031 to TD-033 (fixture coverage of PDFs, no OCR, model validated on a small corpus) and TD-037 (time and shared-session sensitivity of some tests; CI only) |
+
+Other points seen in the Docker review: the database, API and frontend ports are bound to `127.0.0.1`; only the worker has CPU and memory limits (4 CPUs, 2 GB) and a restart policy; the database, API and frontend have no limits and the database does not restart by itself; the API has no healthcheck; the API runs with `--reload` and a writable code mount, which is for development only; the worker code mount is read-only; the secrets are split per service and none is in an image or a versioned file. These are deployment topics, not blockers of the development migration.
+
 Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
 
 ### Administrative commands (teacher accounts and demo data)
