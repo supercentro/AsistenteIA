@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 from alembic import command
-from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -14,13 +13,15 @@ from tests.db_support import (
     MissingTestDatabaseError,
     alembic_config,
     drop_everything,
+    load_test_environment,
     require_test_database_url,
     truncate_all,
 )
 from tests.integration.helpers import MakeUser, TestUser, build_app, insert_user
 
-# Integration tests run on the host: read backend/.env without overriding the real environment.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+# Integration tests run on the host: read backend/.env.test and backend/.env without overriding the
+# real environment (the test variables are host-only and never reach a container).
+load_test_environment(Path(__file__).resolve().parents[2])
 
 
 @pytest.fixture(scope="session")
