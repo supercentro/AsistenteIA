@@ -1,0 +1,137 @@
+# Design
+
+## Context
+
+Today every database client uses the bootstrap superuser of the official image: the API (`backend/.env`), the worker (`backend/.env.worker`), Alembic (`alembic/env.py` reads the API settings), the CLI, the integration tests (`TEST_DATABASE_URL`) and the CI service container. The development cluster has one role, no ACL on any table or type, no row-level security, no triggers, no own functions, no sequences (all keys are `gen_random_uuid()`), seven tables and two enums, all owned by that superuser. Two facts shape the design: pgvector is not a *trusted* extension, so only a superuser can run `CREATE EXTENSION vector` (migration `0001` does, and its downgrade drops the extension), and the running API container receives the superuser password and `TEST_DATABASE_URL` through `backend/.env`. See `proposal.md` for the motivation and `docs/technical-debt.md` (`TD-030`, `TD-038`) for the accepted state.
+
+Evidence: the analysis, two independent adversarial reviews (24 and 13 findings) and two spikes on a disposable PostgreSQL 15.19 with pgvector 0.8.7 are in `reports/` (`2026-11-12-spike-summary.md`, `2026-11-12-independent-reviews.md`, `spike/`, `h13/`). This design records the decisions that survived them. Names such as `db-bootstrap` are working names.
+
+## Goals / Non-Goals
+
+**Goals:**
+- Three working database identities with only the privileges the code needs, enforced by PostgreSQL and verified by tests that run the real API, CLI and worker.
+- Grants that cannot silently disappear or be wrong: one declarative matrix, derived mechanically from the code, applied atomically with the migrations, checked by a read-only verifier.
+- A start-up and rollout path that works from nothing with `docker compose up`, is idempotent, keeps existing data, and can be rolled back without data loss.
+- Per-service secrets: no application container holds the administrator or migrator credentials.
+
+**Non-Goals:**
+- Row-level security, `SECURITY DEFINER` functions, a custom `pg_hba.conf`, moving pgvector out of `public` (owner decisions D4 and D7, 2026-11-12).
+- Container hardening and the PDF sandbox (change 13), rotation of existing secrets (`TD-038`), production deployment, new product features.
+- Preventing what direct table access makes possible for a compromised worker (chunk poisoning, reading pending payloads): recorded as technical debt.
+
+## Decisions
+
+Status of the decisions: **confirmed** by the owner on 2026-11-12: D1 to D8, the consent commit (designed here, implemented later) and the instruction to design the teacher separation; **proposed** for approval with these artifacts: DD-1 to DD-8 and DD-10 to DD-13 (they follow from D1 to D8 and from the evidence); **pending**: DD-9 (choice of the option).
+
+Owner decisions of 2026-11-12: D1 independent change; D2 specific environment files per concern; D3 permissions derived mechanically, `SELECT` on `document_chunks` kept for the API; D4 RLS, `SECURITY DEFINER` and `pg_hba.conf` out; D5 privilege tests are a mandatory CI gate; D6 spike on a disposable server; D7 pgvector stays in `public` and the privileged bootstrap manages the extension; D8 `TEST_DATABASE_URL` isolated in a test-only environment; plus the instruction to design (not implement) the teacher-provisioning separation and the consent commit.
+
+**DD-1 Four identities.** Administrator (existing superuser, cluster administration only), `asistente_migrator`, `asistente_app`, `asistente_worker` (working names). Alternatives: keep the superuser (rejected: it is the problem); two roles only, migrator merged with app (rejected: a SQL injection would own the schema); per-statement `SECURITY DEFINER` functions (out of scope, D4). The administrator keeps its current name, so the image, the health check and the guide commands do not change.
+
+**DD-2 Roles live outside Alembic.** Roles are cluster objects with secrets and need `CREATEROLE`; the migrator has neither. The bootstrap creates them. Alternatives: roles in migrations (rejected: passwords in code history, migrations would need superuser).
+
+**DD-3 One declarative matrix, derived mechanically, enforced three ways.** `app/db_privileges.py` holds the matrix; an inventory script lists every ORM attribute mutation, `insert/update/delete`, `RETURNING`, row-lock and raw `text()` statement of the API, CLI and worker, and a test fails if the code needs a privilege the matrix lacks or the matrix grants one no statement uses; a completeness test fails for a table without a decision; `db-verify` compares the live catalog. Alternatives: grants inside each migration (rejected: forgotten grants and environment-dependent migrations); default privileges only (rejected: they cannot express per-role, per-column limits). The matrix (proved by the spike: 69 refusals plus the attribute check, and the real flows):
+
+| Table | app | worker | migrator |
+|---|---|---|---|
+| `users` | SELECT, INSERT, UPDATE (`consent_version`, `consent_accepted_at`) | - | owner |
+| `subjects` | SELECT, INSERT, DELETE, UPDATE (`description`; only because `SELECT ... FOR UPDATE` needs one updatable column) | - | owner |
+| `enrollments` | SELECT, INSERT, DELETE | - | owner |
+| `documents` | SELECT, INSERT, DELETE | SELECT (`id, subject_id, filename, content_type, status`), UPDATE (`status, chunks_count, error_code, error_message`) | owner |
+| `document_chunks` | SELECT | INSERT, SELECT (`id`) | owner |
+| `ingestion_jobs` | SELECT, INSERT | SELECT (`id, document_id, payload, attempts, locked_by, locked_until, available_at, created_at`), UPDATE (`payload, attempts, locked_by, locked_until, updated_at`) | owner |
+| `alembic_version` | - | - | owner |
+
+Notes: referential actions and foreign-key checks run as the table owner, so no `DELETE` is needed on children and no privilege on referenced tables (H1, also with tables of different owners); the worker needs `SELECT (id)` on `document_chunks` because a single-row bulk insert is `INSERT ... RETURNING id` (H4 refuted as first stated); `UPDATE (consent_*)` on `users` is needed by the consent endpoint (A-01). The advisory-lock alternative for the subject row lock (it would remove the `subjects` update grant) was not tried and is task 2.5.
+
+**DD-4 Table-level revoke, then grant, in one transaction (`db-grants`).** A column-level `REVOKE` does not remove a table-level grant, a table-level `REVOKE` removes both (H12), and a non-atomic revoke+grant produced permission errors for a concurrent reader (2 of 98 reads; 0 of 99 when atomic, B-03).
+
+**DD-5 One entry point for migrations and grants (`db-migrate`).** Alembic runs, then the grants; grants vanish with a recreated table (A-07), so `alembic/env.py` refuses a direct run unless called through the command (or applies the grants in the same run). `MigrationSettings` replaces the API settings in `alembic/env.py`: the migration service no longer needs `JWT_SECRET`. `downgrade base` drops the extension and stays an administrator operation (A-13); the merged migration `0001` is not edited.
+
+**DD-6 Hardened, idempotent bootstrap.** Administrator session with `options=-c search_path=pg_catalog` and qualified names (a function `lower(varchar)` or an operator `=(varchar, varchar)` planted in `public` wins over `pg_catalog` when `public` is in the path, B-01), role and database work from the `postgres` database, SCRAM verifiers computed by the client (H9), `ALTER ROLE ... RESET ALL` before the intended settings (a role can change its own password and settings, B-05), `PUBLIC` closed on the application database, on schema `public` and on every other database including the templates (A-09, A-08: `PUBLIC` keeps `USAGE` on `public` by default and the migrator cannot grant schema privileges), `CREATE EXTENSION IF NOT EXISTS vector`, and the global `ALTER DEFAULT PRIVILEGES FOR ROLE migrator REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` (the `IN SCHEMA` form has no effect, A-05). Runtime roles keep `search_path = pg_catalog, public` because they need the vector type and operators; that exposure to objects planted by the (trusted) migrator is mitigated by review and by `db-verify` listing foreign functions, operators and triggers with exact signatures.
+
+**DD-7 Adoption is a separate, explicit, one-time command (`db-adopt`).** `ALTER TABLE ... OWNER TO` and `ALTER TYPE ... OWNER TO` with a `lock_timeout`, API and worker stopped, catalog and rows verified before and after (H10). `REASSIGN OWNED BY <administrator>` is rejected by PostgreSQL and is not used. The idempotent bootstrap only reports ownership drift (B-04). Alternatives: adoption inside the bootstrap (rejected: `ALTER OWNER` locks live tables on every `up` and hides drift).
+
+**DD-8 Compose flow and environment files (D2, D8, A-03, A-04, B-02).** `db` (healthy) -> `bootstrap` (completed) -> `migrate` (completed) -> `backend` and `worker`, all in the **default profile** (a one-shot in an inactive profile that others depend on makes the whole project invalid, H13); both one-shots are idempotent because a plain `up` starts the finished containers again; credentials change with `up -d` (Compose recreates a service whose environment changed) and never with `restart`. Files: `backend/.env` (API: application-role URL, JWT, CORS; no `POSTGRES_*`, no `TEST_DATABASE_URL`), `backend/.env.worker`, `backend/.env.db` (administrator, database container only), new `backend/.env.migrate` (migrator URL), new `backend/.env.roles` (administrator password and the three role passwords, bootstrap only), new host-only `backend/.env.test` (never passed to a container). The one-shots use the image, not the source bind mount; `up --build` is required when `app/` or `alembic/` change. The API's read-write source mount, visible to the read-only worker, stays a recorded residual risk of change 13 (A-06).
+
+**DD-9 Teacher provisioning is separated from public registration at database level (owner instruction; not implemented in this stage).** Today the runtime role can `INSERT` a `users` row with `role = 'teacher'` (proved), so "teachers only by CLI" holds only in code. Options:
+
+| Option | What it is | Complexity | Tests | Verdict |
+|---|---|---|---|---|
+| A | Dedicated CLI role `asistente_cli` (own `.env.cli`, one-shot `cli` Compose service, `INSERT` on all `users` columns, `SELECT`) **plus** column-level `INSERT` for the app role **without** `role`, a server default `'student'` on `users.role` (new migration `0006`, reversible) and a registration path that omits the column | New role, new env file, new Compose service, new migration, small code change in the registration service, `CliSettings` so the CLI does not need the JWT secret | App cannot insert or update `role` (42501); registration still stores `student`; CLI creates teachers; the API container holds no CLI credential; `seed` uses the CLI role; migration up/down | **Recommended** |
+| B | Trigger on `users` that rejects `role = 'teacher'` unless `current_user` is the CLI role | Extra role plus a function and a trigger in `public`; `db-verify` must allow-list them; first step toward logic in the database | Same tests plus trigger tests | Fallback; touches the spirit of D4 |
+| C | Row-level security policy | Largest | Many | Out of scope (D4) |
+| D | Keep the code-level rule and register a technical debt entry | None | None | Not acceptable as the final answer (owner, 2026-11-12); interim state until A is approved |
+| E | CLI role only, without restricting the app's `INSERT` | Role, file, service | Partial | Insufficient: the runtime role keeps the capability |
+
+Open decision for the owner: approve option A (and its migration `0006`) or choose another. Group 8 of `tasks.md` is blocked until then; the `role-based-access` delta describes the target behaviour.
+
+**DD-10 Consent endpoint: explicit commit.** `POST /users/me/consent` mutates the ORM object and relies on the commit of the `get_db` dependency, which runs after the response left; a refused write therefore returned `200` with nothing stored (N-1, proved). Document upload and delete already commit explicitly. The fix is an explicit `commit()` before returning (consistent with the precedent in `documents.py`), with a persisted-state test, applied as a separate functional commit in group 7; the rule "an endpoint that promises persistence commits explicitly" goes to `docs/backend-standards.md`. Subjects, enrollments and registration already flush inside the handler, so a refusal gives a 500 there.
+
+**DD-11 Tests (D5).** Layers: matrix and inventory unit tests; catalog tests for roles, ownership, default ACLs and `db-verify`; the denied-operation suite (69 refusals proved plus the attribute check); atomic grants with a concurrent reader; planting tests for functions and operators in `public`; self-tampering tests (`ALTER ROLE self`); the role-bound integration suite that runs every API route, every CLI subcommand and the worker paths under the roles and **asserts persisted state**; rollback and adoption on a database with data. Isolation: a `*_test` database of its own, role names with a reserved prefix that cannot match real names and a sweep of leftovers, an administrator URL in the host-only file, failure (not skip) when it is missing; the existing guard keeps comparing with the application `DATABASE_URL` (B-08). `drop_everything` leaves no schema ACL and no extension, so the role-bound fixtures rebuild connection rights, schema ACL and extension before running Alembic as the migrator (A-14). The CI service container already has a superuser, so the privilege job can create the roles; the Compose behaviour is validated by the scratch-project run (H13) and repeated manually with the real commands.
+
+**DD-12 Rollout and rollback.** Verified backup and restore rehearsal as for migration `0005` (`docs/development_guide.md`); full rehearsal of bootstrap, adoption, grants, `db-verify`, the 45+17 functional checks and the rollback on a restored copy; the real run is a separate authorisation. Rollback per database: `REASSIGN OWNED BY migrator TO <administrator>`, verify owners, `DROP OWNED` for the three roles (it then only revokes, including `CONNECT`), re-grant what must remain, `DROP ROLE` only when every database is clean; never `DROP OWNED` before reassigning (it dropped all tables in the spike, A-02). Pointing both `DATABASE_URL` values back to the administrator is an instant, data-neutral **emergency** fallback because the administrator keeps working throughout; it reintroduces the superuser into the API and worker environment, so it must be reverted afterwards and the exposed credential rotated (`TD-038`).
+
+**DD-13 Residual risks become technical debt** (new entries at implementation time, none solved by roles): R1 a role can change its own password and settings (detected by login probe, healed by the bootstrap); R2 a compromised worker can insert chunks for any existing document, read pending payloads and set document status; R3 the runtime role can insert teacher accounts until DD-9 is implemented; R4 roles with table-level `UPDATE`/`DELETE` can `LOCK TABLE` (availability); R5 the API-writable source mount seen by the worker (change 13); R6 `trust` authentication inside the database container (D4); R7 large objects, `pg_sleep`, user-settable timeouts; R8 a failed `ALTER ROLE ... PASSWORD` logs the verifier; R9 the migrator, as table owner, can plant functions, operators and triggers (review plus `db-verify`; the administrator never touches application objects and uses `search_path = pg_catalog`); R10 a single backup copy.
+
+## Findings resolution
+
+| Finding | Resolution |
+|---|---|
+| A-01 consent needs `UPDATE (consent_*)` | in the matrix; endpoint commit fix DD-10; test of persisted state |
+| A-02 rollback could destroy tables | `REASSIGN OWNED` first (DD-12), proved in the spike; `REASSIGN OWNED BY` the superuser is rejected |
+| A-03 bootstrap in a profile breaks the cold start | default-profile one-shots (DD-8), proved in H13 |
+| A-04 superuser secret in the API environment | `.env` split (DD-8), deployment-file test |
+| A-05 default privileges claim | withdrawn; global form for functions only (DD-6) |
+| A-06 writable source mount | recorded residual (change 13) |
+| A-07 grants lost on recreation | `db-migrate` (DD-5), round-trip test |
+| A-08 .. A-24, B-01 .. B-13 | see `reports/2026-11-12-independent-reviews.md` for the disposition of each; B-02 (H13 evidence) is closed by `reports/h13/` and repeated with the real commands in task 6.4 |
+
+## Risks / Trade-offs
+
+- A matrix derived from today's code can lag behind tomorrow's: the inventory test and `db-verify` make a missing or extra privilege fail the build instead of production.
+- Failure modes look like capacity or authentication errors (connection limits, a changed password, a silent `200`): the persisted-state tests and `db-verify` are the controls, not the application logs.
+- One-shot services run on every `up`: they must stay fast and idempotent, and a failure blocks the stack by design.
+- Option A of DD-9 needs a migration and a small code change in the registration path; until it is approved the runtime role can still insert teachers (recorded).
+- The stand-ins used for H13 prove the Compose behaviour, not the commands; task 6.4 repeats the run with the real ones.
+
+## Migration Plan
+
+1. Implement groups 2 to 10 on `feature/database-least-privilege` (commits per responsibility; the consent fix and the teacher separation are separate functional commits), tests first.
+2. Independent review of code and tests (group 15), then rehearsal on a restored copy of the real backup (group 16).
+3. Real run on the development database only with the owner's explicit authorisation (group 17): backup verified, services stopped, bootstrap, adoption, grants, `db-verify`, URLs switched with `up -d --force-recreate`, functional validation, rollback available.
+4. Documentation and technical-debt entries in the same change; archive after review and merge.
+
+## Open Questions
+
+- **DD-9**: approval of option A (including migration `0006`) or another option; group 8 stays blocked until then. Archive rule: the change is archived only after group 8 is done or after the owner explicitly moves the `role-based-access` delta to a follow-up change; approving option A amends the requirement "Four database identities exist" (a fifth identity).
+- Exact names of the commands and of the new environment files (working names above) are fixed during group 3.
+- Whether the advisory-lock replacement of the subject row lock (task 2.5) is worth removing the single `UPDATE (description)` grant.
+
+## Traceability matrix
+
+Requirement -> decision -> task -> test (planned file or check) -> evidence. "Spike" is `reports/spike/out/results.jsonl` (186 records of the clean run, tags in backticks); "first run" is the superseded run whose scripts are kept (`s6_adopt.py`, `s6b_adopt.py`, `s7_final.py`, `s5d_debug.py`) but whose output was not kept: those claims are **observed, not preserved**, and are re-proved in the task named in the row. "H13" is `reports/h13/`.
+
+| Requirement (spec) | Decision | Tasks | Test | Evidence |
+|---|---|---|---|---|
+| database-roles: Four database identities exist | DD-1 | 3.2, 4.1 | `test_db_roles_attributes`, `test_deployment_files` (URLs per component) | Spike `H9`; H13 round A (sessions by role) |
+| database-roles: The three working roles have minimal attributes | DD-1, DD-6 | 4.1, 5.1 | `test_db_roles_attributes`, `test_db_connection_limit`, `test_db_verify` | H13 round A (attributes); `s4_negative.py` attribute check (`NEG`); connection limit observed in the first run (tag `A-21`), re-proved in 5.1 |
+| database-roles: Passwords are stored as client-computed SCRAM verifiers | DD-6 | 4.1, 5.2 | `test_db_bootstrap` (stored prefix, no secret in output) | Spike `H9`, `A-22` |
+| database-roles: Only the migrator owns application objects | DD-1, DD-7 | 4.3, 5.3 | `test_db_ownership`, `test_db_adopt` | Spike `H10` (clean database, 27 objects); adoption with data observed in the first run, re-proved in 5.3 and 16.2 |
+| database-roles: Privileges are exactly the declared matrix | DD-3 | 2.1 - 2.5, 5.4 | `test_db_privileges_matrix`, `test_db_privileges_inventory`, `test_db_roles_negative` | Spike `H1x`, `H2`, `N-1`, real flows of `s5_flows.py`; the one-chunk failure (`H3`, `H4`) observed in the first run, re-proved by the mutation of task 5.4 (remove `SELECT (id)`) |
+| database-roles: Administrative operations are denied to the roles | DD-1 | 5.5 | `test_db_roles_negative` (denied list, migrator, other databases) | Spike `NEG` (69 refusals plus the attribute check), `A-09`, `B-10` |
+| database-roles: Grants travel with the schema and are applied atomically | DD-4, DD-5 | 4.4, 5.6 | `test_db_grants_atomic` (concurrent reader), `test_db_migrate_roundtrip` | Spike `B-03`, `A-07`, `H12`, `H6`; H13 round A (atomic grants did not disturb the running services) |
+| database-roles: The bootstrap is idempotent and runs hardened | DD-6 | 4.1, 5.7 | `test_db_bootstrap` (twice, planted function and operator) | Spike `B-01`; H13 round A (second `up`, fingerprint equal) |
+| database-roles: The bootstrap closes access by default | DD-6 | 4.1, 5.7, 5.10 | `test_db_bootstrap`, `test_db_selftamper` | Spike `A-05`, `A-08r`, `A-09`, `B-05` |
+| database-roles: Adoption of an existing database is explicit and controlled | DD-7 | 4.3, 5.3, 16.2 | `test_db_adopt` (rows kept, blocked by sessions, drift only reported) | Observed in the first run (`s6_adopt.py`, tags `H10`, `ADOPT`); re-proved in 5.3 and 16.2 |
+| database-roles: The verifier is read-only and compares the catalog with the matrix | DD-3, DD-6 | 4.5, 5.8 | `test_db_verify` (each drift kind) | Spike `B-01` (foreign functions and operators query); catalog readability observed in the first run (tag `H8`), re-proved in 4.5 |
+| database-roles: Rollback never destroys application objects | DD-12 | 5.9, 16.2, 17 | `test_db_rollback` (database with data) | Observed in the first run (`s6_adopt.py`, tags `A-02`, `H11`); re-proved in 5.9 and 16.2 |
+| database-roles: Persisted state is asserted, not only status codes | DD-10, DD-11 | 7, 9 | `test_roles_bound_*` (every route, CLI, worker) | Spike `N-1` (`s5e_consent.py`) |
+| dev-environment: Full stack starts with docker compose | DD-8 | 6.1 - 6.4 | `test_deployment_files`, H13 run | `reports/h13/h13-output.txt` rounds A, B, D; `h13-output-roundC.txt` |
+| dev-environment: Configuration comes only from environment variables | DD-5, DD-8 | 3.1 - 3.5, 6.2 | `test_worker_settings`, `test_migration_settings`, `test_deployment_files` (secrets per service) | H13 A4 (harness files); spike `A-04` (real file names); the split of the real `backend/.env` is proved by 3.1, 3.3 and 6.4 |
+| dev-environment: Test database variable is needed only by integration tests | DD-8, DD-11 | 3.4 | `test_deployment_files`, integration conftest | Spike `A-04` |
+| dev-environment: Test database is isolated from development and production | DD-11 | 3.4, 5.10, 9.1 | `test_db_safety`, `test_test_role_prefix_guard` | Reviews B-08, B-09; observed in the first run (`s7_final.py`, tag `A-14`), re-proved in 9.1 |
+| dev-environment: Migrations run on a clean database and are reversible | DD-5 | 4.4, 5.6 | `test_migrations*` (administrator base downgrade), `test_db_migrate_roundtrip` | Spike `H5`, `H6`, `A-13` |
+| document-storage: A table is closed until its privilege decision exists | DD-3 | 2.1, 2.4, 5.6 | `test_db_privileges_matrix` (every table), `test_db_roles_negative`, `test_db_migrate_roundtrip` | Spike `A-05`, `A-07` |
+| privacy-consent: Consent to the current policy version is recorded | DD-10 | 7.1 - 7.3 | `test_consent_persistence` (separate session reads the evidence; a refused write is a 500, not a 200) | Spike `N-1` |
+| role-based-access: The runtime database role cannot create teacher accounts | DD-9 | 8.1 - 8.7 | `test_teacher_provisioning` (42501 on forged teacher; registration still student; CLI) | Spike `B-06` (forgery proved); option table of DD-9 |
+| continuous-integration: Database privilege tests are a mandatory gate | DD-11 | 10.1 - 10.3 | CI job, `test_ci_workflow` | Reviews B-09 |

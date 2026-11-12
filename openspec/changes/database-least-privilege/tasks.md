@@ -1,0 +1,141 @@
+# Tasks
+
+Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. Tests come first (TDD) in every implementation group. Task 1 was executed in the planning stage (2026-11-12); every other group is **not started and not authorised**: the owner authorises them one at a time. Groups 16 and 17 touch the real development database and need their own explicit authorisation; group 8 is blocked until the owner approves decision DD-9 of `design.md`. Archive rule: the change is not archived until group 8 is done or the owner explicitly moves the `role-based-access` delta to a follow-up change. TDD evidence: each implementation group records its failing run (command and failure summary) in its report under `reports/`.
+
+## 0. Setup: Create Feature Branch (MANDATORY - FIRST STEP)
+
+- [x] 0.1 Create feature branch `feature/database-least-privilege` from the `main` branch (done 2026-11-12 from `main` at `3b312e4`)
+- [x] 0.2 Verify branch creation and current branch status (clean apart from the seven untracked reference documents)
+
+## 1. Task 1: cold start of the planned Compose flow (H13), on a scratch project
+
+- [x] 1.1 Run `reports/h13/run_h13.sh` (the real `docker-compose.yml` read-only plus `compose.h13.override.yml`, project `g27h13`, no published port, no real env file, temporary credentials outside the repository, at least 6 GB of free memory) and keep `reports/h13/h13-output.txt` (the valid full run; the repeated configuration-only round C is in `h13-output-roundC.txt`)
+- [x] 1.2 Check from the output: dependencies `db` healthy -> `bootstrap` completed -> `migrate` completed -> API and worker healthy; the finished one-shots start again on a plain `up -d` and stay idempotent; the catalog/ACL fingerprint is equal after the second start; `restart` keeps the old environment and `up -d` applies a changed one; a rotated worker password works and the old one is refused; a failing `migrate` prevents the API and the worker from being created and the stack recovers once fixed; a one-shot in an inactive profile that others depend on makes the project invalid; the API writes a user under the application role and the row is stored; the worker polls without permission errors; no application container holds the administrator password or `TEST_DATABASE_URL`
+- [x] 1.3 Write `reports/2026-11-12-task-1-h13-cold-start.md` (commands, results, limits: the bootstrap and migrate are stand-ins because the commands do not exist yet, and the deviations) and confirm that the scratch project left no container, volume or network and the evidence holds no secret value
+
+## 2. Privilege inventory and matrix (TDD)
+
+- [ ] 2.1 Write the failing tests first: every table of the model has a decision in the matrix; the matrix grants nothing no statement uses; the inventory finds every statement of the API, CLI and worker; record the failing run in the change report
+- [ ] 2.2 Write the inventory script that lists, per module, every ORM attribute mutation, `insert/update/delete`, `RETURNING`, row lock and raw `text()` statement (machine-derived, not remembered), and keep its output as evidence
+- [ ] 2.3 Implement the declarative matrix module with the rows of `design.md` DD-3 (including `SELECT (id)` on `document_chunks` for the worker and `UPDATE (consent_*)` on `users` for the application role)
+- [ ] 2.4 Make a new table or column without a decision fail the suite; mutation-check the matrix tests (remove a grant, add an extra one, drop a table from the matrix: each must fail a test)
+- [ ] 2.5 Decide with evidence whether an advisory lock keyed on the subject replaces `SELECT ... FOR UPDATE` on `subjects` (removing the only write grant on `subjects`); record the decision
+
+## 3. Settings and environment files
+
+- [ ] 3.1 Write the failing tests first (record the failing run in the group report): `MigrationSettings` needs only the migrator URL; Alembic starts without `JWT_SECRET` and `CORS_ORIGINS`; the API environment has no administrator, migrator or test variable; the worker has no API variable; each service receives only its own secrets (deployment-file tests)
+- [ ] 3.2 Implement `MigrationSettings` and make `alembic/env.py` use it; add the CLI subcommand skeletons and their settings
+- [ ] 3.3 Split the environment files and examples: `backend/.env` (API), `.env.worker`, `.env.db`, new `.env.migrate`, `.env.roles` and host-only `.env.test`; remove `POSTGRES_*` and `TEST_DATABASE_URL` from `backend/.env`; update `.gitignore`/`.dockerignore` patterns
+- [ ] 3.4 Keep the test-database guard comparing with the application `DATABASE_URL` when the test variables come from the separate file; add the reserved role-name prefix guard and the sweep of leftover test roles; update the affected unit tests
+- [ ] 3.5 Update `docs/development_guide.md` setup instructions for the new files (documentation task 18 finalises it)
+
+## 4. Bootstrap, adoption, grants and verify (TDD, real PostgreSQL)
+
+- [ ] 4.1 Write the failing tests first for the bootstrap (record the failing run in the group report): idempotent twice, SCRAM verifiers (stored prefix, no secret in output), `search_path = pg_catalog` and qualified names, `RESET ALL` before the role settings, `PUBLIC` closed on every database and on schema `public`, extension created, global default privileges for functions
+- [ ] 4.2 Implement `db-bootstrap` (role and database work from the `postgres` database, only grant/revoke/extension/default privileges inside the application database)
+- [ ] 4.3 Write the failing tests first, then implement `db-adopt`: explicit one-time `ALTER TABLE/TYPE ... OWNER TO` with `lock_timeout`, refused while sessions of the API or the worker exist, catalog and rows unchanged; the bootstrap only reports ownership drift
+- [ ] 4.4 Write the failing tests first, then implement `db-migrate` and `db-grants`: Alembic then the grants, table-level revoke then grant in one transaction, a recreated table regains its privileges, a direct Alembic run is refused or hooked
+- [ ] 4.5 Write the failing tests first, then implement `db-verify` (read-only, every check of the `database-roles` spec, login probe per role, no secret in the output, runs as the migrator)
+- [ ] 4.6 Mutation-check the commands (remove each step of the bootstrap, the transaction, the `RESET ALL`, the `pg_catalog` search path, a matrix row: each must fail a test); restore each edit and verify byte-identical
+
+## 5. Privilege tests (positive, negative, persisted state, concurrency, planting)
+
+- [ ] 5.1 Role attributes and memberships of the three roles; connection limits derived from the real pools and a test at the limit
+- [ ] 5.2 SCRAM storage and absence of secrets in outputs and logs
+- [ ] 5.3 Ownership after migration and after adoption on a database with data; drift reported
+- [ ] 5.4 Matrix tests under the roles: the worker on a one-chunk and a multi-chunk document (with a mutation that removes `SELECT (id)` on `document_chunks` and shows the one-chunk document fails), cascades without `DELETE` on children, the ungranted columns (including `document_chunks.content`/`embedding` and `alembic_version`), the account columns the application role must not change
+- [ ] 5.5 The denied-operation suite for the application, worker and migrator roles (DDL, `TRUNCATE`, extensions, schemas, functions, `COPY` to/from program and file, server files, large-object import, `ALTER SYSTEM`, `CREATE ROLE`, `CREATE DATABASE`, `SET ROLE`, `pg_authid`, terminating sessions, other databases, temporary tables)
+- [ ] 5.6 Atomic grants with a concurrent reader; downgrade/upgrade round trip leaves `db-verify` clean; `downgrade base` is an administrator operation
+- [ ] 5.7 Bootstrap hardening: planted `lower(varchar)` and `=(varchar, varchar)` in `public` do not run for the administrator; future functions closed to `PUBLIC`
+- [ ] 5.8 `db-verify` detects each drift kind listed in the spec
+- [ ] 5.9 Rollback on a database with data: reassign, verify owners, drop owned, re-grant, drop roles last; catalog and rows identical
+- [ ] 5.10 Self-tampering: `ALTER ROLE self SET ...` and `ALTER ROLE self PASSWORD ...` are undone by the next bootstrap and detected by the login probe; `LOCK TABLE` and chunk-poisoning behaviours are asserted as the documented residuals
+
+## 6. Compose services, deployment-file tests and H13 with the real commands
+
+- [ ] 6.1 Write the failing deployment-file tests first (record the failing run in the group report): `bootstrap` and `migrate` in the default profile with the dependency conditions, no published port added, `restart` policies, per-service env files, no source bind mount for the one-shots, no service depends on a profiled service
+- [ ] 6.2 Add the `bootstrap` and `migrate` services to `docker-compose.yml`, update the API and worker dependencies and env files, and document `up --build` when `app/` or `alembic/` change
+- [ ] 6.3 Update the `dev-environment` guidance: `restart` does not apply a changed environment, `up -d` does; the one-shots run on every `up`
+- [ ] 6.4 Repeat the cold-start scenarios of task 1 with the real `db-bootstrap` and `db-migrate` on a scratch project (twice from nothing, second start, credential rotation, failing migrate, profiles) and attach the output to the change reports
+
+## 7. Consent endpoint: explicit commit (separate functional commit)
+
+- [ ] 7.1 Write the failing tests first (record the failing run in the group report): a separate session reads the consent evidence after a 200; a refused write (missing privilege) is an error response and stores nothing
+- [ ] 7.2 Add the explicit `commit()` before the response in the consent endpoint and handle the database error as the other endpoints do (HTTP 500 with the standard error body); verify the consent responses in `docs/api-spec.yml`
+- [ ] 7.3 Add the rule "an endpoint that promises persistence commits explicitly" to `docs/backend-standards.md` and an audit of the other endpoints (subjects, enrollments and registration flush inside the handler; documents commit explicitly)
+
+## 8. Teacher provisioning separated at database level (BLOCKED until the owner approves DD-9)
+
+- [ ] 8.1 Obtain the owner's decision on the option of DD-9 and record it in `design.md`
+- [ ] 8.2 Write the failing tests first (option A): the application role cannot insert or update `users.role` (42501); public registration still stores `student`; the administrative command creates a teacher with its own identity; the API container holds no credential of that identity; `seed` follows the same path
+- [ ] 8.3 Migration `0006` (reversible): server default `'student'` on `users.role`, with migration tests (and `alembic check`); `0004` and `0005` are not edited
+- [ ] 8.4 Registration path omits the role column; model default updated; matrix: `INSERT` on `users` without `role` for the application role
+- [ ] 8.5 New CLI identity, its environment file, `CliSettings` (no JWT secret) and a one-shot Compose service; matrix row for the CLI role
+- [ ] 8.6 Update `docs/data-model.md`, `docs/development_guide.md` and the technical-debt entry for the runtime role capability
+- [ ] 8.7 Mutation-check: restore the broad `INSERT` and show a test fails
+
+## 9. Role-bound integration suite
+
+- [ ] 9.1 Write the failing role-bound tests first (record the failing run in the group report), then the fixtures that prepare a `*_test` database (connection rights, schema ACL, extension), run Alembic as the migrator, apply the grants and give each test the application, worker and CLI connections; reserved role prefix and sweep
+- [ ] 9.2 Run every API route, every CLI subcommand and the claim, renew, complete, fail and sweep paths of the worker under the roles, with single-chunk and multi-chunk documents, asserting the **persisted state** of every write
+- [ ] 9.3 Parametrise the existing API and ingestion integration tests so they also run under the roles (marker `least_privilege`) without weakening any assertion
+- [ ] 9.4 Prove by mutation that removing a privilege makes a test fail while the endpoint still answers 200 (the persisted-state assertion catches it)
+
+## 10. CI gate (decision D5)
+
+- [ ] 10.1 Write the failing workflow test first (record the failing run in the group report), then add the privilege job to `.github/workflows/ci.yml` (bootstrap, migrate with grants, `db-verify`, privilege tests, role-bound suite) against the database service container
+- [ ] 10.2 Make a missing prerequisite fail the job, never skip; report the number of privilege tests executed
+- [ ] 10.3 Add the workflow test and prove that a table without a matrix decision fails the job
+
+## 11. Review and Update Existing Unit Tests (MANDATORY)
+
+- [ ] 11.1 List the existing tests that read the environment files, the guard, `alembic/env.py`, the Compose file or the settings, and update them with their justification; keep every assertion at least as strong
+- [ ] 11.2 Record the list and the reasons in `reports/YYYY-MM-DD-regression-review.md`
+
+## 12. Run Unit Tests and Verify Database State (MANDATORY)
+
+- [ ] 12.1 Capture the pre-test database baseline (development database untouched; test database state)
+- [ ] 12.2 Run the targeted tests first, then the full backend suite on Linux with PostgreSQL, ruff (`--no-cache`), `ruff format --check`, `mypy --strict`, `pip-audit`
+- [ ] 12.3 Verify the post-test state and restore it if needed
+- [ ] 12.4 Create `reports/YYYY-MM-DD-step-12-unit-test-and-db-verification.md` and mark the step only after the tests pass and the report exists
+
+## 13. Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
+
+- [ ] 13.1 Start the stack on a scratch project with the roles (or the rehearsal copy), never on the real development database before group 17
+- [ ] 13.2 With curl: register, login, consent (200 and the stored evidence), subjects, enrollments, document upload/list/delete, health; and the denied cases (wrong role, other teacher, unauthenticated)
+- [ ] 13.3 Verify the database state after each write and restore it; document every command and response in the report
+
+## 14. E2E Verification (not applicable: no user interface changes)
+
+- [ ] 14.1 Record that no frontend change is made, and that the mocked Playwright suite in CI runs unchanged
+
+## 15. Independent adversarial review of code and tests (required before any real run)
+
+- [ ] 15.1 Run the `adversarial-review` skill with a separate read-only subagent on the implemented code, tests, Compose changes and procedures; classify the findings in a report
+- [ ] 15.2 Fix every blocking or major finding with tests first, re-run the affected gates and ask for a focused second review when the fix touches security; record accepted residual risks in `docs/technical-debt.md` with the owner's agreement
+
+## 16. Rehearsal on a restored copy of the real backup (separate authorisation)
+
+- [ ] 16.1 Verify the backup (checksum, `pg_restore --list`) and restore it into a disposable server
+- [ ] 16.2 Rehearse bootstrap, adoption, grants, `db-verify`, the functional checks of the 2026-11-12 validation (45 + 17) with the roles, and the rollback across every database
+- [ ] 16.3 Record the report and the timings; stop if any check differs
+
+## 17. Real run on the development database (separate explicit authorisation)
+
+- [ ] 17.1 Preflight (backup verified and second copy, free memory, services state), stop the API and the worker
+- [ ] 17.2 Bootstrap, adoption, grants and `db-verify`; switch the two `DATABASE_URL` values; `up -d --force-recreate`; prove the role of each process with `SELECT current_user`
+- [ ] 17.3 Functional validation and cleanup of synthetic data; rollback instructions at hand; record the report
+
+## 18. Update Technical Documentation (MANDATORY)
+
+- [ ] 18.1 Use the `update-docs` skill: `docs/data-model.md` (privileges), `docs/development_guide.md` (files, commands, procedures, state), `docs/backend-standards.md` (least privilege, persisted-state tests, explicit commit), and `docs/api-spec.yml` only if a status code changes
+- [ ] 18.2 `docs/technical-debt.md`: split `TD-030` (database part resolved, the rest stays with change 13) and add the residual-risk entries R1 to R10 of `design.md` DD-13
+- [ ] 18.3 `docs/lessons-learned.md`: add the lessons that are not duplicates (a missing privilege behind a successful status, privileges derived from tests of real paths, one-shot services rerun on every `up`)
+- [ ] 18.4 Ask the owner whether to record the notable AI usage in `prompts.md`; do not edit it without approval
+
+## 19. Final verification of MUST quality gates (`docs/base-standards.md` section 9)
+
+- [ ] 19.1 Typing, tests, security and isolation, lint and format, migrations (`alembic check`, round trip), documentation and traceability gates, re-run after the last change
+- [ ] 19.2 `openspec validate database-least-privilege --strict` and `openspec validate --all --strict`
+- [ ] 19.3 Review the full diff against `main`; conventional commits per responsibility; open the Pull Request only when the owner requests it and confirm the CI is green
+- [ ] 19.4 After the review and the merge, with the owner's approval, archive the change with `/opsx:archive` (see the archive rule at the top)
