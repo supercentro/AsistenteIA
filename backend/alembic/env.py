@@ -1,7 +1,9 @@
 """Alembic environment.
 
-Runs use MIGRATION_DATABASE_URL (the migrator role, `.env.migrate`) from `MigrationSettings`: the
-API settings are never loaded, so no JWT secret is needed and DATABASE_URL is never a fallback.
+Offline runs (`--sql`) use MIGRATION_DATABASE_URL (the migrator role, `.env.migrate`) from
+`MigrationSettings`: the API settings are never loaded, so no JWT secret is needed and DATABASE_URL
+is never a fallback. Online runs must go through `python -m app.cli db-migrate`, which passes the
+URL explicitly and applies the privilege grants afterwards (a recreated table loses its grants).
 Tests pass an explicit `sqlalchemy.url` (already validated by the test-database guard) through the
 Alembic config.
 """
@@ -27,6 +29,11 @@ def get_url() -> str:
     explicit = config.get_main_option("sqlalchemy.url")
     if explicit:
         return explicit
+    if not context.is_offline_mode():
+        raise RuntimeError(
+            "Run migrations with `python -m app.cli db-migrate`: it applies the privilege grants "
+            "after Alembic. A direct online alembic run without an explicit URL is refused."
+        )
     return load_migration_settings().migration_database_url.get_secret_value()
 
 

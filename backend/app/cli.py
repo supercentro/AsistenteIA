@@ -70,9 +70,16 @@ class SafeArgumentParser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: error: {message}\n")
 
 
-# Database administration commands (change `database-least-privilege`). Only the names are fixed
-# here; group 4 implements them. They never load the API settings and never open a connection.
+# Database administration commands (change `database-least-privilege`, implemented in
+# `app/db_admin`). They never load the API settings.
 DATABASE_COMMANDS = ("db-bootstrap", "db-adopt", "db-migrate", "db-grants", "db-verify")
+DATABASE_HELP = {
+    "db-bootstrap": "create the database roles and close access (administrator)",
+    "db-adopt": "change ownership of an existing database; a dry run unless --apply",
+    "db-migrate": "run Alembic as the migrator, then the privilege grants",
+    "db-grants": "apply the privilege matrix in one transaction (migrator)",
+    "db-verify": "compare the live database with the design; exit 1 on any difference",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,9 +104,21 @@ def build_parser() -> argparse.ArgumentParser:
         allow_abbrev=False,
     )
     for name in DATABASE_COMMANDS:
-        commands.add_parser(
-            name, help="database administration (not implemented yet)", allow_abbrev=False
-        )
+        sub = commands.add_parser(name, help=DATABASE_HELP[name], allow_abbrev=False)
+        if name in {"db-bootstrap", "db-adopt"}:
+            sub.add_argument("--database", default="asistenteia", help="application database")
+        if name == "db-adopt":
+            sub.add_argument("--apply", action="store_true", help="really change ownership")
+            sub.add_argument("--rollback", action="store_true", help="give the objects back")
+            sub.add_argument(
+                "--remove-roles",
+                action="store_true",
+                help="with --rollback: also drop the four roles (refused while they own anything)",
+            )
+        if name == "db-migrate":
+            sub.add_argument(
+                "--downgrade", metavar="REVISION", help="downgrade instead (no grants)"
+            )
     return parser
 
 
@@ -212,8 +231,10 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     command = build_parser().parse_args(arguments).command
     if command in DATABASE_COMMANDS:
-        print(f"Error: {command} is not implemented yet", file=sys.stderr)
-        return 1
+        from app.db_admin.commands import run_database_command
+
+        args = build_parser().parse_args(arguments)
+        return run_database_command(args, print, lambda message: print(message, file=sys.stderr))
     try:
         settings = load_settings()
     except ConfigurationError as exc:

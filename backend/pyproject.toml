@@ -62,6 +62,12 @@ select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
+# The administration commands build DDL/DCL (CREATE ROLE, GRANT, ALTER ... OWNER) that cannot take
+# bind parameters; every identifier is validated by `app/db_admin/sql.py` before it is composed.
+"app/db_admin/*.py" = ["S608"]
+"tests/db_admin_support.py" = ["S608"]
+"tests/role_support.py" = ["S608"]
+"tests/integration/test_db_admin_*.py" = ["S608"]
 
 [tool.mypy]
 strict = true

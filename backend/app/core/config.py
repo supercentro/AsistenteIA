@@ -271,6 +271,37 @@ def load_worker_settings(env_file: str | None = ".env.worker") -> WorkerSettings
     return _load(WorkerSettings, env_file)
 
 
+class VerifySettings(BaseSettings):
+    """What `db-verify` needs: the migrator URL and the four passwords for the login probe."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    migration_database_url: SecretStr
+    db_migrator_password: SecretStr
+    db_app_password: SecretStr
+    db_worker_password: SecretStr
+    db_cli_password: SecretStr
+
+    @field_validator("migration_database_url")
+    @classmethod
+    def _check_url(cls, value: SecretStr) -> SecretStr:
+        return _check_database_url(value, "MIGRATION_DATABASE_URL")
+
+
+def load_verify_settings(
+    env_files: tuple[str, ...] | None = (".env.migrate", ".env.roles"),
+) -> VerifySettings:
+    """Load the verifier credentials; the administrator URL in `.env.roles` is never read."""
+    try:
+        return VerifySettings(_env_file=env_files)
+    except ValidationError as exc:
+        problems = [
+            f"{str(e['loc'][0]).upper() if e['loc'] else 'CONFIGURATION'}: {e['msg']}"
+            for e in exc.errors()
+        ]
+        raise ConfigurationError("Invalid configuration - " + "; ".join(problems)) from None
+
+
 def load_migration_settings(env_file: str | None = ".env.migrate") -> MigrationSettings:
     """Load the migrator URL (`.env.migrate`); no API setting is read or required."""
     return _load(MigrationSettings, env_file)
