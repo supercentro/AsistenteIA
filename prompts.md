@@ -774,3 +774,119 @@ No inventar prompts ni reconstruir conversaciones.
 ### 14.5 Riesgos residuales
 - TD-022 (HNSW sin uso), TD-023 (sin cuota ni `statement_timeout`), TD-025 (parámetros HNSW) y TD-026 (sin guarda automática del plan): abiertas, a evaluar en los cambios 6 y 12. TD-024 (dimensión fija y supuestos del margen de F5), TD-027 (contenido que parece vacío) y TD-028 (enum `document_status` preexistente): aceptadas.
 - El respaldo previo a `0004` tiene una única copia persistente en un disco local, fuera del repositorio; y una contraseña desechable de un contenedor del spike permanece en el historial de git (commit `f61ce6d`), sin uso en el proyecto.
+
+---
+
+## 15. Ingesta de documentos (`document-ingestion`, cambio OpenSpec 6 de 13)
+
+**Herramienta y modelo:** Claude Code (CLI), modelo Sonnet 5.5, con el flujo OpenSpec 1.15.0 del repositorio (`/opsx:explore`, `/opsx:propose`, `/opsx:update`, `/opsx:apply`, `/opsx:archive`). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md`, `docs/backend-standards.md`, `docs/lessons-learned.md` y `docs/technical-debt.md`. Esta sección se agregó con la autorización explícita del usuario (mensaje de la transcripción, línea 28830) y se revisa en el PR de documentación correspondiente.
+
+**Skills y subagentes usados:**
+- Skills de OpenSpec `opsx:explore`, `opsx:propose`, `opsx:update`, `opsx:apply` y `opsx:archive`.
+- Skills `adversarial-review` y `update-docs`.
+- **Tres subagentes** de Claude Code, de contexto limpio y solo lectura, como revisores adversariales independientes del grupo 16 (informes `2026-11-11-independent-review.md` sobre el HEAD `172288a`, y las secciones 6 y 9.3 de `2026-11-11-second-review-and-corrections.md` sobre `a9a489d` y sobre el cierre de S-01). La IA les dio el alcance, las áreas a atacar y las restricciones; ninguna de sus conclusiones. No se afirma aquí el uso de otros subagentes: los informes archivados no lo documentan.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de mensajes del usuario, comprobadas por una búsqueda exacta contra la transcripción de la sesión (`~/.claude/projects/<proyecto>/37b9475e-8000-414a-a563-2a3020e73979.jsonl`, fuera del repositorio) y citadas con el número de línea y la fecha; los marcados *(resumido, no textual)* son resúmenes de la IA. Los mensajes completos de las etapas iniciales (exploración, decisiones, spike y grupos 0 y 3) están en `openspec/changes/archive/2026-11-11-document-ingestion/reports/2026-11-09-user-prompts-verbatim.md`; los de los grupos 4 a 17 y de las revisiones solo existen en la transcripción, y de ellos se citan únicamente los fragmentos que siguen. No se reconstruyó ninguna conversación ni se completó ningún mensaje. En la mayoría de los pasos el usuario autorizó un solo grupo, la IA informó y se detuvo a esperar la aprobación siguiente; la lista de prompts es una selección, no el registro completo.
+
+### 15.1 Prompts y decisiones del usuario
+
+**Prompt 1 — exploración inicial (transcripción, línea 14166, 2026-11-08; fragmento textual):**
+
+```
+Autorizo iniciar exclusivamente la exploración de la Feature 6 del proyecto AsistenteIA.
+```
+
+**Prompt 2 — aprobación de la exploración, decisiones D1–D10 (transcripción, línea 14371, 2026-11-08; fragmento textual):**
+
+```
+D1: Diseñar un worker separado del proceso HTTP y una cola persistente en PostgreSQL.
+D4: Utilizar el modelo real en ejecución local. Permitir Embedder falso únicamente en tests y entornos explícitamente controlados; nunca como fallback silencioso.
+```
+
+**Prompt 3 — aprobación del spike (transcripción, línea 15651, 2026-11-09; fragmento textual):**
+
+```
+Modelo: `paraphrase-multilingual-MiniLM-L12-v2`, revisión fija y ejecución sin red.
+Chunking: mantener 100 tokens con solape 20.
+```
+
+**Prompt 4 — endurecimiento de secretos del worker (transcripción, línea 24097, 2026-11-10; fragmento textual):**
+
+```
+Investigar por qué el servicio worker recibe JWT_SECRET y las demás variables del backend.
+```
+
+**Prompt 5 — correcciones de la revisión adversarial (transcripción, línea 25006, 2026-11-11; fragmento textual):**
+
+```
+Autorizo exclusivamente la tarea 16.2, con correcciones acotadas de R-01, R-02 y R-06, actualización de deuda técnica y segunda revisión independiente.
+```
+
+**Prompt 6 — S-01: corregir, no aceptar como deuda (transcripción, línea 25958, 2026-11-11; fragmento textual):**
+
+```
+Resolver el caso de un carácter visible seguido de aproximadamente 2.000.000 de caracteres invisibles que genera un solo chunk y consume unos 33 segundos.
+```
+
+**Prompt 7 — aceptación provisional del riesgo residual (transcripción, línea 26501, 2026-11-11; fragmento textual):**
+
+```
+Acepto provisionalmente el riesgo residual de aproximadamente 44 segundos registrado en TD-034, exclusivamente para el MVP controlado.
+No incorporar un timeout arbitrario de chunking.
+```
+
+**Prompt 8 — T-01 (transcripción, línea 27177, 2026-11-11; fragmento textual):**
+
+```
+Elijo la opción A: aceptar T-01 como riesgo residual exclusivamente para el MVP controlado, sujeto a verificar y documentar su alcance.
+```
+
+**Prompt 9 — Dependabot #1 (transcripción, línea 27696, 2026-11-11; fragmento textual):**
+
+```
+Apruebo probar la alternativa B para Dependabot #1 (TD-036): override de minimatch a 11.0.8, limitado a la cadena transitiva afectada.
+```
+
+**Prompt 10 — test intermitente en CI tras el archivado (transcripción, línea 28298, 2026-11-12; fragmento textual):**
+
+```
+Autorizo exclusivamente investigar y corregir la intermitencia del test test_no_transaction_lock_orld_runs, detectada durante el CI posterior al archive.
+```
+
+**Prompts de la IA a los subagentes revisores (resumidos, no textuales):** alcance del diff y de la base de datos; fuentes a leer (OpenSpec, `backend/app`, migración 0005, Docker, CI, deuda técnica); áreas a atacar (autorización, subida y límites, PDF hostil, cola y concurrencia, recuperación del worker, fugas de secretos y de logs, reversibilidad de la migración); prohibición de editar el repositorio y de tocar la base de desarrollo; recursos desechables propios; y un formato de informe con hallazgos clasificados por severidad y veredicto. La segunda y la tercera revisión recibieron además la lista de correcciones a verificar.
+
+### 15.2 Decisiones técnicas principales
+- **Arquitectura (D1–D10):** worker separado (`python -m app.worker`) y cola persistente en PostgreSQL (`ingestion_jobs`: lease de 120 s con renovación, fencing por token de reclamo, hasta 3 intentos, deadline de 600 s, `FOR UPDATE SKIP LOCKED`); el documento y el trabajo se confirman con un `commit()` explícito antes de responder `202` (L24); catálogo cerrado de 12 códigos de fallo; los bytes subidos viven en `ingestion_jobs.payload` solo hasta que el documento es terminal (TD-029, L22).
+- **Modelo y chunking:** `paraphrase-multilingual-MiniLM-L12-v2` local, revisión fija y sin red, 384 dimensiones, sin `FakeEmbedder` como respaldo; chunking de 100 tokens con solape 20, límite efectivo de 128 tokens, tope de 2.000 chunks por documento y 50 documentos por asignatura.
+- **Límites y aislamiento:** cola de 100 trabajos y 200 MB, 4 subidas simultáneas, plazos de subida de 120 s totales y 20 s sin progreso; el PDF se analiza en un proceso hijo con límites (768 MB, 20 s de CPU, 30 s de reloj, 8 MB de salida, 300 páginas), solo en Linux (TD-030: acotado, no absoluto).
+- **Endurecimiento previo a la revisión adversarial:** `WorkerSettings` separado de `Settings`, y un archivo de entorno por servicio (`backend/.env`, `backend/.env.worker`, `backend/.env.db`) para que el worker no reciba `JWT_SECRET`.
+- **Correcciones de la revisión:** chunking acotado por ventanas de 20.000 caracteres con comprobación del deadline dentro del chunking (R-01); `restart: unless-stopped` más un healthcheck con baliza que reinicia al worker bloqueado (R-02); montaje de solo lectura del código del worker (R-06); el normalizador conserva como máximo 16 caracteres seguidos sin contenido (S-01).
+- **Riesgos aceptados por el usuario para el MVP controlado:** el residuo de unos 44 s de ocupación del worker y T-01 (TD-034, sin timeout arbitrario de chunking), el limitador de subidas en memoria (TD-035) y el aislamiento de PDF acotado (TD-030).
+
+### 15.3 Correcciones, desviaciones y hallazgos
+- **Evidencia TDD y mutación:** cada grupo registró su fallo previo (por ejemplo, errores de colección por `ModuleNotFoundError` antes de crear `loaders`, `ingestion_job_repository` e `ingestion_service`) y la verificación con mutaciones restauradas byte a byte: 25 mutaciones en embedder, normalizador y chunker; 56 en loaders y proceso hijo; unas 50 en los repositorios; 45 en servicio, worker y motor; 56 en subida y endpoints; 27 en las correcciones R-01/R-02/R-06; y 14 válidas más 3 adicionales en S-01 (todas detectadas). Los informes registran los supervivientes y los tests añadidos para matarlos, y un mutante equivalente que se resolvió eliminando código muerto.
+- **Revisión adversarial 1 (HEAD `172288a`, PASS WITH GAPS):** sin hallazgos Critical ni High; dos Medium: R-01 (un texto sin separadores de 2.000.000 de caracteres mantenía al único worker ocupado de 31 a 65 s) y R-02 (sin reinicio ni healthcheck del worker); además R-06 y los riesgos R-03 a R-05 (documentados como aceptados).
+- **Revisión 2 (`a9a489d`, PASS WITH GAPS):** R-01 parcialmente resuelto (de 11–59 s a 2,7–5,5 s), R-02 y R-06 resueltos; nuevo S-01 (un carácter visible más unos 2.000.000 invisibles, unos 33 s); S-02 y S-04 a S-07 menores, corregidos o documentados.
+- **Revisión 3 (cierre de S-01, PASS WITH GAPS):** reprodujo los tiempos (de 17–65 s a 0,16–0,55 s), hizo 150.000 entradas aleatorias sin excepciones y halló T-01 (U+FFFD y U+2581, unos 36 s, igual que antes), T-02 a T-04 (cifras, texto de la guía y tests que fijaran el valor 16), corregidos, y T-05 (la aceptación no constaba en este archivo; se citó en TD-034).
+- **Dependabot #1 (TD-036):** un override acotado de `minimatch` 11.0.8 bajo `typescript-estree`, con `npm ci`, `npm audit`, lint, tipos, tests, build y Playwright; GitHub cerró la alerta como `fixed` tras el merge.
+- **Test intermitente tras el archivado (TD-037, L28):** el CI de `main` falló una vez en un test de locks porque la sonda contaba los locks de toda la base; se reprodujo con un `VACUUM` concurrente (15 de 25 ejecuciones) y se acotó la sonda al servicio bajo prueba (25 de 25).
+- **Incidentes de herramientas y de proceso (reconocidos por la IA):**
+  - Application Control de Windows impidió usar el entorno virtual del anfitrión; las pruebas se ejecutaron en la imagen Linux del worker.
+  - La presión de memoria mató dos ejecuciones en segundo plano y dejó una mutación del normalizador aplicada; se restauró y se verificó el hash antes de seguir, y desde entonces se midió la memoria antes de cada prueba pesada.
+  - Un permiso denegado a un comando que borraba un contenedor huérfano no se eludió.
+  - El job del frontend del CI falló dos veces por errores de red de `apt` y se relanzó sin cambios.
+  - La IA marcó 17.5 antes de tiempo y la desmarcó al reconocer que su criterio original no se había ejecutado.
+  - El grupo 0 se ejecutó tarde y esa desviación se registró.
+
+### 15.4 Resultados de validación
+- Backend, tras el último cambio de código: 1.844 pruebas pasan, 8 se omiten y 23 (`realmodel`) se ejecutan aparte y pasan; cobertura del 99 %; `ruff`, `ruff format --check`, `mypy --strict` (175 archivos) y `pip-audit` limpios. Frontend: 236 pruebas y 11 E2E con mocks (6 omitidos); `npm audit` sin vulnerabilidades.
+- Verificación con el modelo real en una base desechable (grupo 13): un texto de 420 KB con 1.649 chunks tardó unos 43 s con un pico de memoria de unos 1,04 GiB (`docs/backend-standards.md`); el modelo se validó solo con un corpus pequeño (TD-033).
+- Compose real en un proyecto desechable: el worker queda `healthy`, el código se monta en solo lectura, un `SIGKILL` en pleno trabajo reinicia al worker y el documento se recupera sin chunks duplicados.
+- Migración `0005`: subida, bajada y `alembic check` en bases aisladas; la base `asistenteia` sigue en `0004` y la `0005` no se aplicó a desarrollo (operación futura con su propia autorización).
+- `openspec validate --all --strict`: 17 de 17 tras el archivado; 56 de 56 tareas.
+- Entrega: PR #8 (squash merge `7bb4ebc`), TD-036 resuelta (`5f76803`), archivado (`fefdaee`) y PR #9 (squash merge `83b17f7`), todos con CI en verde.
+
+### 15.5 Riesgos residuales
+- Abiertos y aceptados para el MVP controlado: TD-030 (aislamiento de PDF y privilegios, no es un sandbox), TD-034 (ocupación del worker, incluido T-01, y sin equidad entre asignaturas), TD-035 (limitador de subidas en memoria), TD-037 (pruebas sensibles al reloj y a lecturas de transacciones de todas las sesiones), TD-029, TD-031, TD-032 y TD-033.
+- No extrapolar estas aceptaciones a un despliegue público ni a usuarios no confiables.
+- Lecciones aprendidas de este cambio: L18 a L28 en `docs/lessons-learned.md` (cache de lint, equivalencia Windows/Linux, orden de bloqueos, fencing por lease, `bytea` borrado, límites de la mutación, `commit` antes del `202`, edición tardía tras los gates, archivos sin test y semillas de prueba, tareas de verificación sin escribir en desarrollo, y sondas de test acotadas al sistema bajo prueba).
