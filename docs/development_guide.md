@@ -21,6 +21,8 @@ cp backend/.env.db.example backend/.env.db
 cp frontend/.env.example frontend/.env
 ```
 
+**Files introduced by change `database-least-privilege` (group 3).** Their examples exist, but the Compose stack does not read them yet (group 6 wires them) and your existing `backend/.env*` keep working unchanged: `backend/.env.migrate` (`MIGRATION_DATABASE_URL`, the migrator role; read by Alembic), `backend/.env.roles` (administrator URL and the four role passwords; read only by the role bootstrap that group 4 implements) and `backend/.env.test` (`TEST_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`; host-only, read by pytest, never by a container). Create the first one when you run Alembic by hand (see §3); create the other two only when you use the features that need them. A `TEST_DATABASE_URL` left in `backend/.env` is still honoured by the tests while you move it, with `.env.test` taking precedence.
+
 Each Compose service reads **only its own file**, so a process never receives a variable it does not use: `backend/.env` (API), `backend/.env.worker` (ingestion worker, no `JWT_SECRET`, no CORS or HTTP setting) and `backend/.env.db` (PostgreSQL, only `POSTGRES_*`). The example files document every variable with **placeholder** values. Replace every `CHANGE_ME` locally and never commit the real files (`.env`, `.env.worker`, `.env.db` are git-ignored; the `*.example` files are tracked):
 
 ```bash
@@ -58,7 +60,10 @@ Backend variables. The column **File** says where each one lives: `API` = `backe
 | `EMBEDDING_THREADS` | worker | Threads used for inference (1-256). Commented out in `.env.worker.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
 | `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | API | Read only by `python -m app.cli seed`; no defaults exist | optional |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | db | Read by the `db` compose service | required for compose |
-| `TEST_DATABASE_URL` | API (tests) | **Integration tests only**; never read by the application | required for integration tests |
+| `TEST_DATABASE_URL` | `.env.test` (host only) | **Integration tests only**; never read by the application and not part of `backend/.env.example` any more. A legacy value in `backend/.env` is still honoured | required for integration tests |
+| `TEST_ADMIN_DATABASE_URL` | `.env.test` (host only) | Administrator URL of the role-bound tests (same server as `TEST_DATABASE_URL`); they fail, not skip, when it is missing | required for role-bound tests (group 9) |
+| `MIGRATION_DATABASE_URL` | `.env.migrate` | URL of the migrator role, read by `alembic/env.py` through `MigrationSettings`; **never falls back to `DATABASE_URL`** and needs no `JWT_SECRET` | required to run Alembic |
+| `ADMIN_DATABASE_URL`, `DB_MIGRATOR_PASSWORD`, `DB_APP_PASSWORD`, `DB_WORKER_PASSWORD`, `DB_CLI_PASSWORD` | `.env.roles` | Read only by the role bootstrap (`RolesSettings`): administrator URL and the four working-role passwords (at least 16 characters, all different, no placeholder) | required for the bootstrap (group 4) |
 
 Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
@@ -94,6 +99,14 @@ The first build of the `worker` image downloads the embedding model once, at a p
 docker compose exec backend alembic upgrade head      # apply migrations (manual, not run on startup)
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
+
+**Alembic now reads `MIGRATION_DATABASE_URL`, not `DATABASE_URL`** (change `database-least-privilege`, group 3). The two commands above fail with `MIGRATION_DATABASE_URL: Field required` in a container created before the change, on purpose: the API environment is never used as a fallback. Until the migrator role exists (group 4 onwards) the development database has one role, so give the URL explicitly and knowingly:
+
+```bash
+docker compose exec -e MIGRATION_DATABASE_URL="$(docker compose exec -T backend printenv DATABASE_URL)" backend alembic upgrade head
+```
+
+From the host, put `MIGRATION_DATABASE_URL` in `backend/.env.migrate`. Tests are unaffected: they pass an explicit URL to Alembic after the isolation guard.
 
 Migration `0004` creates `documents`, `document_chunks` and the `document_status` type. A development database created before it stays at `0003` until you rebuild the backend image (`docker compose up -d --build backend`, or `docker compose build backend` followed by `docker compose run --rm --no-deps backend alembic upgrade head`) and apply the migration. Its `downgrade` drops both tables **with their data**, so use it only on development data, and take a `pg_dump -Fc` first if the database holds anything you want to keep. After a pgvector upgrade, also run `ALTER EXTENSION vector UPDATE;` (see section 2).
 
@@ -237,7 +250,7 @@ Create migrations with `alembic revision --autogenerate -m "describe change"` an
 
 ### Test database isolation
 
-Tests that run migrations or destructive cleanup use `TEST_DATABASE_URL` only. A guard (`app/core/db_safety.py`) runs before any such connection and refuses to continue unless the database name ends in `_test`, differs from the database in `DATABASE_URL`, and `APP_ENV` is not `production`. If `TEST_DATABASE_URL` is missing, integration tests abort before connecting. Use `127.0.0.1` (not `localhost`) in URLs from the host: `localhost` may resolve to IPv6 first and the port is published on IPv4 only.
+Tests that run migrations or destructive cleanup use `TEST_DATABASE_URL` only (from `backend/.env.test`, with `backend/.env` still supplying the application `DATABASE_URL` that the guard compares with; if that one is missing the tests abort, they never skip the comparison). Roles created by tests carry the reserved prefix `tstrole_` (`tests/role_support.py`), which no real role can match, and leftovers are swept by prefix only. A guard (`app/core/db_safety.py`) runs before any such connection and refuses to continue unless the database name ends in `_test`, differs from the database in `DATABASE_URL`, and `APP_ENV` is not `production`. If `TEST_DATABASE_URL` is missing, integration tests abort before connecting. Use `127.0.0.1` (not `localhost`) in URLs from the host: `localhost` may resolve to IPv6 first and the port is published on IPv4 only.
 
 ## Document ingestion: worker, model and limits
 

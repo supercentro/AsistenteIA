@@ -1,0 +1,15 @@
+$ MIGRATION_DATABASE_URL=<migrator URL, synthetic> python -m alembic upgrade head --sql   (no JWT_SECRET, no DATABASE_URL in this shell; offline, no connection)
+exit: 0
+CREATE TABLE alembic_version (
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+-- Running upgrade  -> 0001
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+-- Running upgrade 0001 -> 0002
+CREATE TABLE users (
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+-- Running upgrade 0002 -> 0003
+
+$ DATABASE_URL=<synthetic> JWT_SECRET=<synthetic> python -m alembic upgrade head --sql   (API environment only)
+exit: 1
+    raise ConfigurationError("Invalid configuration - " + "; ".join(problems)) from None
+app.core.config.ConfigurationError: Invalid configuration - MIGRATION_DATABASE_URL: Field required

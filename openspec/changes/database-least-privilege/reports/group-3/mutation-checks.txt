@@ -1,0 +1,16 @@
+MUTATION: alembic/env.py: fall back to the API settings
+  exit 1 (non-zero = caught); 2 failed, 25 passed in 0.65s
+  first failing: test_alembic_refuses_to_use_the_application_url, test_alembic_env_no_longer_imports_the_api_settings
+MUTATION: db_support: the guard silently skips the comparison without DATABASE_URL
+  exit 1 (non-zero = caught); 1 failed, 32 passed in 0.55s
+  first failing: test_the_guard_does_not_silently_skip_the_comparison_without_the_application_url
+MUTATION: role_support: the sweep accepts any name
+  exit 1 (non-zero = caught); 20 failed, 13 passed in 0.58s
+  first failing: test_names_without_the_prefix_are_refused[asistente], test_names_without_the_prefix_are_refused[asistente_migrator], test_names_without_the_prefix_are_refused[asistente_app]
+MUTATION: config: the bootstrap accepts repeated passwords
+  exit 1 (non-zero = caught); 1 failed, 26 passed in 0.64s
+  first failing: test_roles_settings_reject_two_roles_sharing_a_password
+MUTATION: .env.example: put TEST_DATABASE_URL back into the API example
+  exit 1 (non-zero = caught); 2 failed, 32 passed in 0.70s
+  first failing: test_each_secret_variable_is_declared_in_exactly_one_example[TEST_DATABASE_URL-test], test_the_api_example_receives_no_database_administration_or_test_variable
+all files restored

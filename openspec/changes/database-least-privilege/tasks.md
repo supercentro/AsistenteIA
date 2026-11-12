@@ -23,11 +23,12 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 3. Settings and environment files
 
-- [ ] 3.1 Write the failing tests first (record the failing run in the group report): `MigrationSettings` needs only the migrator URL; Alembic starts without `JWT_SECRET` and `CORS_ORIGINS`; the API environment has no administrator, migrator or test variable; the worker has no API variable; each service receives only its own secrets (deployment-file tests)
-- [ ] 3.2 Implement `MigrationSettings` and make `alembic/env.py` use it; add the CLI subcommand skeletons and their settings
-- [ ] 3.3 Split the environment files and examples: `backend/.env` (API), `.env.worker`, `.env.db`, new `.env.migrate`, `.env.roles` and host-only `.env.test`; remove `POSTGRES_*` and `TEST_DATABASE_URL` from `backend/.env`; update `.gitignore`/`.dockerignore` patterns
-- [ ] 3.4 Keep the test-database guard comparing with the application `DATABASE_URL` when the test variables come from the separate file; add the reserved role-name prefix guard and the sweep of leftover test roles; update the affected unit tests
-- [ ] 3.5 Update `docs/development_guide.md` setup instructions for the new files (documentation task 18 finalises it)
+- [x] 3.1 Write the failing tests first (record the failing run in the group report): `MigrationSettings` needs only the migrator URL; Alembic starts without `JWT_SECRET` and `CORS_ORIGINS`; the API environment has no administrator, migrator or test variable; the worker has no API variable; each service receives only its own secrets (deployment-file tests)
+- [x] 3.2 Implement `MigrationSettings` and make `alembic/env.py` use it; add the CLI subcommand skeletons and their settings (`RolesSettings` for the bootstrap; `CliSettings` stays in task 8.5)
+- [x] 3.3 Split the environment files and examples: examples `.env.migrate.example`, `.env.roles.example` and `.env.test.example` created, `TEST_DATABASE_URL` removed from `backend/.env.example` (the API example holds no `POSTGRES_*`, test, migration or role variable); `.gitignore` and `.dockerignore` already cover `.env.*` and the examples (tests prove it). The real `backend/.env` was NOT edited (owner restriction); `.env.cli.example` belongs to task 8.5
+- [ ] 3.3b Real files: remove `POSTGRES_*` and `TEST_DATABASE_URL` from the real `backend/.env` and create the real `.env.migrate`, `.env.roles` and `.env.test`; needs the owner's specific authorisation (group 6 or the rehearsal), not done in group 3
+- [x] 3.4 Keep the test-database guard comparing with the application `DATABASE_URL` when the test variables come from the separate file; add the reserved role-name prefix guard and the sweep of leftover test roles; update the affected unit tests
+- [x] 3.5 Update `docs/development_guide.md` setup instructions for the new files (documentation task 18 finalises it)
 
 ## 4. Bootstrap, adoption, grants and verify (TDD, real PostgreSQL)
 

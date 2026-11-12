@@ -1,0 +1,88 @@
+# Baseline: clean worktree of main (3b312e4), Windows 11, Python 3.12 venv outside the repository
+$ pytest tests/unit/test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval tests/unit/test_worker_settings.py
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x000001C0078AE060>('/tmp/')
+E        +    where <built-in method startswith of str object at 0x000001C0078AE060> = '\\tmp\\ingestion-worker.health'.startswith
+E        +      where '\\tmp\\ingestion-worker.health' = str(WindowsPath('/tmp/ingestion-worker.health'))
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E           File "<scratch>\wt_main\backend\app\worker.py", line 19, in <module>
+E             from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
+E           File "<scratch>\wt_main\backend\app\core\config.py", line 15, in <module>
+E             from limits import parse as parse_rate_limit
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\__init__.py", line 7, in <module>
+E             from . import _version, aio, storage, strategies
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\__init__.py", line 3, in <module>
+E             from . import storage, strategies
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\storage\__init__.py", line 8, in <module>
+E             from .base import MovingWindowSupport, SlidingWindowCounterSupport, Storage
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\storage\base.py", line 6, in <module>
+E             from deprecated.sphinx import versionadded
+E           File "<scratch>\wt_venv\Lib\site-packages\deprecated\__init__.py", line 14, in <module>
+E             from deprecated.classic import deprecated
+E           File "<scratch>\wt_venv\Lib\site-packages\deprecated\classic.py", line 23, in <module>
+E             import wrapt
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\__init__.py", line 27, in <module>
+E             from .caching import lru_cache
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\caching.py", line 14, in <module>
+E             from .synchronization import synchronized
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\synchronization.py", line 9, in <module>
+E             import asyncio
+E           File "C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\__init__.py", line 43, in <module>
+E             from .windows_events import *
+E           File "C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py", line 8, in <module>
+E             import _overlapped
+E         OSError: [WinError 10106] The requested service provider could not be loaded or initialized
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\<user>\\AppData\\Local\\Temp\\claude\\8216f42c53299745\\37b9475e-8000-414a-a563-2a30...    import _overlapped\nOSError: [WinError 10106] The requested service provider could 
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 2, in <module>
+E           File "<scratch>\wt_main\backend\app\worker.py", line 19, in <module>
+E             from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
+E           File "<scratch>\wt_main\backend\app\core\config.py", line 15, in <module>
+E             from limits import parse as parse_rate_limit
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\__init__.py", line 7, in <module>
+E             from . import _version, aio, storage, strategies
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\__init__.py", line 3, in <module>
+E             from . import storage, strategies
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\storage\__init__.py", line 8, in <module>
+E             from .base import MovingWindowSupport, SlidingWindowCounterSupport, Storage
+E           File "<scratch>\wt_venv\Lib\site-packages\limits\aio\storage\base.py", line 6, in <module>
+E             from deprecated.sphinx import versionadded
+E           File "<scratch>\wt_venv\Lib\site-packages\deprecated\__init__.py", line 14, in <module>
+E             from deprecated.classic import deprecated
+E           File "<scratch>\wt_venv\Lib\site-packages\deprecated\classic.py", line 23, in <module>
+E             import wrapt
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\__init__.py", line 27, in <module>
+E             from .caching import lru_cache
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\caching.py", line 14, in <module>
+E             from .synchronization import synchronized
+E           File "<scratch>\wt_venv\Lib\site-packages\wrapt\synchronization.py", line 9, in <module>
+E             import asyncio
+E           File "C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\__init__.py", line 43, in <module>
+E             from .windows_events import *
+E           File "C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py", line 8, in <module>
+E             import _overlapped
+E         OSError: [WinError 10106] The requested service provider could not be loaded or initialized
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\<user>\\AppData\\Local\\Temp\\claude\\8216f42c53299745\\37b9475e-8000-414a-a563-2a30...    import _overlapped\nOSError: [WinError 10106] The requested service provider could 
+FAILED tests/unit/test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval
+FAILED tests/unit/test_worker_settings.py::test_a_fresh_worker_process_loads_its_settings_without_any_api_variable
+FAILED tests/unit/test_worker_settings.py::test_importing_the_worker_does_not_pull_in_the_api
+3 failed, 18 passed in 0.94s
+
+# Classification (3 failures, same 3 on a clean worktree of main 3b312e4, before any change of this branch)
+1. test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval
+   Windows-dependent, pre-existing: asserts str(HEALTH_FILE).startswith("/tmp/"); on Windows the
+   Path renders as '\tmp\ingestion-worker.health'.
+2. test_worker_settings.py::test_a_fresh_worker_process_loads_its_settings_without_any_api_variable
+3. test_worker_settings.py::test_importing_the_worker_does_not_pull_in_the_api
+   Windows-dependent, pre-existing: both launch a subprocess with env={"PYTHONPATH": ..., "PATH": ""}
+   (tests/unit/test_worker_settings.py:220). Without SYSTEMROOT, `import asyncio` fails on Windows with
+   OSError WinError 10106 (Winsock provider not initialised). Probe, same interpreter:
+     env={}                    -> exit 1  OSError: [WinError 10106]
+     env with SYSTEMROOT only  -> exit 0
+   The worker import chain (limits -> deprecated -> wrapt -> asyncio) triggers it.
+Not introduced by the change. They pass in Linux CI (main green at 3b312e4). No existing test was modified.

@@ -1,0 +1,42 @@
+$ pytest tests/unit/test_migration_settings.py tests/unit/test_test_database_environment.py tests/unit/test_environment_files.py tests/unit/test_cli_database_commands.py --continue-on-collection-errors -q   (before any implementation)
+     22 mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+     22 >       return io.open(self, mode, buffering, encoding, errors, newline)
+     22     with self.open(mode='r', encoding=encoding, errors=errors) as f:
+     22              errors=None, newline=None):
+      1 FAILED tests/unit/test_environment_files.py::test_the_test_examples_use_a_test_database_on_the_loopback_of_the_host
+      1 FAILED tests/unit/test_environment_files.py::test_the_test_example_holds_exactly_the_two_host_only_urls
+      1 FAILED tests/unit/test_environment_files.py::test_the_test_example_database_differs_from_the_application_database
+      1 FAILED tests/unit/test_environment_files.py::test_the_roles_example_holds_exactly_the_administrator_url_and_the_four_passwords
+      1 FAILED tests/unit/test_environment_files.py::test_the_new_examples_hold_only_placeholders[test]
+      1 FAILED tests/unit/test_environment_files.py::test_the_new_examples_hold_only_placeholders[roles]
+      1 FAILED tests/unit/test_environment_files.py::test_the_new_examples_hold_only_placeholders[migrate]
+      1 FAILED tests/unit/test_environment_files.py::test_the_migrator_url_example_names_the_migrator_and_the_application_database
+      1 FAILED tests/unit/test_environment_files.py::test_the_migrate_example_holds_exactly_the_migrator_url
+      1 FAILED tests/unit/test_environment_files.py::test_the_api_example_receives_no_database_administration_or_test_variable
+      1 FAILED tests/unit/test_environment_files.py::test_the_administrator_url_example_matches_the_database_server_example
+      1 FAILED tests/unit/test_environment_files.py::test_every_example_exists[test]
+      1 FAILED tests/unit/test_environment_files.py::test_every_example_exists[roles]
+      1 FAILED tests/unit/test_environment_files.py::test_every_example_exists[migrate]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[TEST_DATABASE_URL-test]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[TEST_ADMIN_DATABASE_URL-test]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_USER-db]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_PASSWORD-db]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_DB-db]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[MIGRATION_DATABASE_URL-migrate]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[JWT_SECRET-api]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_WORKER_PASSWORD-roles]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_MIGRATOR_PASSWORD-roles]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_CLI_PASSWORD-roles]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_APP_PASSWORD-roles]
+      1 FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[ADMIN_DATABASE_URL-roles]
+      1 ERROR tests/unit/test_test_database_environment.py
+      1 ERROR tests/unit/test_migration_settings.py
+      1 ERROR tests/unit/test_cli_database_commands.py
+      1 E   ImportError: cannot import name 'MigrationSettings' from 'app.core.config' (<repo path>
+      1 E   ImportError: cannot import name 'load_test_environment' from 'tests.db_support' (<repo path>
+      1 E   ImportError: cannot import name 'DATABASE_COMMANDS' from 'app.cli' (<repo path>
+      1 E       AssertionError: .env.test.example
+      1 E       AssertionError: .env.roles.example
+      1 E       AssertionError: .env.migrate.example
+      1 E           AssertionError: TEST_
+summary: 26 failed, 8 passed, 3 errors in 1.32s
