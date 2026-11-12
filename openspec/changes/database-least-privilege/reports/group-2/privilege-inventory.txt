@@ -1,0 +1,155 @@
+# Privilege inventory (machine-derived from app/)
+
+Assumptions proved later against a live database (task 5.4):
+- ORM INSERT lists only the columns passed to the constructor and returns the primary key and the server-generated columns (SELECT on them).
+- A Core insert(Model) executed with a list of rows may return the primary key (INSERT ... RETURNING pk), observed in the spike (H4); it needs SELECT on the key.
+- An ORM attribute assignment flushes UPDATE <t> SET <attrs> WHERE <pk> (SELECT on the key).
+- SELECT ... FOR UPDATE needs the UPDATE privilege on at least one column of the locked table.
+- session.get(Model, id) and select(Model) read every mapped column.
+
+## api
+- documents: SELECT (chunks_count, content_type, created_at, error_code, error_message, filename, id, size_bytes, status, subject_id)
+- documents: INSERT (content_type, filename, size_bytes, status, subject_id)
+- documents: DELETE
+- enrollments: SELECT (created_at, id, student_id, subject_id)
+- enrollments: INSERT (student_id, subject_id)
+- enrollments: DELETE
+- ingestion_jobs: SELECT (attempts, available_at, created_at, id, payload, updated_at)
+- ingestion_jobs: INSERT (document_id, payload)
+- subjects: SELECT (created_at, description, id, name, teacher_id)
+- subjects: INSERT (description, name, teacher_id)
+- subjects: DELETE
+- subjects: LOCK
+- users: SELECT (consent_accepted_at, consent_version, created_at, email, id, name, password_hash, role)
+- users: INSERT (email, name, password_hash, role)
+- users: UPDATE (consent_accepted_at, consent_version)
+
+Sources (api):
+  backend/app/repositories/document_repository.py:191 DocumentRepository._owns [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:190 DocumentRepository._owns [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:100 DocumentRepository.add_with_job [orm] INSERT documents content_type,filename,size_bytes,status,subject_id
+  backend/app/repositories/document_repository.py:100 DocumentRepository.add_with_job [orm] SELECT documents chunks_count,created_at,id,status
+  backend/app/repositories/document_repository.py:109 DocumentRepository.add_with_job [orm] INSERT ingestion_jobs document_id,payload
+  backend/app/repositories/document_repository.py:109 DocumentRepository.add_with_job [orm] SELECT ingestion_jobs attempts,available_at,created_at,id,updated_at
+  backend/app/repositories/document_repository.py:75 DocumentRepository.add_with_job [orm] LOCK subjects -
+  backend/app/repositories/document_repository.py:82 DocumentRepository.add_with_job [orm] SELECT documents subject_id
+  backend/app/repositories/document_repository.py:93 DocumentRepository.add_with_job [orm] SELECT ingestion_jobs payload
+  backend/app/repositories/document_repository.py:76 DocumentRepository.add_with_job [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:75 DocumentRepository.add_with_job [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:92 DocumentRepository.add_with_job [orm] SELECT ingestion_jobs payload
+  backend/app/repositories/document_repository.py:164 DocumentRepository.delete_for_teacher [orm] SELECT documents id
+  backend/app/repositories/document_repository.py:156 DocumentRepository.delete_for_teacher [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:155 DocumentRepository.delete_for_teacher [orm] SELECT subjects id
+  backend/app/repositories/document_repository.py:159 DocumentRepository.delete_for_teacher [orm] DELETE documents -
+  backend/app/repositories/document_repository.py:161 DocumentRepository.delete_for_teacher [orm] SELECT documents id
+  backend/app/repositories/document_repository.py:162 DocumentRepository.delete_for_teacher [orm] SELECT documents subject_id
+  backend/app/repositories/document_repository.py:133 DocumentRepository.list_for_teacher [orm] SELECT documents id
+  backend/app/repositories/document_repository.py:131 DocumentRepository.list_for_teacher [orm] SELECT documents chunks_count,content_type,created_at,error_code,error_message,filename,id,size_bytes,status,subject_id
+  backend/app/repositories/document_repository.py:132 DocumentRepository.list_for_teacher [orm] SELECT documents subject_id
+  backend/app/repositories/document_repository.py:120 DocumentRepository.unfinished_jobs [orm] SELECT ingestion_jobs payload
+  backend/app/repositories/enrollment_repository.py:40 EnrollmentRepository.add [orm] SELECT enrollments created_at,id,student_id,subject_id
+  backend/app/repositories/enrollment_repository.py:37 EnrollmentRepository.add [orm] SELECT subjects id
+  backend/app/repositories/enrollment_repository.py:36 EnrollmentRepository.add [orm] SELECT subjects id
+  backend/app/repositories/enrollment_repository.py:40 EnrollmentRepository.add [orm] INSERT enrollments student_id,subject_id
+  backend/app/repositories/enrollment_repository.py:36 EnrollmentRepository.add [orm] SELECT enrollments student_id
+  backend/app/repositories/enrollment_repository.py:83 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT enrollments id
+  backend/app/repositories/enrollment_repository.py:74 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT subjects id
+  backend/app/repositories/enrollment_repository.py:73 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT subjects id
+  backend/app/repositories/enrollment_repository.py:77 EnrollmentRepository.delete_for_teacher_subject [orm] DELETE enrollments -
+  backend/app/repositories/enrollment_repository.py:79 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT enrollments subject_id
+  backend/app/repositories/enrollment_repository.py:80 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT enrollments student_id
+  backend/app/repositories/enrollment_repository.py:81 EnrollmentRepository.delete_for_teacher_subject [orm] SELECT enrollments subject_id
+  backend/app/repositories/enrollment_repository.py:66 EnrollmentRepository.list_for_teacher_subject [orm] SELECT enrollments created_at
+  backend/app/repositories/enrollment_repository.py:65 EnrollmentRepository.list_for_teacher_subject [orm] SELECT enrollments subject_id
+  backend/app/repositories/enrollment_repository.py:65 EnrollmentRepository.list_for_teacher_subject [orm] SELECT subjects teacher_id
+  backend/app/repositories/enrollment_repository.py:64 EnrollmentRepository.list_for_teacher_subject [orm] SELECT users id
+  backend/app/repositories/enrollment_repository.py:64 EnrollmentRepository.list_for_teacher_subject [orm] SELECT enrollments student_id
+  backend/app/repositories/enrollment_repository.py:62 EnrollmentRepository.list_for_teacher_subject [orm] SELECT enrollments created_at,id,student_id,subject_id
+  backend/app/repositories/enrollment_repository.py:63 EnrollmentRepository.list_for_teacher_subject [orm] SELECT subjects id
+  backend/app/repositories/enrollment_repository.py:63 EnrollmentRepository.list_for_teacher_subject [orm] SELECT enrollments subject_id
+  backend/app/repositories/enrollment_repository.py:62 EnrollmentRepository.list_for_teacher_subject [orm] SELECT users email
+  backend/app/repositories/subject_repository.py:66 SubjectRepository.delete_for_teacher [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:64 SubjectRepository.delete_for_teacher [orm] DELETE subjects -
+  backend/app/repositories/subject_repository.py:65 SubjectRepository.delete_for_teacher [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:57 SubjectRepository.get_for_student [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:57 SubjectRepository.get_for_student [orm] SELECT enrollments student_id
+  backend/app/repositories/subject_repository.py:55 SubjectRepository.get_for_student [orm] SELECT subjects created_at,description,id,name,teacher_id
+  backend/app/repositories/subject_repository.py:56 SubjectRepository.get_for_student [orm] SELECT enrollments subject_id
+  backend/app/repositories/subject_repository.py:56 SubjectRepository.get_for_student [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:48 SubjectRepository.get_for_teacher [orm] SELECT subjects created_at,description,id,name,teacher_id
+  backend/app/repositories/subject_repository.py:49 SubjectRepository.get_for_teacher [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:43 SubjectRepository.list_for_student [orm] SELECT subjects name
+  backend/app/repositories/subject_repository.py:42 SubjectRepository.list_for_student [orm] SELECT enrollments student_id
+  backend/app/repositories/subject_repository.py:40 SubjectRepository.list_for_student [orm] SELECT subjects created_at,description,id,name,teacher_id
+  backend/app/repositories/subject_repository.py:41 SubjectRepository.list_for_student [orm] SELECT enrollments subject_id
+  backend/app/repositories/subject_repository.py:41 SubjectRepository.list_for_student [orm] SELECT subjects id
+  backend/app/repositories/subject_repository.py:34 SubjectRepository.list_for_teacher [orm] SELECT subjects name
+  backend/app/repositories/subject_repository.py:32 SubjectRepository.list_for_teacher [orm] SELECT subjects created_at,description,id,name,teacher_id
+  backend/app/repositories/subject_repository.py:33 SubjectRepository.list_for_teacher [orm] SELECT subjects teacher_id
+  backend/app/repositories/user_repository.py:34 UserRepository.get_by_email [orm] SELECT users consent_accepted_at,consent_version,created_at,email,id,name,password_hash,role
+  backend/app/repositories/user_repository.py:31 UserRepository.get_by_id [orm] SELECT users consent_accepted_at,consent_version,created_at,email,id,name,password_hash,role
+  backend/app/services/auth_service.py:26 AuthService.register_student [orm] INSERT users email,name,password_hash,role
+  backend/app/services/auth_service.py:26 AuthService.register_student [orm] SELECT users created_at,id
+  backend/app/services/consent_service.py:24 ConsentService.record [orm] UPDATE users consent_version
+  backend/app/services/consent_service.py:24 ConsentService.record [orm] SELECT users id
+  backend/app/services/consent_service.py:25 ConsentService.record [orm] UPDATE users consent_accepted_at
+  backend/app/services/consent_service.py:25 ConsentService.record [orm] SELECT users id
+  backend/app/services/subject_service.py:24 SubjectService.create [orm] INSERT subjects description,name,teacher_id
+  backend/app/services/subject_service.py:24 SubjectService.create [orm] SELECT subjects created_at,id
+
+## worker
+- document_chunks: SELECT (id)
+- document_chunks: INSERT (chunk_index, content, document_id, embedding, page_number, subject_id)
+- documents: SELECT (content_type, filename, id, status, subject_id)
+- documents: UPDATE (chunks_count, error_code, error_message, status)
+- documents: LOCK
+- ingestion_jobs: SELECT (attempts, available_at, created_at, document_id, id, locked_by, locked_until, payload)
+- ingestion_jobs: UPDATE (attempts, locked_by, locked_until, payload, updated_at)
+- ingestion_jobs: LOCK
+
+Sources (worker):
+  backend/app/repositories/document_repository.py:187 DocumentRepository.add_chunks [orm] INSERT document_chunks chunk_index,content,document_id,embedding,page_number,subject_id
+  backend/app/repositories/document_repository.py:187 DocumentRepository.add_chunks [orm] SELECT document_chunks id
+  backend/app/repositories/ingestion_job_repository.py:282 IngestionJobRepository._fail_where [sql] SELECT documents id
+  backend/app/repositories/ingestion_job_repository.py:282 IngestionJobRepository._fail_where [sql] UPDATE documents chunks_count,error_code,error_message,status
+  backend/app/repositories/ingestion_job_repository.py:261 IngestionJobRepository._fail_where [sql] LOCK documents -
+  backend/app/repositories/ingestion_job_repository.py:261 IngestionJobRepository._fail_where [sql] SELECT documents id,status
+  backend/app/repositories/ingestion_job_repository.py:261 IngestionJobRepository._fail_where [sql] SELECT ingestion_jobs attempts,created_at,document_id,id,locked_until,payload
+  backend/app/repositories/ingestion_job_repository.py:273 IngestionJobRepository._fail_where [sql] LOCK ingestion_jobs -
+  backend/app/repositories/ingestion_job_repository.py:273 IngestionJobRepository._fail_where [sql] SELECT documents id
+  backend/app/repositories/ingestion_job_repository.py:273 IngestionJobRepository._fail_where [sql] SELECT ingestion_jobs attempts,document_id,id,locked_until,payload
+  backend/app/repositories/ingestion_job_repository.py:301 IngestionJobRepository._lock_owned [sql] SELECT ingestion_jobs document_id,id,locked_by,locked_until
+  backend/app/repositories/ingestion_job_repository.py:310 IngestionJobRepository._lock_owned [sql] LOCK documents -
+  backend/app/repositories/ingestion_job_repository.py:310 IngestionJobRepository._lock_owned [sql] SELECT documents id,status,subject_id
+  backend/app/repositories/ingestion_job_repository.py:318 IngestionJobRepository._lock_owned [sql] LOCK ingestion_jobs -
+  backend/app/repositories/ingestion_job_repository.py:318 IngestionJobRepository._lock_owned [sql] SELECT ingestion_jobs id,locked_by,locked_until
+  backend/app/repositories/ingestion_job_repository.py:332 IngestionJobRepository._release [sql] SELECT ingestion_jobs id
+  backend/app/repositories/ingestion_job_repository.py:332 IngestionJobRepository._release [sql] UPDATE ingestion_jobs locked_by,locked_until,payload,updated_at
+  backend/app/repositories/ingestion_job_repository.py:88 IngestionJobRepository.claim [sql] LOCK documents -
+  backend/app/repositories/ingestion_job_repository.py:88 IngestionJobRepository.claim [sql] SELECT documents id,status
+  backend/app/repositories/ingestion_job_repository.py:88 IngestionJobRepository.claim [sql] SELECT ingestion_jobs attempts,available_at,created_at,document_id,id,locked_until,payload
+  backend/app/repositories/ingestion_job_repository.py:104 IngestionJobRepository.claim [sql] SELECT ingestion_jobs attempts,document_id,id,locked_until,payload
+  backend/app/repositories/ingestion_job_repository.py:104 IngestionJobRepository.claim [sql] UPDATE ingestion_jobs attempts,locked_by,locked_until,updated_at
+  backend/app/repositories/ingestion_job_repository.py:122 IngestionJobRepository.claim [sql] SELECT documents content_type,filename,id,status,subject_id
+  backend/app/repositories/ingestion_job_repository.py:122 IngestionJobRepository.claim [sql] UPDATE documents status
+  backend/app/repositories/ingestion_job_repository.py:203 IngestionJobRepository.complete [sql] SELECT documents id
+  backend/app/repositories/ingestion_job_repository.py:203 IngestionJobRepository.complete [sql] UPDATE documents chunks_count,error_code,error_message,status
+  backend/app/repositories/ingestion_job_repository.py:165 IngestionJobRepository.mark_failed [sql] SELECT documents id
+  backend/app/repositories/ingestion_job_repository.py:165 IngestionJobRepository.mark_failed [sql] UPDATE documents chunks_count,error_code,error_message,status
+  backend/app/repositories/ingestion_job_repository.py:148 IngestionJobRepository.renew [sql] SELECT ingestion_jobs id,locked_by,locked_until,payload
+  backend/app/repositories/ingestion_job_repository.py:148 IngestionJobRepository.renew [sql] UPDATE ingestion_jobs locked_until,updated_at
+  backend/app/repositories/ingestion_job_repository.py:243 IngestionJobRepository.sweep [sql] LOCK ingestion_jobs -
+  backend/app/repositories/ingestion_job_repository.py:243 IngestionJobRepository.sweep [sql] SELECT documents id,status
+  backend/app/repositories/ingestion_job_repository.py:243 IngestionJobRepository.sweep [sql] SELECT ingestion_jobs created_at,document_id,id,payload
+  backend/app/repositories/ingestion_job_repository.py:243 IngestionJobRepository.sweep [sql] UPDATE ingestion_jobs locked_by,locked_until,payload,updated_at
+
+## cli
+- users: SELECT (consent_accepted_at, consent_version, created_at, email, id, name, password_hash, role)
+- users: INSERT (email, name, password_hash, role)
+
+Sources (cli):
+  backend/app/repositories/user_repository.py:34 UserRepository.get_by_email [orm] SELECT users consent_accepted_at,consent_version,created_at,email,id,name,password_hash,role
+  backend/app/services/user_admin_service.py:19 UserAdminService.create_account [orm] INSERT users email,name,password_hash,role
+  backend/app/services/user_admin_service.py:19 UserAdminService.create_account [orm] SELECT users created_at,id
+
+Unresolved calls: none

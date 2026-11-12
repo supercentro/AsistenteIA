@@ -1,0 +1,35 @@
+MUTATION: remove UPDATE (status) from the worker on documents
+  exit code 1 (non-zero = the suite caught it)
+  E       AssertionError: assert ['worker need...but lacks it'] == []
+  E         
+  E         Left contains one more item: 'worker needs UPDATE (status) on documents but lacks it'
+MUTATION: grant the application role UPDATE (role) on users
+  exit code 1 (non-zero = the suite caught it)
+  E       AssertionError: assert ['app has UPD...no code uses'] == []
+  E         
+  E         Left contains one more item: 'app has UPDATE (role) on users that no code uses'
+MUTATION: drop the table enrollments from the CLI decisions
+  exit code 1 (non-zero = the suite caught it)
+  E       AssertionError: assert ['role cli ha... enrollments'] == []
+  E         
+  E         Left contains one more item: 'role cli has no decision for table enrollments'
+MUTATION: remove SELECT (id) from the worker on document_chunks
+  exit code 1 (non-zero = the suite caught it)
+  E       AssertionError: assert ['worker need...but lacks it'] == []
+  E         
+  E         Left contains one more item: 'worker needs SELECT (id) on document_chunks but lacks it'
+MUTATION: let the application role read the fencing token
+  exit code 1 (non-zero = the suite caught it)
+  E       AssertionError: assert ['app has SEL...no code uses'] == []
+  E         
+  E         Left contains one more item: 'app has SELECT (locked_by) on ingestion_jobs that no code uses'
+restored: True
+
+MUTATION (code side): ConsentService.record also assigns user.name
+  exit code 1
+  E         Left contains one more item: 'app needs UPDATE (name) on users but lacks it'
+  FAILED tests/unit/test_db_privileges_matrix.py::test_matrix_equals_what_the_code_needs
+  FAILED tests/unit/test_db_privileges_matrix.py::test_mutation_a_stale_gap_is_rejected
+  FAILED tests/unit/test_db_privileges_inventory.py::test_api_needs_derived_from_orm_statements
+  3 failed, 29 passed in 0.68s
+restored: True
