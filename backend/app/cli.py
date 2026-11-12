@@ -70,6 +70,11 @@ class SafeArgumentParser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: error: {message}\n")
 
 
+# Database administration commands (change `database-least-privilege`). Only the names are fixed
+# here; group 4 implements them. They never load the API settings and never open a connection.
+DATABASE_COMMANDS = ("db-bootstrap", "db-adopt", "db-migrate", "db-grants", "db-verify")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = SafeArgumentParser(prog="python -m app.cli", allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -91,6 +96,10 @@ def build_parser() -> argparse.ArgumentParser:
         "(development and test only)",
         allow_abbrev=False,
     )
+    for name in DATABASE_COMMANDS:
+        commands.add_parser(
+            name, help="database administration (not implemented yet)", allow_abbrev=False
+        )
     return parser
 
 
@@ -199,7 +208,12 @@ def run(
         session.close()
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    arguments = sys.argv[1:] if argv is None else argv
+    command = build_parser().parse_args(arguments).command
+    if command in DATABASE_COMMANDS:
+        print(f"Error: {command} is not implemented yet", file=sys.stderr)
+        return 1
     try:
         settings = load_settings()
     except ConfigurationError as exc:
@@ -211,7 +225,7 @@ def main() -> int:
     engine = create_db_engine(settings.database_url, settings.db_connect_timeout_seconds)
     try:
         return run(
-            sys.argv[1:],
+            arguments,
             settings=settings,
             session_factory=create_session_factory(engine),
             passwords=PasswordService(),

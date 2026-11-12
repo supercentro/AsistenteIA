@@ -7,6 +7,16 @@ Two classes, because two processes read different things:
   `JWT_SECRET` and its container is never given one.
 - `Settings`: the API. It extends `WorkerSettings` with authentication (the JWT secret stays
   mandatory), CORS, rate limits and the upload and admission limits.
+
+Two more classes serve the database administration (change `database-least-privilege`) and share
+nothing with the two above, so that a process only ever holds the credentials of its own job:
+
+- `MigrationSettings`: the migrator URL (`MIGRATION_DATABASE_URL`, file `.env.migrate`). It never
+  falls back to `DATABASE_URL`.
+- `RolesSettings`: the administrator URL and the passwords of the four working roles
+  (`.env.roles`), read only by the bootstrap.
+
+Their values are `SecretStr`, and validation messages name variables, never values.
 """
 
 from pathlib import Path
@@ -15,6 +25,8 @@ from typing import Annotated, Any, Literal
 from limits import parse as parse_rate_limit
 from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from app.core.cpu_quota import detect_cpu_quota
 
@@ -22,6 +34,7 @@ DEFAULT_DEV_CORS_ORIGINS = ["http://localhost:5173"]
 MIN_JWT_SECRET_BYTES = 32
 MIN_JWT_SECRET_DISTINCT_CHARS = 8
 SECRET_PLACEHOLDERS = ("change_me", "changeme", "change-me")
+MIN_ROLE_PASSWORD_CHARS = 16
 
 
 class ConfigurationError(RuntimeError):
@@ -160,7 +173,81 @@ class Settings(WorkerSettings):
         return self
 
 
-def _load[SettingsT: WorkerSettings](model: type[SettingsT], env_file: str | None) -> SettingsT:
+def _check_database_url(value: SecretStr, variable: str) -> SecretStr:
+    """A PostgreSQL URL with user, password and database, without placeholders; never echoed."""
+    try:
+        url = make_url(value.get_secret_value())
+    except ArgumentError:
+        raise ValueError(f"{variable} is not a valid database URL") from None
+    if not url.drivername.startswith("postgresql"):
+        raise ValueError(f"{variable} must be a PostgreSQL URL")
+    if not (url.username and url.password and url.database and url.host):
+        raise ValueError(f"{variable} needs user, password, host and database")
+    if any(marker in url.password.lower() for marker in SECRET_PLACEHOLDERS):
+        raise ValueError(f"{variable} holds a placeholder password")
+    return value
+
+
+class MigrationSettings(BaseSettings):
+    """What Alembic needs: the URL of the migrator role, nothing else.
+
+    The variable is deliberately not `DATABASE_URL`: running a migration with the API environment
+    fails instead of silently using the application (or any other) credential.
+    """
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    migration_database_url: SecretStr
+
+    @field_validator("migration_database_url")
+    @classmethod
+    def _check_url(cls, value: SecretStr) -> SecretStr:
+        return _check_database_url(value, "MIGRATION_DATABASE_URL")
+
+
+class RolesSettings(BaseSettings):
+    """What the bootstrap needs: the administrator URL and the four working-role passwords."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    admin_database_url: SecretStr
+    db_migrator_password: SecretStr
+    db_app_password: SecretStr
+    db_worker_password: SecretStr
+    db_cli_password: SecretStr
+
+    @field_validator("admin_database_url")
+    @classmethod
+    def _check_admin_url(cls, value: SecretStr) -> SecretStr:
+        return _check_database_url(value, "ADMIN_DATABASE_URL")
+
+    @field_validator(
+        "db_migrator_password", "db_app_password", "db_worker_password", "db_cli_password"
+    )
+    @classmethod
+    def _check_password(cls, value: SecretStr, info: Any) -> SecretStr:
+        name = str(info.field_name).upper()
+        secret = value.get_secret_value()
+        if len(secret) < MIN_ROLE_PASSWORD_CHARS:
+            raise ValueError(f"{name} must be at least {MIN_ROLE_PASSWORD_CHARS} characters long")
+        if any(marker in secret.lower() for marker in SECRET_PLACEHOLDERS):
+            raise ValueError(f"{name} looks like a placeholder; generate a random value")
+        return value
+
+    @model_validator(mode="after")
+    def _check_distinct(self) -> "RolesSettings":
+        passwords = [
+            self.db_migrator_password.get_secret_value(),
+            self.db_app_password.get_secret_value(),
+            self.db_worker_password.get_secret_value(),
+            self.db_cli_password.get_secret_value(),
+        ]
+        if len(set(passwords)) != len(passwords):
+            raise ValueError("the four role passwords must be distinct")
+        return self
+
+
+def _load[SettingsT: BaseSettings](model: type[SettingsT], env_file: str | None) -> SettingsT:
     """Build `model`, turning validation errors into a message naming the variables only."""
     try:
         return model(_env_file=env_file)
@@ -182,3 +269,13 @@ def load_settings(env_file: str | None = ".env") -> Settings:
 def load_worker_settings(env_file: str | None = ".env.worker") -> WorkerSettings:
     """Load the worker settings (`.env.worker`); no API secret is read or required."""
     return _load(WorkerSettings, env_file)
+
+
+def load_migration_settings(env_file: str | None = ".env.migrate") -> MigrationSettings:
+    """Load the migrator URL (`.env.migrate`); no API setting is read or required."""
+    return _load(MigrationSettings, env_file)
+
+
+def load_roles_settings(env_file: str | None = ".env.roles") -> RolesSettings:
+    """Load the bootstrap credentials (`.env.roles`); read only by the bootstrap."""
+    return _load(RolesSettings, env_file)
