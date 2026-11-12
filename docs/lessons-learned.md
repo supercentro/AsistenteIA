@@ -10,7 +10,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - Update it when a change finds a defect, a process deviation, or a practice worth repeating (typically at review or archive time). Append the next free ID; change `Status` instead of deleting entries.
 - **Ownership (no duplication):** product or code risks accepted at merge live only in `docs/technical-debt.md`; a lesson that concerns one of them cites its `TD-` ID and does not restate it. A lesson with no product risk (process, tooling, test suite) lives only here.
 - Status values: `implemented` (a rule, test or document now prevents it), `pending` (measure agreed but not yet applied), `accepted` (deliberate trade-off).
-- Evidence paths are relative to the repository root; `AR` = `openspec/changes/archive/2026-10-27-auth-and-roles/reports/`, `PS` = `openspec/changes/archive/2026-10-27-project-scaffold/reports/`, `DI` = `openspec/changes/document-ingestion/reports/` (the change is not archived yet; if the path moves at archive time, update it then).
+- Evidence paths are relative to the repository root; `AR` = `openspec/changes/archive/2026-10-27-auth-and-roles/reports/`, `PS` = `openspec/changes/archive/2026-10-27-project-scaffold/reports/`, `DI` = `openspec/changes/archive/2026-11-11-document-ingestion/reports/` (archived on 2026-11-11 with the change).
 
 ## Summary
 
@@ -244,7 +244,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** teachers' files outlive their erasure in backups for the retention period. A design that says "the original is never kept" is only true for the live table.
 - **Solution applied:** the decision is documented in the data model: the bytes are erased on every terminal path, the sweep erases the bytes of terminal documents with ordinary statements (batches, `SKIP LOCKED`, never `VACUUM FULL`, never a table lock), and `VACUUM FULL ingestion_jobs` stays a manual operator action. The residual risk is to be registered in `docs/technical-debt.md` in task 15.1 of the change (not copied here); until that row exists, treat backups as containing the files.
 - **Preventive measure:** when a design stores sensitive bytes in the database, measure the WAL and say in the data model and the operations guide how long copies survive; do not describe erasure as complete. The operational queries and the retention wording are now in `docs/development_guide.md` ("Document ingestion") and the residual risk is TD-029.
-- **Evidence:** `docs/data-model.md` (`ingestion_jobs`, temporary bytes paragraph); `DI/2026-11-08-spike-h8-h9-bytea-and-http.md`; `DI/2026-11-10-group-7-repositories-and-queue.md` (`sweep`); `openspec/changes/document-ingestion/design.md` (debts paragraph).
+- **Evidence:** `docs/data-model.md` (`ingestion_jobs`, temporary bytes paragraph); `DI/2026-11-08-spike-h8-h9-bytea-and-http.md`; `DI/2026-11-10-group-7-repositories-and-queue.md` (`sweep`); `openspec/changes/archive/2026-11-11-document-ingestion/design.md` (debts paragraph).
 
 ### L23. Mutation testing found real gaps and has known limits
 - **Origin:** document-ingestion (groups 6 and 7).
@@ -290,4 +290,4 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a task that cannot be completed as written, or pressure to run a risky operation to satisfy the text. Medium for any change that adds a migration.
 - **Solution applied:** the verification ran on a disposable PostgreSQL container on an internal network (migration, real API and worker, real model, HTTP, search, cleanup) and the development database was checked unchanged; the tasks record the substitution, its authorisation and its evidence, and no backup or restore is claimed.
 - **Preventive measure:** write verification tasks against an isolated disposable database and keep applying a migration to a shared database as a separate, explicitly approved operation with a verified backup and a recovery procedure (`docs/development_guide.md`, section 3). When a restriction changes a task, update the artifacts first (`docs/base-standards.md` section 7) and record what was substituted.
-- **Evidence:** `openspec/changes/document-ingestion/tasks.md` (substitution record under group 13); `DI/2026-11-10-step-13-manual-verification.md`; `openspec/changes/document-ingestion/design.md` (Migration Plan).
+- **Evidence:** `openspec/changes/archive/2026-11-11-document-ingestion/tasks.md` (substitution record under group 13); `DI/2026-11-10-step-13-manual-verification.md`; `openspec/changes/archive/2026-11-11-document-ingestion/design.md` (Migration Plan).

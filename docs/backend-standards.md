@@ -90,7 +90,7 @@ Flow in `RAGService.answer(user, subject_id, message, conversation_id)`:
 8. Return answer + sources.
 
 ### Ingestion (upload and background processing)
-The contract is `api-spec.yml` and the behaviour is specified in `openspec/changes/document-ingestion/` (specs and design); this section records the rules that every later change must keep.
+The contract is `api-spec.yml` and the behaviour is specified in `openspec/changes/archive/2026-11-11-document-ingestion/` (specs and design); this section records the rules that every later change must keep.
 - MUST (decision order): the API answers in this order and the body is read only after the first five: `401` → `403` (not a teacher) → `404` (subject unknown, foreign or malformed id: the same answer) → `429` per address → `503` queue full → `503` too many uploads in flight → then the body (`413`, `408`, `415`, `422`) → inside the upload transaction `409` quota and `503` pending-bytes. The short session of the first checks is closed before the body is read so a slow client holds no database connection.
 - MUST (upload): the type is decided from the extension and the content, never from the client `Content-Type`; the size is counted on the bytes actually received (`MAX_UPLOAD_MB` plus a 64 KiB framing allowance) and enforced with a total and an idle deadline; the file name is cleaned (last path component, no control or bidirectional characters, at most 255 characters) and is never used as a path; the form is read with explicit limits and always closed.
 - MUST (durability): the `202` is sent only after the document (`pending`), its job and the uploaded bytes are committed together. The bytes live in `ingestion_jobs.payload` and are erased on every terminal path; the original file is never kept after processing and is never served back. Re-upload is required to reprocess.
@@ -167,5 +167,5 @@ The contract is `api-spec.yml` and the behaviour is specified in `openspec/chang
 
 - Load the embedding model once; batch embeddings; keep K small; limit prompt size.
 - Index `document_chunks(subject_id)` and the hnsw index; `EXPLAIN` any new vector query.
-- Measured for ingestion (worker with 4 CPUs and 2 GiB, real model, 2026-11-10): a 420 KB text of 1,649 chunks took about 43 s with a memory peak of about 1.04 GiB; small files take 1 to 3 s (`openspec/changes/document-ingestion/reports/2026-11-10-step-13-manual-verification.md`).
+- Measured for ingestion (worker with 4 CPUs and 2 GiB, real model, 2026-11-10): a 420 KB text of 1,649 chunks took about 43 s with a memory peak of about 1.04 GiB; small files take 1 to 3 s (`openspec/changes/archive/2026-11-11-document-ingestion/reports/2026-11-10-step-13-manual-verification.md`).
 - SHOULD: cache embeddings of repeated questions only if profiling shows a need.

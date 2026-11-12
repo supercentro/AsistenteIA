@@ -181,7 +181,7 @@ SELECT pg_size_pretty(sum(size)) AS wal_directory FROM pg_ls_waldir();
 ```
 
   Autovacuum removes the dead tuples but does not overwrite free pages. `VACUUM FULL ingestion_jobs` removes the bytes from the data files (about 30 ms for this small table, with a short exclusive lock) and is **manual maintenance approved by the operator** (for example before a base backup or after a sensitive upload); neither the worker nor its sweep ever runs it, and it does not clear the WAL or existing backups.
-- **Manual verification without touching the development database:** use a disposable PostgreSQL 15 + pgvector container (internal Docker network, no published port, data on `tmpfs`), run `alembic upgrade head` and `alembic check` there, start the real API and worker on free ports and drive them with `curl`. The scripts and the evidence of the verification of this change are in `openspec/changes/document-ingestion/reports/step-13-evidence/`.
+- **Manual verification without touching the development database:** use a disposable PostgreSQL 15 + pgvector container (internal Docker network, no published port, data on `tmpfs`), run `alembic upgrade head` and `alembic check` there, start the real API and worker on free ports and drive them with `curl`. The scripts and the evidence of the verification of this change are in `openspec/changes/archive/2026-11-11-document-ingestion/reports/step-13-evidence/`.
 
 ## 4. Quality commands
 
