@@ -9,9 +9,7 @@ and never opens one; the role-bound fixtures (group 9) call it with the guarded 
 
 import re
 from collections.abc import Sequence
-from typing import Protocol
-
-from sqlalchemy import text
+from typing import Any, Protocol
 
 from app.core.db_safety import UnsafeTestDatabaseError
 
@@ -27,16 +25,12 @@ REAL_ROLE_NAMES: Sequence[str] = (
 _NAME = re.compile(rf"^{TEST_ROLE_PREFIX}[a-z0-9_]{{1,40}}$")
 
 
-class _Rows(Protocol):
-    def all(self) -> list[str]: ...
-
-
 class _Result(Protocol):
-    def scalars(self) -> _Rows: ...
+    def fetchall(self) -> list[Any]: ...
 
 
 class RoleConnection(Protocol):
-    def execute(self, statement: object, parameters: dict[str, str] | None = None) -> _Result: ...
+    def execute(self, statement: str, parameters: Sequence[str] | None = None) -> _Result: ...
 
 
 def make_test_role_name(suffix: str) -> str:
@@ -59,13 +53,13 @@ def sweep_test_roles(connection: RoleConnection) -> list[str]:
     """Drop the roles left by earlier runs (what they own first) and return their names."""
     pattern = TEST_ROLE_PREFIX.replace("_", r"\_") + "%"
     found = connection.execute(
-        text(r"SELECT rolname FROM pg_roles WHERE rolname LIKE :pattern ESCAPE '\'"),
-        {"pattern": pattern},
+        "SELECT rolname FROM pg_catalog.pg_roles WHERE rolname LIKE %s ESCAPE '" + chr(92) + "'",
+        (pattern,),
     )
-    names = list(found.scalars().all())
+    names = [str(row[0]) for row in found.fetchall()]
     for name in names:  # validate every name before dropping any
         assert_test_role_name(name)
     for name in names:
-        connection.execute(text(f'DROP OWNED BY "{name}"'))
-        connection.execute(text(f'DROP ROLE "{name}"'))
+        connection.execute(f'DROP OWNED BY "{name}"')
+        connection.execute(f'DROP ROLE "{name}"')
     return names

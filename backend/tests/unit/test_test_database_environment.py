@@ -182,11 +182,8 @@ class FakeResult:
     def __init__(self, rows: Sequence[str]) -> None:
         self._rows = rows
 
-    def scalars(self) -> "FakeResult":
-        return self
-
-    def all(self) -> list[str]:
-        return list(self._rows)
+    def fetchall(self) -> list[tuple[str]]:
+        return [(row,) for row in self._rows]
 
 
 class FakeConnection:
@@ -194,12 +191,12 @@ class FakeConnection:
         self.existing = existing
         self.statements: list[str] = []
 
-    def execute(self, statement: Any, parameters: dict[str, Any] | None = None) -> FakeResult:
-        text = str(statement)
-        self.statements.append(text)
-        if "pg_roles" in text:
+    def execute(self, statement: Any, parameters: Any = None) -> FakeResult:
+        assert isinstance(statement, str)  # the real connection is psycopg: plain SQL text only
+        self.statements.append(statement)
+        if "pg_roles" in statement:
             assert parameters is not None
-            assert parameters["pattern"].replace("\\", "").startswith(TEST_ROLE_PREFIX)
+            assert parameters[0].replace("\\", "").startswith(TEST_ROLE_PREFIX)
             return FakeResult(self.existing)
         return FakeResult([])
 
