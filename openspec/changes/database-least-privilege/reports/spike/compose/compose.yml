@@ -1,0 +1,40 @@
+name: g26cold
+x-img: &img
+  image: asistenteia-worker:latest
+  pull_policy: never
+  labels: { purpose: g26-spike }
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg15
+    labels: { purpose: g26-spike }
+    env_file: [./db.env]
+    cpus: 1
+    mem_limit: 1g
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spk_admin -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  bootstrap:
+    <<: *img
+    entrypoint: ["python", "/c/bootstrap.py"]
+    env_file: [./roles.env]
+    volumes: ["./:/c:ro"]
+    restart: "no"
+    depends_on: { db: { condition: service_healthy } }
+  migrate:
+    <<: *img
+    entrypoint: ["python", "/c/migrate.py"]
+    env_file: [./migrate.env]
+    volumes: ["./:/c:ro"]
+    restart: "no"
+    depends_on: { bootstrap: { condition: service_completed_successfully } }
+  worker:
+    <<: *img
+    entrypoint: ["python", "/c/worker_probe.py"]
+    env_file: [./worker.env]
+    volumes: ["./:/c:ro"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+volumes:
+  dbdata: {}

@@ -1,0 +1,186 @@
+{"h": "H9", "ok": true, "msg": "verifier computed with libpq encrypt_password accepted at CREATE ROLE; stored as SCRAM; attributes all false: [('spk_app', 20), ('spk_migrator', 4), ('spk_worker', 6)]"}
+{"h": "H9", "ok": true, "msg": "login as spk_migrator with the client-computed verifier (before hardening: default PUBLIC CONNECT)"}
+{"h": "H9", "ok": true, "msg": "login as spk_app with the client-computed verifier (before hardening: default PUBLIC CONNECT)"}
+{"h": "H9", "ok": true, "msg": "login as spk_worker with the client-computed verifier (before hardening: default PUBLIC CONNECT)"}
+{"h": "setup", "ok": true, "msg": "roles, databases and hardening created (spk_clean, spk_noext, spk_trap prepared; spk_adopt and spk_other left for later)"}
+{"h": "A-09", "ok": true, "msg": "spk_app connect to postgres: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_worker connect to postgres: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_migrator connect to postgres: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_app connect to template1: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_worker connect to template1: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_migrator connect to template1: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_app connect to spk_other: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_worker connect to spk_other: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_migrator connect to spk_other: blocked (None) connection failed: connection to server at \"172.25.0.2\", port 5432 failed: FATAL:  permission denied for datab"}
+{"h": "A-09", "ok": true, "msg": "spk_app connect to the application DB: ok [('spk_app',)]"}
+{"h": "A-09", "ok": true, "msg": "spk_worker connect to the application DB: ok [('spk_worker',)]"}
+{"h": "A-09", "ok": true, "msg": "spk_migrator connect to the application DB: ok [('spk_migrator',)]"}
+{"h": "A-09", "ok": true, "msg": "temp table in the application DB: blocked (42501) permission denied to create temporary tables in database \"spk_clean\""}
+{"h": "H5", "ok": true, "msg": "extension missing + migrator: 0001 fails (rc=1): psycopg.errors.InsufficientPrivilege: permission denied to create extension \"vector\""}
+{"h": "H5", "ok": true, "msg": "extension pre-created by the admin + migrator: `CREATE EXTENSION IF NOT EXISTS` is a no-op, upgrade head rc=0"}
+{"h": "H6", "ok": true, "msg": "current as migrator: 0005 (head)"}
+{"h": "H6", "ok": true, "msg": "alembic check as migrator: No new upgrade operations detected."}
+{"h": "H6", "ok": true, "msg": "downgrade 0004 as migrator rc=0"}
+{"h": "H6", "ok": true, "msg": "upgrade head again rc=0"}
+{"h": "A-13", "ok": true, "msg": "downgrade base as migrator fails (DROP EXTENSION needs ownership): INFO  [alembic.runtime.migration] Running downgrade 0005 -> 0004, Create ingestion_jobs and add documents.error_code."}
+{"h": "A-13", "ok": true, "msg": "after the failed base downgrade the database is still at 0005 (transactional DDL): 0005 (head)"}
+{"h": "H10", "ok": true, "msg": "clean database: every table, index and enum owned by the migrator (27 objects)"}
+{"h": "A-08", "ok": false, "msg": "after the migrator's GRANT USAGE ON SCHEMA public the worker has USAGE = True (the migrator cannot hand out schema privileges; the bootstrap must)"}
+{"h": "A-07", "ok": true, "msg": "worker could UPDATE payload before=True; after downgrade 0004 + upgrade head the table exists=True and the worker's UPDATE=False SELECT=False: the grants are lost with the table"}
+{"h": "A-07", "ok": true, "msg": "re-running the grants step restores them (idempotent GRANT): True"}
+{"h": "grants", "ok": true, "msg": "matrix applied three times without error (GRANT is idempotent)"}
+{"h": "A-08r", "ok": true, "msg": "schema public ACL as left by the bootstrap so far: {pg_database_owner=UC/pg_database_owner,=U/pg_database_owner,spk_app=U/pg_database_owner,spk_migrator=UC/pg_database_owner,spk_worker=U/pg_database_owner} (PUBLIC still has USAGE by default)"}
+{"h": "A-08r", "ok": true, "msg": "after REVOKE from PUBLIC and from the worker: worker USAGE = False"}
+{"h": "A-08r", "ok": false, "msg": "worker without schema USAGE cannot even resolve the table: blocked (42P01) relation \"ingestion_jobs\" does not exist"}
+{"h": "A-08r", "ok": null, "msg": "migrator GRANT raised no error (may only be a warning)"}
+{"h": "A-08r", "ok": true, "msg": "worker USAGE after the migrator's GRANT = False: the migrator cannot grant schema privileges (it does not own the schema); the bootstrap must"}
+{"h": "A-08r", "ok": true, "msg": "final schema ACL: {pg_database_owner=UC/pg_database_owner,spk_app=U/pg_database_owner,spk_migrator=UC/pg_database_owner,spk_worker=U/pg_database_owner}"}
+{"h": "A-08r", "ok": true, "msg": "worker with USAGE and column SELECT can query: ok [(0,)]"}
+{"h": "H7", "ok": null, "msg": "spk_d1: table_acl=None func_acl=None type_acl=None | app: select=False execute=True type_usage=True"}
+{"h": "H7", "ok": null, "msg": "spk_d2: table_acl=None func_acl=None type_acl=None | app: select=False execute=True type_usage=True"}
+{"h": "H7", "ok": null, "msg": "spk_d3: table_acl=None func_acl={spk_migrator=X/spk_migrator} type_acl=None | app: select=False execute=False type_usage=True"}
+{"h": "A-05", "ok": true, "msg": "PUBLIC EXECUTE on a new function: default=True, per-schema REVOKE=True (no effect), global REVOKE=False; tables are closed by default (app select=False) with or without the statement; types stay usable by PUBLIC (True)"}
+{"h": "A-05", "ok": true, "msg": "new tables are owner-only by default: fail closed without any ALTER DEFAULT PRIVILEGES"}
+{"h": "H12", "ok": true, "msg": "column-level REVOKE does not remove a table-level grant (a,b still updatable: (True, True)); table-level REVOKE removes the table grant and the column grants (a,b: (False, False); with both granted: False). db-grants must REVOKE at table level first, then GRANT columns"}
+{"h": "A-10", "ok": true, "msg": "with search_path=pg_catalog,public the app gets 'abc'; with public first a function planted in public by the migrator wins ('HACKED'): runtime roles must use pg_catalog first"}
+{"h": "A-11", "ok": true, "msg": "a superuser with the default search_path also runs the planted function ('HACKED'), and a trigger planted by the owner ran as the role doing the DML (spk_admin): the superuser must not touch application tables/objects and must use search_path=pg_catalog"}
+{"h": "A-12", "ok": true, "msg": "the pre-update/db-verify query for non-extension objects in public finds the planted ones: ['func f_test', 'func lower', 'func log_who', 'trigger trg', 'type ty_test']"}
+{"h": "A-12", "ok": true, "msg": "migrator cannot ALTER EXTENSION vector UPDATE (not the owner): blocked (42501) must be owner of extension vector"}
+{"h": "H14", "ok": true, "msg": "admin ALTER EXTENSION vector UPDATE succeeds with migrator-owned objects in public (already at the latest version: no-op; real updates need the pre-check above)"}
+{"h": "B-01", "ok": true, "msg": "superuser session: with `pg_catalog, public` a planted lower(varchar) and an operator =(varchar,varchar) in public WIN even though pg_catalog comes first ('HACKED2', False); with `pg_catalog` only they are invisible ('abc', True). The superuser bootstrap must use search_path = pg_catalog and qualified names"}
+{"h": "B-01", "ok": true, "msg": "the runtime roles need `public` for the vector type and operators, so they stay exposed to objects planted by the (trusted) migrator: ('HACKED2', False); control = migrations are code reviewed and db-verify lists foreign objects in public"}
+{"h": "B-01", "ok": true, "msg": "db-verify query must also list operators and exact signatures; it finds: ['func f_test()', 'func lower(text)', 'func log_who()', 'func lower(character varying)', 'func vc_eq(character varying, character varying)', 'operator =']"}
+{"h": "B-03", "ok": true, "msg": "concurrent reader as the app role during 60 revoke+grant cycles: non-atomic (autocommit) -> 2 permission errors of 98 reads; one transaction per cycle -> 0 errors of 99 reads. db-grants must be transactional (GRANT/REVOKE are)"}
+{"h": "B-05", "ok": true, "msg": "CONFIRMED: the app role can run `ALTER ROLE self SET search_path` and it persists for every later session"}
+{"h": "B-05", "ok": true, "msg": "CONFIRMED: the app role can run `ALTER ROLE self SET statement_timeout` and it persists for every later session"}
+{"h": "B-05", "ok": null, "msg": "role-level settings now stored for spk_app: [(['search_path=public, pg_catalog', 'statement_timeout=0'],)]"}
+{"h": "B-05", "ok": true, "msg": "the bootstrap's `ALTER ROLE ... RESET ALL` + its own SET removes tampering: [(['search_path=pg_catalog, public'],)]"}
+{"h": "B-05", "ok": true, "msg": "two client-side verifiers of the SAME password differ (random salt): comparing stored hashes cannot detect a password change; detection must be a login probe with the expected password"}
+{"h": "B-05", "ok": true, "msg": "after the role changed its own password the login probe with the expected password FAILS: that is the detector"}
+{"h": "B-05", "ok": true, "msg": "the next bootstrap run (ALTER ROLE ... PASSWORD from the env value) heals the tampering: ok [('spk_app',)]"}
+{"h": "B-06", "ok": true, "msg": "spk_app: LOCK TABLE users ACCESS EXCLUSIVE (needs table-level UPDATE/DELETE/TRUNCATE; only column-level UPDATE is held): blocked (42501) permission denied for table users"}
+{"h": "B-06", "ok": false, "msg": "spk_app: LOCK TABLE subjects ACCESS EXCLUSIVE (needs table-level UPDATE/DELETE/TRUNCATE; only column-level UPDATE is held): NOT blocked"}
+{"h": "B-06", "ok": false, "msg": "spk_app: LOCK TABLE documents ACCESS EXCLUSIVE (needs table-level UPDATE/DELETE/TRUNCATE; only column-level UPDATE is held): NOT blocked"}
+{"h": "B-06", "ok": true, "msg": "spk_worker: LOCK TABLE documents ACCESS EXCLUSIVE (needs table-level UPDATE/DELETE/TRUNCATE; only column-level UPDATE is held): blocked (42501) permission denied for table documents"}
+{"h": "B-06", "ok": true, "msg": "spk_worker: LOCK TABLE ingestion_jobs ACCESS EXCLUSIVE (needs table-level UPDATE/DELETE/TRUNCATE; only column-level UPDATE is held): blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "B-06", "ok": true, "msg": "app can INSERT a user with role='teacher' (the CLI shares the app role): 'teachers only by CLI' does not hold at database level: ok"}
+{"h": "B-06", "ok": true, "msg": "worker can INSERT a chunk for ANY existing (document, subject): cross-subject RAG poisoning is inherent to direct table access: ok"}
+{"h": "B-10", "ok": true, "msg": "worker SELECT documents.size_bytes (ungranted column): blocked (42501) permission denied for table documents"}
+{"h": "B-10", "ok": true, "msg": "worker SELECT documents.created_at: blocked (42501) permission denied for table documents"}
+{"h": "B-10", "ok": true, "msg": "worker SELECT documents.error_code (it only writes it): blocked (42501) permission denied for table documents"}
+{"h": "B-10", "ok": true, "msg": "worker reads document_chunks.content in a predicate: blocked (42501) permission denied for table document_chunks"}
+{"h": "B-10", "ok": true, "msg": "app GRANT SELECT ON users TO worker: no error raised (only a warning) and no privilege granted (worker has SELECT = False)"}
+{"h": "B-10", "ok": true, "msg": "worker COPY FROM PROGRAM: blocked (42501) must be superuser or have privileges of the pg_execute_server_program role to COPY to or from an external prog"}
+{"h": "H1x", "ok": true, "msg": "parent owned by the migrator, child owned by another role: cascade works for a role with DELETE on the parent only (child rows left 0)"}
+{"h": "H1x", "ok": true, "msg": "FK-checked INSERT works for a role with no privilege at all on the referenced table"}
+{"h": "H1x", "ok": true, "msg": "FK violation still refused: blocked (23503) insert or update on table \"child\" violates foreign key constraint \"child_pid_fkey\""}
+{"h": "API", "ok": true, "msg": "uvicorn started with the app role and answers /health 200"}
+{"h": "CLI", "ok": true, "msg": "create-teacher under the app role rc=0 "}
+{"h": "API", "ok": true, "msg": "register 201"}
+{"h": "API", "ok": true, "msg": "login teacher 200"}
+{"h": "API", "ok": true, "msg": "login student 200"}
+{"h": "API", "ok": true, "msg": "GET /users/me 200"}
+{"h": "API", "ok": true, "msg": "create subject 201"}
+{"h": "API", "ok": true, "msg": "list subjects (teacher) 200"}
+{"h": "API", "ok": true, "msg": "get subject 200"}
+{"h": "API", "ok": true, "msg": "enroll 201"}
+{"h": "API", "ok": true, "msg": "list enrollments 200"}
+{"h": "API", "ok": true, "msg": "list subjects (student) 200"}
+{"h": "A-01", "ok": false, "msg": "POST /users/me/consent: without UPDATE(consent_*) -> HTTP 200; with the column grants -> HTTP 200"}
+{"h": "H2", "ok": true, "msg": "upload (admission does SELECT ... FOR UPDATE on subjects): without UPDATE on any subjects column -> HTTP 503; with UPDATE(description) only -> HTTP 202"}
+{"h": "API", "ok": true, "msg": "upload markdown 202"}
+{"h": "API", "ok": true, "msg": "upload bogus pdf -> 202 (rejected by the content check: expected)"}
+{"h": "API", "ok": false, "msg": "list documents 200 (3)"}
+{"h": "H3", "ok": true, "msg": "worker role: IngestionService.run_once outcomes=['ready', 'ready', 'failed', 'idle']; sweep=SweepResult(interrupted=0, expired=0, erased=0)"}
+{"h": "H4", "ok": true, "msg": "chunk inserts: 2 statements, 1 with RETURNING id (the single-chunk document); all succeeded because the worker has SELECT (id) on document_chunks"}
+{"h": "H3", "ok": true, "msg": "documents ready=2, chunks=5, jobs still holding bytes=0"}
+{"h": "H3", "ok": true, "msg": "find_similar under the app role (reads chunks, documents, subjects, enrollments, users): 5 hits"}
+{"h": "API", "ok": true, "msg": "delete document 204"}
+{"h": "H1", "ok": true, "msg": "app has DELETE on chunks/jobs = (False, False); deleting a document removed its rows by cascade: chunks 5->1, jobs 3->2"}
+{"h": "API", "ok": true, "msg": "delete enrollment (unknown student) 404"}
+{"h": "API", "ok": true, "msg": "delete subject 204"}
+{"h": "H1", "ok": true, "msg": "subject delete cascaded documents, chunks, jobs and enrollments: (0, 0, 0, 0, 0)"}
+{"h": "COVERAGE", "ok": null, "msg": "HTTP operations exercised: [('DELETE', '/subjects/{id}'), ('DELETE', '/subjects/{id}/documents/3ec349c2-5246-4963-ad52-7a232ea0fb14'), ('DELETE', '/subjects/{id}/enrollments/00000000-0000-0000-0000-000000000000'), ('GET', '/subjects'), ('GET', '/subjects/{id}'), ('GET', '/subjects/{id}/documents'), ('GET', '/subjects/{id}/enrollments'), ('GET', '/users/me'), ('POST', '/auth/login'), ('POST', '/auth/register'), ('POST', '/subjects'), ('POST', '/subjects/{id}/documents'), ('POST', '/subjects/{id}/enrollments'), ('POST', '/users/me/consent')]"}
+{"h": "CLEANUP", "ok": true, "msg": "synthetic users removed: 2"}
+{"h": "NEG", "ok": true, "msg": "role attributes all false and no role memberships (not even pg_* predefined roles): ['spk_app', 'spk_migrator', 'spk_worker'] memberships=0"}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE TABLE: blocked (42501) permission denied for schema public"}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE TEMP TABLE: blocked (42501) permission denied to create temporary tables in database \"spk_clean\""}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE SCHEMA: blocked (42501) permission denied for database spk_clean"}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE EXTENSION: blocked (42501) permission denied to create extension \"pg_trgm\""}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE FUNCTION: blocked (42501) permission denied for schema public"}
+{"h": "NEG", "ok": true, "msg": "spk_app: DROP TABLE users: blocked (42501) must be owner of table users"}
+{"h": "NEG", "ok": true, "msg": "spk_app: ALTER TABLE users: blocked (42501) must be owner of table users"}
+{"h": "NEG", "ok": true, "msg": "spk_app: TRUNCATE documents: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "spk_app: COPY ... TO PROGRAM: blocked (42501) must be superuser or have privileges of the pg_execute_server_program role to COPY to or from an external prog"}
+{"h": "NEG", "ok": true, "msg": "spk_app: COPY ... TO file: blocked (42501) must be superuser or have privileges of the pg_write_server_files role to COPY to a file"}
+{"h": "NEG", "ok": true, "msg": "spk_app: pg_read_file: blocked (42501) permission denied for function pg_read_file"}
+{"h": "NEG", "ok": true, "msg": "spk_app: pg_ls_dir: blocked (42501) permission denied for function pg_ls_dir"}
+{"h": "NEG", "ok": true, "msg": "spk_app: lo_import (server file): blocked (42501) permission denied for function lo_import"}
+{"h": "NEG", "ok": true, "msg": "spk_app: ALTER SYSTEM: blocked (42501) permission denied to set parameter \"work_mem\""}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE ROLE: blocked (42501) permission denied to create role"}
+{"h": "NEG", "ok": true, "msg": "spk_app: SET ROLE migrator: blocked (42501) permission denied to set role \"spk_migrator\""}
+{"h": "NEG", "ok": true, "msg": "spk_app: read pg_authid: blocked (42501) permission denied for table pg_authid"}
+{"h": "NEG", "ok": true, "msg": "spk_app: pg_terminate_backend: blocked (42501) must be a superuser to terminate superuser process"}
+{"h": "NEG", "ok": true, "msg": "spk_app: CREATE DATABASE: blocked (42501) permission denied to create database"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE TABLE: blocked (42501) permission denied for schema public"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE TEMP TABLE: blocked (42501) permission denied to create temporary tables in database \"spk_clean\""}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE SCHEMA: blocked (42501) permission denied for database spk_clean"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE EXTENSION: blocked (42501) permission denied to create extension \"pg_trgm\""}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE FUNCTION: blocked (42501) permission denied for schema public"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: DROP TABLE users: blocked (42501) must be owner of table users"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: ALTER TABLE users: blocked (42501) must be owner of table users"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: TRUNCATE documents: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: COPY ... TO PROGRAM: blocked (42501) must be superuser or have privileges of the pg_execute_server_program role to COPY to or from an external prog"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: COPY ... TO file: blocked (42501) must be superuser or have privileges of the pg_write_server_files role to COPY to a file"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: pg_read_file: blocked (42501) permission denied for function pg_read_file"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: pg_ls_dir: blocked (42501) permission denied for function pg_ls_dir"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: lo_import (server file): blocked (42501) permission denied for function lo_import"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: ALTER SYSTEM: blocked (42501) permission denied to set parameter \"work_mem\""}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE ROLE: blocked (42501) permission denied to create role"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: SET ROLE migrator: blocked (42501) permission denied to set role \"spk_migrator\""}
+{"h": "NEG", "ok": true, "msg": "spk_worker: read pg_authid: blocked (42501) permission denied for table pg_authid"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: pg_terminate_backend: blocked (42501) must be a superuser to terminate superuser process"}
+{"h": "NEG", "ok": true, "msg": "spk_worker: CREATE DATABASE: blocked (42501) permission denied to create database"}
+{"h": "NEG", "ok": true, "msg": "migrator: COPY TO PROGRAM: blocked (42501) must be superuser or have privileges of the pg_execute_server_program role to COPY to or from an external prog"}
+{"h": "NEG", "ok": true, "msg": "migrator: pg_read_file: blocked (42501) permission denied for function pg_read_file"}
+{"h": "NEG", "ok": true, "msg": "migrator: ALTER SYSTEM: blocked (42501) permission denied to set parameter \"work_mem\""}
+{"h": "NEG", "ok": true, "msg": "migrator: CREATE ROLE: blocked (42501) permission denied to create role"}
+{"h": "NEG", "ok": true, "msg": "migrator: CREATE EXTENSION: blocked (42501) permission denied to create extension \"pg_trgm\""}
+{"h": "NEG", "ok": true, "msg": "migrator: pg_authid: blocked (42501) permission denied for table pg_authid"}
+{"h": "NEG", "ok": true, "msg": "worker SELECT users: blocked (42501) permission denied for table users"}
+{"h": "NEG", "ok": true, "msg": "worker INSERT users: blocked (42501) permission denied for table users"}
+{"h": "NEG", "ok": true, "msg": "worker SELECT subjects: blocked (42501) permission denied for table subjects"}
+{"h": "NEG", "ok": true, "msg": "worker SELECT enrollments: blocked (42501) permission denied for table enrollments"}
+{"h": "NEG", "ok": true, "msg": "worker INSERT documents: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "worker DELETE documents: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "worker UPDATE documents.filename: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "worker UPDATE documents.subject_id: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "worker SELECT document_chunks: blocked (42501) permission denied for table document_chunks"}
+{"h": "NEG", "ok": true, "msg": "worker DELETE document_chunks: blocked (42501) permission denied for table document_chunks"}
+{"h": "NEG", "ok": true, "msg": "worker INSERT ingestion_jobs: blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "NEG", "ok": true, "msg": "worker DELETE ingestion_jobs: blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "NEG", "ok": true, "msg": "worker UPDATE ingestion_jobs.document_id: blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "NEG", "ok": true, "msg": "worker SELECT alembic_version: blocked (42501) permission denied for table alembic_version"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE documents: blocked (42501) permission denied for table documents"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE ingestion_jobs: blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "NEG", "ok": true, "msg": "app DELETE ingestion_jobs: blocked (42501) permission denied for table ingestion_jobs"}
+{"h": "NEG", "ok": true, "msg": "app INSERT document_chunks: blocked (42501) permission denied for table document_chunks"}
+{"h": "NEG", "ok": true, "msg": "app DELETE document_chunks: blocked (42501) permission denied for table document_chunks"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE document_chunks: blocked (42501) permission denied for table document_chunks"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE users.role (privilege escalation of an account): blocked (42501) permission denied for table users"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE users.password_hash: blocked (42501) permission denied for table users"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE subjects.teacher_id: blocked (42501) permission denied for table subjects"}
+{"h": "NEG", "ok": true, "msg": "app UPDATE enrollments: blocked (42501) permission denied for table enrollments"}
+{"h": "NEG", "ok": true, "msg": "app SELECT alembic_version: blocked (42501) permission denied for table alembic_version"}
+{"h": "A-24", "ok": null, "msg": "app can run SET statement_timeout (allowed by default; availability only, not a control)"}
+{"h": "A-24", "ok": null, "msg": "app can run SET search_path (allowed by default; availability only, not a control)"}
+{"h": "A-24", "ok": null, "msg": "app can run pg_sleep (allowed by default; availability only, not a control)"}
+{"h": "A-24", "ok": null, "msg": "app can run lo_create (allowed by default; availability only, not a control)"}
+{"h": "NEG", "ok": null, "msg": "app can change its OWN password (default PostgreSQL behaviour): with SCRAM it can lock itself out but cannot touch other roles"}
+{"h": "FIX", "ok": true, "msg": "spk_app healed by the admin after the self-password test of s4: ok [('spk_app',)]"}
+{"h": "A-01dbg", "ok": null, "msg": "before: table ACL={spk_migrator=arwdDxt/spk_migrator,spk_app=ar/spk_migrator}; column ACL=[('consent_version', '{spk_app=w/spk_migrator}'), ('consent_accepted_at', '{spk_app=w/spk_migrator}')]"}
+{"h": "N-1", "ok": true, "msg": "SILENT FAILURE: app WITHOUT any UPDATE privilege on users.consent_*: POST /users/me/consent -> HTTP 200 but stored consent_version=None (the commit of get_db fails after the response left)"}
+{"h": "A-01", "ok": true, "msg": "app WITH UPDATE(consent_version, consent_accepted_at) only: HTTP 200, stored=2026-10-v1"}
+{"h": "A-22", "ok": true, "msg": "a FAILED ALTER ROLE ... PASSWORD '<client-computed verifier>' writes the statement, verifier included, to the server log (occurrences of 'SCRAM-SHA-256$' in the log: 1); recorded as accepted residual"}
+{"h": "A-04", "ok": true, "msg": "variable NAMES the existing API container receives from backend/.env: DATABASE_URL JWT_SECRET POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER TEST_DATABASE_URL "}
+{"h": "A-06", "ok": null, "msg": "static fact (docker-compose.yml): 30:      - ./backend/app:/app/app 72:      - ./backend/app:/app/app:ro  -> the API mounts ./backend/app read-write, the worker mounts the same tree read-only; not testable by running"}
