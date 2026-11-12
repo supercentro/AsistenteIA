@@ -31,7 +31,7 @@ DOCKERFILE = BACKEND_DIR / "Dockerfile"
 COMPOSE = REPO / "docker-compose.yml"
 CI = REPO / ".github" / "workflows" / "ci.yml"
 
-# Read by the tests only, never by `Settings`.
+# Read by the tests only, never by `Settings` (they live in backend/.env.test.example).
 NOT_SETTINGS = {"TEST_DATABASE_URL"}
 # Read by the Compose "db" service (backend/.env.db), never by the application.
 DB_VARIABLES = {"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"}
@@ -151,7 +151,7 @@ def test_secrets_in_the_examples_are_placeholders() -> None:
     worker = example_assignments(WORKER_EXAMPLE)
     database = example_assignments(DB_EXAMPLE)
 
-    for name in ("JWT_SECRET", "DATABASE_URL", "TEST_DATABASE_URL"):
+    for name in ("JWT_SECRET", "DATABASE_URL"):
         assert "CHANGE_ME" in api[name][1], name
     assert "CHANGE_ME" in worker["DATABASE_URL"][1]
     assert "CHANGE_ME" in database["POSTGRES_PASSWORD"][1]
