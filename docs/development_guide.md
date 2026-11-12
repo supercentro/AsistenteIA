@@ -148,12 +148,12 @@ Nothing below has been run against `asistenteia`; every step that changes it nee
 1. Dump inside the container, so no shell re-encodes the binary stream: `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d asistenteia -Fc -f /tmp/asistenteia_pre_0005.dump'`.
 2. Verify inside the container: `sha256sum /tmp/asistenteia_pre_0005.dump` and `pg_restore --list /tmp/asistenteia_pre_0005.dump` (the list must name the six tables, the `vector` extension and the `document_status` type).
 3. Copy it out to a durable place outside the repository and outside temporary directories (`docker cp`), restrict its permissions to your user, and check that the SHA-256 of the copy equals the one inside the container.
-4. Restore test in a disposable server, never in the development one: `docker run -d --name asistenteia-restore-check` with the same image `pgvector/pgvector:0.8.7-pg15`, data on `tmpfs`, a random password, no published port; copy the dump in, `CREATE DATABASE`, `CREATE EXTENSION vector` is part of the dump, `pg_restore -d`; then check `alembic_version` = `0004`, the table list, the row counts and `\dx`. Remove only that container afterwards.
+4. Restore test in a disposable server, never in the development one: `docker run -d --name asistenteia-restore-check` with the same image `pgvector/pgvector:0.8.7-pg15`, data on `tmpfs`, a random password, no published port; copy the dump in, `CREATE DATABASE`, `CREATE EXTENSION vector` is part of the dump, `pg_restore -d`; then check `alembic_version` = `0004`, the table list, the row counts and `\dx`. Then rehearse the recovery on that restored copy: `alembic upgrade head` (`0004` → `0005`), the checks of step 4.4, `alembic downgrade 0004` (the tables must match the restored ones again) and `alembic upgrade head` once more. This validates the schema recovery on the real data shape, in isolation, before anything touches `asistenteia`. Remove only that container afterwards.
 5. Keep the dump until the owner agrees to delete it.
 
 **4. Apply (planned)**
 1. `docker compose stop backend worker`.
-2. `docker compose build backend worker` (the worker image is 3.2 GB and downloads the model from its pinned revision; if the network fails, repeat; do not use `--no-cache` unless needed).
+2. `docker compose build backend worker`, **before** the upgrade: the current images only know `0004`, so `alembic upgrade head` in them would end successfully without doing anything and leave the database at `0004`. After the build, `docker compose run --rm --no-deps backend alembic heads` must report `0005 (head)`; if it does not, stop. (The worker image is 3.2 GB and downloads the model from its pinned revision; if the network fails, repeat; do not use `--no-cache` unless needed).
 3. `docker compose run --rm --no-deps backend alembic upgrade head`; expected last line `Running upgrade 0004 -> 0005`. Alembic runs with the API settings (`load_settings`), so it needs `backend/.env`, not the worker file. PostgreSQL DDL is transactional: if the upgrade fails, nothing is applied.
 4. Verify: `alembic current` reports `0005 (head)`; `alembic check` reports no new upgrade operations; catalog queries find `ingestion_jobs`, `uq_ingestion_jobs_document_id`, `ck_ingestion_jobs_attempts_non_negative`, `ck_ingestion_jobs_lease_consistent`, `ix_ingestion_jobs_claimable` with its predicate `payload IS NOT NULL`, `documents.error_code` and its check; the application tables still have 0 rows.
 5. Start `docker compose up -d backend worker` and wait for the worker to be `healthy` (the first beat takes up to the 120 s start period). **Start the worker only after the migration**: before it, the worker has no `ingestion_jobs` table to claim from.
@@ -163,6 +163,18 @@ Nothing below has been run against `asistenteia`; every step that changes it nee
 - *The upgrade fails or is interrupted:* nothing was applied; confirm `alembic current` is still `0004`, fix the cause and repeat.
 - *`0005` is applied but not wanted yet, before any upload:* stop the API and the worker, run the downgrade preflight, then `alembic downgrade 0004`; the schema returns to `0004` exactly (round trip tested); start the previous images (`:pre-0005` tags).
 - *Anything else, or doubt about the data:* stop API and worker, recreate the database and restore the verified dump (`DROP DATABASE`, `CREATE DATABASE`, `pg_restore`), then check `alembic current` = `0004`. The development database is empty today, so recreating it by `alembic upgrade 0004` is equivalent.
+
+**5b. Rollback, downgrade and restore are three different operations**
+
+| | PostgreSQL transaction rollback | `alembic downgrade 0004` | Restore from the backup |
+|---|---|---|---|
+| When it applies | only inside the failing `alembic upgrade` itself (one transaction); once the upgrade has committed it no longer exists | after `0005` is committed and is not wanted | after a serious problem, or when the data is in doubt |
+| What it does | the database stays exactly as before the attempt; `alembic_version` stays `0004` | runs the migration's `downgrade`: drops `ingestion_jobs` and `documents.error_code` with its check | recreates the whole database from the dump |
+| What can be lost | nothing | the jobs in flight and their bytes; `error_code` of failed documents (their fixed message stays); documents left `pending` or `processing` stay stuck (hence the preflight); data of `0004` is kept | everything written after the backup was taken (users, subjects, documents, chunks); the database is dropped first |
+| Needs | nothing, it is automatic | API and worker stopped and the preflight passed | API and worker stopped, an explicit decision, a verified dump |
+| Validated how | PostgreSQL transactional DDL; the upgrade has no non-transactional statement | `test_migrations_ingestion.py` (round trip) and the rehearsal of step 3.4 on a restored copy of the real backup | the restore test of step 3.4 |
+
+The three are not interchangeable: a rollback cannot be used after the commit, a downgrade does not recover data that a failed upgrade or an operator mistake damaged, and a restore discards later work. Use the least destructive one that fits.
 
 **6. Risk classification for the deployment decision** (the text of each risk stays in `technical-debt.md`)
 
