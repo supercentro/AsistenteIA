@@ -3,16 +3,19 @@
 `built_service` creates an `IngestionService` on its own engine against the guarded test
 database; `HookEmbedder` is the fake embedder with a hook that runs while "inference" is in
 progress, which is where the tests inspect the database, expire leases or delete documents.
-`activity` reads what other sessions of the test database are doing.
+`activity` reads what the sessions of the test database are doing; given the `backends` of a
+`Built` service it looks only at the connections that service opened, so a maintenance pass or
+a neighbouring test cannot be mistaken for the service holding a lock or a transaction.
 """
 
 import logging
 import threading
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
@@ -61,6 +64,7 @@ class Built:
     service: IngestionService
     engine: Engine
     factory: sessionmaker[Session]
+    backends: set[int]  # server process ids of the connections this service currently has open
 
 
 @contextmanager
@@ -73,6 +77,7 @@ def built_service(
     **limit_overrides: object,
 ) -> Iterator[Built]:
     engine = create_db_engine(url)
+    backends = track_backends(engine)
     factory = create_session_factory(engine)
     extra: dict[str, object] = {}
     if clock is not None:
@@ -88,9 +93,25 @@ def built_service(
             ),
             engine,
             factory,
+            backends,
         )
     finally:
         engine.dispose()
+
+
+def track_backends(engine: Engine) -> set[int]:
+    """The server process ids of the engine's open connections (kept up to date by events)."""
+    backends: set[int] = set()
+
+    @event.listens_for(engine, "connect")
+    def remember(dbapi_connection: Any, _record: Any) -> None:
+        backends.add(int(dbapi_connection.info.backend_pid))
+
+    @event.listens_for(engine, "close")
+    def forget(dbapi_connection: Any, _record: Any) -> None:
+        backends.discard(int(dbapi_connection.info.backend_pid))
+
+    return backends
 
 
 def checked_out(engine: Engine) -> int:
@@ -102,7 +123,7 @@ def checked_out(engine: Engine) -> int:
 
 @dataclass(frozen=True)
 class Activity:
-    """What the other sessions of the test database hold at one instant."""
+    """What the sessions of the test database hold at one instant."""
 
     idle_in_transaction: int
     open_transactions: int
@@ -110,9 +131,15 @@ class Activity:
     stuck_in_transaction: int  # idle in a transaction for more than one second
 
 
-def activity(url: str) -> Activity:
-    """Backends other than this probe: idle-in-transaction, open transactions and held locks."""
+def activity(url: str, backends: Collection[int] | None = None) -> Activity:
+    """Idle-in-transaction, open transactions and held locks of the client backends.
+
+    Without `backends` every client backend of the database counts (apart from this probe).
+    With the `backends` of a service only its own connections count: the locks of an autovacuum
+    worker, of another test's leftover session or of anything else are not its doing.
+    """
     engine = create_db_engine(url)
+    only = list(backends) if backends is not None else None
     try:
         with engine.connect() as conn:
             row = conn.execute(
@@ -126,11 +153,16 @@ def activity(url: str) -> Activity:
                     " AND l.granted "
                     " AND l.locktype IN ('relation','tuple','transactionid','advisory') "
                     " AND l.pid IN (SELECT pid FROM pg_stat_activity "
-                    "               WHERE datname = current_database())) "
+                    "               WHERE datname = current_database() "
+                    "               AND backend_type = 'client backend' "
+                    "               AND (CAST(:only AS int[]) IS NULL "
+                    "                    OR pid = ANY(CAST(:only AS int[]))))) "
                     "FROM pg_stat_activity "
                     "WHERE datname = current_database() AND pid <> pg_backend_pid() "
-                    "AND backend_type = 'client backend'"
-                )
+                    "AND backend_type = 'client backend' "
+                    "AND (CAST(:only AS int[]) IS NULL OR pid = ANY(CAST(:only AS int[])))"
+                ),
+                {"only": only},
             ).one()
     finally:
         engine.dispose()

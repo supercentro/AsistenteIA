@@ -717,7 +717,7 @@ class TestNothingIsHeldWhileWorking:
         samples: list[tuple[int, int, int, int]] = []
 
         def probe() -> None:
-            seen = activity(scene.url)
+            seen = activity(scene.url, built.backends)
             samples.append(
                 (
                     seen.idle_in_transaction,
@@ -740,7 +740,7 @@ class TestNothingIsHeldWhileWorking:
         samples: list[tuple[int, int, int, int]] = []
 
         def loader(payload: bytes) -> list[Page]:
-            seen = activity(scene.url)
+            seen = activity(scene.url, built.backends)
             samples.append(
                 (
                     seen.idle_in_transaction,
