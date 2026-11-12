@@ -3,7 +3,7 @@
 Canonical database model. PostgreSQL 15 + `pgvector`. Managed only through Alembic migrations.
 `readme.md` section 3 is a simplified academic summary; if they diverge, this document wins (see `base-standards.md` §0).
 
-Status: `users`, `subjects`, `enrollments`, `documents` and `document_chunks` are **implemented** (migrations `0002` to `0004`); the conversation tables are a **proposed design for implementation**. The differences from the `readme.md` summary are listed in [Changes vs readme.md](#changes-vs-readmemd).
+Status: `users`, `subjects`, `enrollments`, `documents`, `document_chunks` and `ingestion_jobs` are **implemented** (migrations `0002` to `0005`); the conversation tables are a **proposed design for implementation**. The differences from the `readme.md` summary are listed in [Changes vs readme.md](#changes-vs-readmemd).
 
 ## Entity Relationship Diagram
 
@@ -14,6 +14,7 @@ erDiagram
     SUBJECTS ||--o{ ENROLLMENTS : "has"
     SUBJECTS ||--o{ DOCUMENTS : "contains"
     DOCUMENTS ||--o{ DOCUMENT_CHUNKS : "is split into"
+    DOCUMENTS ||--o| INGESTION_JOBS : "is processed by"
     SUBJECTS ||--o{ DOCUMENT_CHUNKS : "scopes"
     USERS ||--o{ CONVERSATIONS : "starts (student)"
     SUBJECTS ||--o{ CONVERSATIONS : "is queried in"
@@ -51,9 +52,21 @@ erDiagram
         string content_type
         bigint size_bytes
         enum status "pending | processing | ready | failed"
-        text error_message "nullable"
+        text error_message "nullable; fixed sentence per error_code"
+        string error_code "nullable; only on failed documents"
         int chunks_count
         timestamptz created_at
+    }
+    INGESTION_JOBS {
+        uuid id PK
+        uuid document_id FK "unique; cascade"
+        bytea payload "nullable; temporary file bytes"
+        int attempts
+        string locked_by "nullable; claim token"
+        timestamptz locked_until "nullable; lease"
+        timestamptz available_at
+        timestamptz created_at
+        timestamptz updated_at
     }
     DOCUMENT_CHUNKS {
         uuid id PK
@@ -113,13 +126,20 @@ erDiagram
 - Created by migration `0003`.
 
 ### documents
-- One row per uploaded **original file**. The original binary is not stored in the database (see backend standards, "File handling"); only metadata and extracted chunks are.
-- `status`: `pending` → `processing` → `ready` | `failed`. `error_message` is a short, non-sensitive reason for `failed`.
+- One row per uploaded **original file**. The original binary is never kept permanently: the uploaded bytes live temporarily in `ingestion_jobs.payload` until the document is `ready` or `failed` (see `ingestion_jobs` below and "Ingestion" in `backend-standards.md`); only metadata and extracted chunks remain.
+- `status`: `pending` → `processing` → `ready` | `failed`. Terminal states do not change. `error_code` is one value of the closed catalogue of 12 codes (`NO_EXTRACTABLE_TEXT`, `ENCRYPTED_PDF`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `TEXT_TOO_LARGE`, `TOO_MANY_CHUNKS`, `PROCESSING_TIMEOUT`, `RESOURCE_LIMIT_EXCEEDED`, `EMBEDDING_FAILED`, `PROCESSING_INTERRUPTED`, `JOB_EXPIRED`, `PROCESSING_FAILED`) and `error_message` is the fixed, non-sensitive English sentence of that code (both defined once in `app/models/ingestion.py`). The database only enforces that a code exists on a `failed` document; that a failed document always has one is the service rule (fixtures and rows from before `0005` may have none).
 - Supported `content_type`: `application/pdf`, `text/plain` (and `text/markdown`). Max size configured via `MAX_UPLOAD_MB`. The database does not restrict `content_type` values (validated at upload), so a new type needs no migration.
-- Columns: `id` uuid (`gen_random_uuid()`), `subject_id` uuid not null, `filename` varchar(255) not null, `content_type` varchar(100) not null, `size_bytes` bigint not null, `status` enum `document_status` (`pending`, `processing`, `ready`, `failed`) not null default `pending`, `error_message` text null, `chunks_count` integer not null default 0, `created_at` timestamptz not null default `now()`.
-- Checks: `size_bytes >= 0`, `chunks_count >= 0`. Unique `(id, subject_id)` (`uq_documents_id`): the target of the composite foreign key of `document_chunks`. Index `ix_documents_subject_id`.
+- Columns: `id` uuid (`gen_random_uuid()`), `subject_id` uuid not null, `filename` varchar(255) not null, `content_type` varchar(100) not null, `size_bytes` bigint not null, `status` enum `document_status` (`pending`, `processing`, `ready`, `failed`) not null default `pending`, `error_message` text null, `error_code` varchar(40) null (added by `0005`), `chunks_count` integer not null default 0, `created_at` timestamptz not null default `now()`.
+- Checks: `size_bytes >= 0`, `chunks_count >= 0`, and (from `0005`) `error_code IS NULL OR status = 'failed'` (`ck_documents_error_code_only_when_failed`). Unique `(id, subject_id)` (`uq_documents_id`): the target of the composite foreign key of `document_chunks`. Index `ix_documents_subject_id`.
 - `subject_id` cannot be changed while the document has chunks (the composite foreign key has no `ON UPDATE` action).
-- Created by migration `0004` (downgrade drops `document_chunks`, then `documents`, then the `document_status` type; the `vector` extension is kept).
+- Created by migration `0004` (downgrade drops `document_chunks`, then `documents`, then the `document_status` type; the `vector` extension is kept). Migration `0005` adds `error_code` and its check (its downgrade drops them again; documents already `ready` and their chunks are kept).
+
+### ingestion_jobs
+- The persistent queue of the background worker: **at most one row per document** (`UNIQUE (document_id)`, `ON DELETE CASCADE`, so deleting a document or its subject removes the job and its bytes). It exists from the upload until the document is terminal (and may remain, without bytes, until the document is deleted).
+- Columns: `id` uuid (`gen_random_uuid()`), `document_id` uuid not null, `payload` bytea null (the uploaded bytes, at most `MAX_UPLOAD_MB`; set to NULL when the document becomes `ready` or `failed`), `attempts` integer not null default 0, `locked_by` varchar(64) null (random **claim token**, the fencing token of every worker write), `locked_until` timestamptz null (the lease), `available_at` timestamptz not null default `now()`, `created_at` and `updated_at` timestamptz not null default `now()`.
+- Checks: `attempts >= 0`, and `(locked_by IS NULL) = (locked_until IS NULL)` (a lease has both an owner and an expiry, or neither). Partial index `ix_ingestion_jobs_claimable (available_at) WHERE payload IS NOT NULL` serves the claim query.
+- Created by migration `0005` (the downgrade drops the table: jobs in flight and their bytes are lost by design, and their documents stay `pending` or `processing` for ever, so a downgrade is only run after the preflight of `docs/development_guide.md` finds nothing in flight).
+- **Temporary bytes are not erased immediately.** Setting `payload` to NULL or deleting the row leaves the bytes in dead tuples and table files until the table is rewritten, in the write-ahead log, and in any base backup, logical dump or replica made while the job existed. Measured on 2026-11-08 with a 10 MB file: about 21 MB of WAL per job (10.7 MB on insert and 10.5 MB on clearing); autovacuum removes the dead tuples but does not overwrite free pages; `VACUUM FULL ingestion_jobs` (about 30 ms) removes them from the data files and is manual maintenance, never part of the worker; WAL segments and backups keep them until they are recycled or expire. Treat database backups as containing teachers' files for their retention period. The queries to follow dead tuples, TOAST size and WAL volume are in `docs/development_guide.md` ("Document ingestion"); the residual risk is TD-029 in `docs/technical-debt.md`.
 
 ### document_chunks
 - One row per **text fragment** with its embedding. `embedding` is `vector(384)` (`paraphrase-multilingual-MiniLM-L12-v2`).
@@ -151,6 +171,7 @@ erDiagram
 | enrollments.subject_id → subjects | CASCADE |
 | enrollments.student_id → users | CASCADE |
 | documents.subject_id → subjects | CASCADE |
+| ingestion_jobs.document_id → documents | CASCADE (the job and its bytes go with the document) |
 | document_chunks.(document_id, subject_id) → documents.(id, subject_id) | CASCADE (composite foreign key; a single-column foreign key on `document_id` does not exist) |
 | conversations.student_id → users | CASCADE (right to erasure) |
 | conversations.subject_id → subjects | CASCADE |
@@ -173,5 +194,6 @@ erDiagram
 4. Added consent fields to `users` and `status`/`error_message` to `documents`.
 5. Index changed from `ivfflat` to `hnsw` (ivfflat quality depends on data existing when the index is built).
 6. `document_chunks.subject_id` is tied to its document by a composite foreign key instead of being checked by the repository, and `documents` gained `ix_documents_subject_id`.
+7. Added `ingestion_jobs` (persistent queue and temporary file bytes) and `documents.error_code` (stable failure code) for the background ingestion of change 6. Not in the `readme.md` summary.
 
 The `readme.md` summary (sections 2.5, 3, 4, 5 and 6) was aligned with these changes with the user's approval.

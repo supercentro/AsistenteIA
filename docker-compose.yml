@@ -1,8 +1,9 @@
 services:
   db:
     image: pgvector/pgvector:0.8.7-pg15
+    # Only the POSTGRES_* variables: the container never sees the API or worker settings.
     env_file:
-      - ./backend/.env
+      - ./backend/.env.db
     ports:
       - "127.0.0.1:5442:5432" # host port 5442 avoids clashes with other local PostgreSQL instances
     volumes:
@@ -15,7 +16,9 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: api
     env_file:
       - ./backend/.env
     ports:
@@ -39,6 +42,34 @@ services:
         "--reload-dir",
         "/app/app",
       ]
+
+  # Ingestion worker (change 6): `python -m app.worker`, a process separate from the API. A plain
+  # `docker compose up` starts it. CPU and memory are the values validated by the spike;
+  # EMBEDDING_THREADS is left unset so inference follows the CPU quota below.
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    # Its own file: the worker holds no JWT secret and no API setting (copy .env.worker.example).
+    env_file:
+      - ./backend/.env.worker
+    depends_on:
+      db:
+        condition: service_healthy
+    cpus: 4
+    mem_limit: 2g
+    # Restart after any exit: a crash, an out-of-memory kill, or the worker ending itself when it
+    # stalls (app/worker_health.py). A healthcheck alone would not restart anything.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker_health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s # the model loads before the first beat
+    volumes:
+      # Read-only: the worker parses untrusted files and has no reason to write its code.
+      - ./backend/app:/app/app:ro
 
   frontend:
     build: ./frontend

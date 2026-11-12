@@ -641,6 +641,7 @@ export interface paths {
                         "application/json": components["schemas"]["Document"][];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
@@ -648,10 +649,26 @@ export interface paths {
         put?: never;
         /**
          * Upload course material (owner teacher)
-         * @description Accepts PDF, plain text or Markdown up to `MAX_UPLOAD_MB`. Processing (extraction, chunking, embeddings)
-         *     runs in a background task; the document is returned with `status` pending/processing and the client polls
-         *     `GET /subjects/{subject_id}/documents`. Unsupported type -> 415; too large -> 413; PDF without extractable
-         *     text -> document ends in `failed` with a clear `error_message`.
+         * @description Accepts PDF, plain text (`.txt`) or Markdown (`.md`) up to `MAX_UPLOAD_MB` (10 MB by default, measured on
+         *     the bytes actually received). The type is decided from the extension and the content, never from the
+         *     client `Content-Type`; the file name is cleaned (last path component, no control or bidirectional
+         *     characters, at most 255 characters).
+         *
+         *     The `202` is a promise: the document (`status: pending`), its processing job and the uploaded bytes are
+         *     committed together before the response is sent. A separate worker then extracts, chunks and embeds the
+         *     text; the client polls `GET /subjects/{subject_id}/documents` until the document is `ready` or `failed`.
+         *     A failed document carries a stable `error_code` and a fixed `error_message`. The original file is never
+         *     kept after processing.
+         *
+         *     Authentication, role and ownership are decided before the body is read. Errors: `413` as soon as more than
+         *     the limit has been received (also without `Content-Length`); `415` for a type that is not allowed or does
+         *     not match its content (including invalid UTF-8 or NUL bytes in text); `422` with
+         *     `details.reason` = `MALFORMED_MULTIPART`, `FILE_PART_MISSING`, `UNEXPECTED_FIELDS`, `EMPTY_FILE` or
+         *     `INVALID_FILENAME`; `408` when a client that stays connected does not send the body in time (nothing can
+         *     be promised to a client that has already closed the connection; in that case nothing is stored);
+         *     `409` when the subject already holds `MAX_DOCUMENTS_PER_SUBJECT` documents; `429` above the upload rate
+         *     limit; `503` when the ingestion queue is full, too many uploads are being received, or the upload cannot be
+         *     stored (all with a fixed message).
          */
         post: {
             parameters: {
@@ -665,13 +682,16 @@ export interface paths {
             requestBody: {
                 content: {
                     "multipart/form-data": {
-                        /** Format: binary */
+                        /**
+                         * Format: binary
+                         * @description Exactly one non-empty file part named `file`; no other fields are accepted
+                         */
                         file: string;
                     };
                 };
             };
             responses: {
-                /** @description Upload accepted, processing started */
+                /** @description Upload accepted; the document is durable and `pending` */
                 202: {
                     headers: {
                         [name: string]: unknown;
@@ -680,9 +700,28 @@ export interface paths {
                         "application/json": components["schemas"]["Document"];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
-                /** @description File too large */
+                /** @description A client that stayed connected did not send the body in time (error code `REQUEST_TIMEOUT`); nothing was stored */
+                408: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The subject already holds the maximum number of documents (error code `DOCUMENT_QUOTA_EXCEEDED`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description File too large (error code `PAYLOAD_TOO_LARGE`) */
                 413: {
                     headers: {
                         [name: string]: unknown;
@@ -691,9 +730,43 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Unsupported file type */
+                /** @description Unsupported file type or content that does not match the type (error code `UNSUPPORTED_MEDIA_TYPE`) */
                 415: {
                     headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /**
+                 * @description Invalid multipart request (error code `VALIDATION_ERROR`). `details.reason` is one of
+                 *     `MALFORMED_MULTIPART`, `FILE_PART_MISSING`, `UNEXPECTED_FIELDS`, `EMPTY_FILE`, `INVALID_FILENAME`.
+                 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Upload rate limit exceeded (error code `RATE_LIMITED`) */
+                429: {
+                    headers: {
+                        /** @description Seconds to wait before retrying */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The ingestion queue is full or too many uploads are in progress (error code `INGESTION_QUEUE_FULL`), or the upload could not be stored (error code `SERVICE_UNAVAILABLE`) */
+                503: {
+                    headers: {
+                        /** @description Seconds to wait before retrying */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {
@@ -718,7 +791,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a document and its chunks (owner teacher) */
+        /**
+         * Delete a document and its chunks (owner teacher)
+         * @description Also valid while the document is being processed; the job and any temporary bytes are removed with it
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -738,6 +814,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
@@ -960,6 +1037,10 @@ export interface components {
              * @description Stable machine-readable code. Generic codes: UNAUTHORIZED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED,
              *     CONFLICT, VALIDATION_ERROR, INTERNAL_ERROR, SERVICE_UNAVAILABLE. Authentication adds INVALID_CREDENTIALS,
              *     RATE_LIMITED and INVALID_CONSENT_VERSION. Feature changes add their own (e.g. CONSENT_REQUIRED, LLM_UNAVAILABLE).
+             *     Document upload adds PAYLOAD_TOO_LARGE (413), UNSUPPORTED_MEDIA_TYPE (415), REQUEST_TIMEOUT (408),
+             *     DOCUMENT_QUOTA_EXCEEDED (409) and INGESTION_QUEUE_FULL (503); its 422 keeps VALIDATION_ERROR and puts a
+             *     fixed reason in `details.reason`. The failure codes of a document (`Document.error_code`) are a separate,
+             *     closed list.
              * @example CONSENT_REQUIRED
              */
             code: string;
@@ -1025,18 +1106,30 @@ export interface components {
         };
         Document: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            subject_id?: string;
-            filename?: string;
-            content_type?: string;
-            size_bytes?: number;
-            /** @enum {string} */
-            status?: "pending" | "processing" | "ready" | "failed";
+            subject_id: string;
+            /** @description Cleaned file name (never used as a path) */
+            filename: string;
+            /** @description Decided from the content: application/pdf, text/plain or text/markdown */
+            content_type: string;
+            /** @description Number of bytes received */
+            size_bytes: number;
+            /**
+             * @description `pending` and `processing` until a worker finishes; `ready` (searchable, with chunks) or `failed` (final)
+             * @enum {string}
+             */
+            status: "pending" | "processing" | "ready" | "failed";
+            /**
+             * @description Stable reason of a `failed` document; null otherwise. Clients translate by code and must not depend on `error_message`. The list is closed; adding a code is a contract change.
+             * @enum {string|null}
+             */
+            error_code?: "NO_EXTRACTABLE_TEXT" | "ENCRYPTED_PDF" | "CORRUPT_FILE" | "TOO_MANY_PAGES" | "TEXT_TOO_LARGE" | "TOO_MANY_CHUNKS" | "PROCESSING_TIMEOUT" | "RESOURCE_LIMIT_EXCEEDED" | "EMBEDDING_FAILED" | "PROCESSING_INTERRUPTED" | "JOB_EXPIRED" | "PROCESSING_FAILED" | null;
+            /** @description Fixed English sentence per `error_code`; never contains parser */
             error_message?: string | null;
-            chunks_count?: number;
+            chunks_count: number;
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
         };
         /** @description Citation of a chunk used for an answer */
         Source: {

@@ -37,7 +37,7 @@ jobs:
           echo "::add-mask::$SECRET"
           echo "JWT_SECRET=$SECRET" >> "$GITHUB_ENV"
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --extra ingestion
       - name: Create test database
         run: PGPASSWORD=ci_password_not_a_secret psql -h 127.0.0.1 -U ci -d asistenteia -c "CREATE DATABASE asistenteia_test"
       - name: Lint

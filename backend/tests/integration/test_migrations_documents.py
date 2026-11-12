@@ -104,6 +104,7 @@ def test_documents_columns_types_and_defaults(test_db_url: str) -> None:
         "size_bytes",
         "status",
         "error_message",
+        "error_code",  # added by migration 0005
         "chunks_count",
         "created_at",
     }
@@ -170,6 +171,7 @@ def test_constraint_names_types_and_definitions(test_db_url: str) -> None:
     assert {name for name, (kind, _) in documents.items() if kind == "c"} == {
         "ck_documents_size_bytes_non_negative",
         "ck_documents_chunks_count_non_negative",
+        "ck_documents_error_code_only_when_failed",  # added by migration 0005
     }
 
 

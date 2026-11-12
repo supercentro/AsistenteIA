@@ -56,6 +56,11 @@
     "vitest": "^5.0.5",
     "vitest-axe": "^0.1.0"
   },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.8"
+    }
+  },
   "description": "AsistenteIA frontend (React 18 + TypeScript)",
   "engines": {
     "node": ">=20.19"
