@@ -119,13 +119,29 @@ docker compose exec -T db psql -U asistente -d asistenteia -tAc "SELECT count(*)
 
 If it prints `BLOCKED`, let the worker finish (or delete the documents from the application) and repeat the check; when it passes, run `docker compose stop worker` and then the downgrade. This procedure is documentation only: the migration itself was not changed.
 
-Migration `0005` creates `ingestion_jobs` and adds `documents.error_code` with its check (see `data-model.md`). It has been verified on the isolated test database, on a scratch database for the upgrade/downgrade round trip and on a disposable PostgreSQL container during the manual verification of the change. **The development database `asistenteia` stays at `0004` until the owner approves applying `0005` to it as a separate operation**, with a verified backup (`pg_dump -Fc`, SHA-256, `pg_restore --list` and a restore test into a scratch database before the upgrade) and a recovery procedure (`alembic downgrade 0004` for the schema; restoring the verified backup for data). No backup or restore of that database was exercised by this change. The `downgrade` of `0005` drops `ingestion_jobs` with the jobs in flight and their bytes.
+Migration `0005` creates `ingestion_jobs` and adds `documents.error_code` with its check (see `data-model.md`). It has been verified on the isolated test database, on a scratch database for the upgrade/downgrade round trip and on a disposable PostgreSQL container during the manual verification of the change. **On 2026-11-12 the owner approved applying it to the local development database `asistenteia`, and it was applied** (see "State of the local development environment" below). It has not been applied anywhere else and there is no production environment. Any other database needs the same separate, explicitly approved operation, with a verified backup (`pg_dump -Fc`, SHA-256, `pg_restore --list` and a restore test in a disposable server before the upgrade) and a recovery procedure (`alembic downgrade 0004` for the schema; restoring the verified backup for data). The `downgrade` of `0005` drops `ingestion_jobs` with the jobs in flight and their bytes.
 
-#### Plan: applying `0005` to the development database (prepared on 2026-11-12, **not executed**)
+#### State of the local development environment (2026-11-12)
 
-Nothing below has been run against `asistenteia`; every step that changes it needs the owner's explicit authorisation. The commands are marked *planned*. The read-only checks of section 1 were run and their results are recorded.
+This describes the Compose stack of one development machine. It is not a production or a shared environment (none exists). The three kinds of information are kept apart: this table is the **current state**; the plan that follows is the **reproducible procedure** for another database (a new environment built from `main` simply runs `docker compose run --rm --no-deps backend alembic upgrade head` on an empty database); the **recovery procedure** is in sections 5 and 5b of that plan.
 
-**1. Read-only state (checked 2026-11-12)**
+| Item | State |
+|---|---|
+| Database `asistenteia` | revision `0005` (applied with `alembic upgrade head` from the rebuilt backend image: `Running upgrade 0004 -> 0005`); `alembic check` clean; the catalog equals the rehearsal on the restored backup; PostgreSQL 15.19, pgvector 0.8.7; no application rows |
+| Backup before the change | `pg_dump -Fc`, SHA-256 verified, `pg_restore --list` readable (51 entries), kept outside the repository with restricted permissions and a second verified copy in the owner's personal cloud storage (schema only, no rows) |
+| Recovery rehearsal | restored into a disposable PostgreSQL 15.19 + pgvector 0.8.7 (identical catalog and rows, revision `0004`), then `upgrade 0005`, `alembic check`, `downgrade 0004` (identical to the restored state) and `upgrade 0005` again (identical to the first upgrade) |
+| Images | rebuilt from `main` (`f455234`) and tagged `main-f455234`; `asistenteia-backend:latest` and `asistenteia-worker:latest` now point to them; the previous images are kept as `:pre-0005`; `alembic heads` reports `0005` in both and the code equals `main` |
+| Services | `db` and `worker` running and `healthy` (worker: 4 CPUs, 2 GB, model loaded offline, connected to the database, no restarts); `backend` (API) and `frontend` stopped. A temporary Compose override outside the repository published the API only on `127.0.0.1:18080` for the validation below, because another project of the machine holds 8000 and 5173 (see "Ports already in use") |
+| Functional validation | with the API and the worker, using synthetic data deleted afterwards: 45 of 45 checks of authentication, authorisation and uploads (TXT, Markdown and PDF answer `202` and reach `ready`; the chunks are stored; every embedding has 384 dimensions; the temporary bytes are cleared) and 17 of 17 checks of deletion (chunks and jobs removed, tables back to zero). `ChunkRepository.find_similar` was exercised **through code inside the worker container with the real model**, not over HTTP: no retrieval endpoint exists yet, and chat and RAG are not implemented. The logs held no token, password or document text. The detailed working report is kept outside the repository |
+| Environment of the `db` container | it was recreated on 2026-11-12 (see the finding below); it now holds only `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` besides the variables of the image |
+
+**Finding (fixed on 2026-11-12): a container keeps the environment it was created with.** The `asistenteia-db-1` container had been created on 2026-10-28, before the environment files were split (commit `172288a`), so besides `POSTGRES_*` it still carried `JWT_SECRET`, `DATABASE_URL`, `TEST_DATABASE_URL`, `CORS_ORIGINS`, `APP_ENV` and `LOG_LEVEL` of the API, although `docker-compose.yml` already gave it only the `POSTGRES_*` variables of `backend/.env.db`. It was found while checking the secrets of the worker. The fix was a controlled recreation: worker stopped, `docker compose up -d --no-build --no-deps db` (a `--dry-run` first showed that only `db` would be recreated), worker started again. The image (PostgreSQL 15.19, pgvector 0.8.7), the volume `asistenteia_db_data`, the port and the network were kept; the catalog, the rows and the revision `0005` were identical before and after, and the worker came back `healthy` with no restarts. No value was printed or recorded. Removing a variable from a container does not rotate it: the values were not changed (TD-038), and the shared superuser account (TD-030) is unchanged and still open.
+
+#### Plan: applying `0005` to the development database (prepared and executed on the local development database on 2026-11-12)
+
+This plan was written before the operation and followed on 2026-11-12; it stays as the reproducible procedure for another database, and the headings that say *planned* are the original wording. The corrections found while executing it are listed after section 4. Applying it to any other database needs the owner's explicit authorisation. Section 1 describes the state **before** the operation.
+
+**1. Read-only state before the operation (checked 2026-11-12)**
 
 | Item | Observed |
 |---|---|
@@ -158,6 +174,13 @@ Nothing below has been run against `asistenteia`; every step that changes it nee
 4. Verify: `alembic current` reports `0005 (head)`; `alembic check` reports no new upgrade operations; catalog queries find `ingestion_jobs`, `uq_ingestion_jobs_document_id`, `ck_ingestion_jobs_attempts_non_negative`, `ck_ingestion_jobs_lease_consistent`, `ix_ingestion_jobs_claimable` with its predicate `payload IS NOT NULL`, `documents.error_code` and its check; the application tables still have 0 rows.
 5. Start `docker compose up -d backend worker` and wait for the worker to be `healthy` (the first beat takes up to the 120 s start period). **Start the worker only after the migration**: before it, the worker has no `ingestion_jobs` table to claim from.
 6. Optional smoke test (needs its own authorisation because it writes data): create a teacher with the documented administrative command, upload a small text file, wait for `ready`, then delete the document and the test account.
+
+**4b. Corrections found when it was executed**
+- `docker compose run` does not accept `--no-build` (it uses the existing image and builds only if it is missing); `docker compose up` does.
+- The images were built with `docker build -t asistenteia-backend:main-<sha> --target api backend` (and `--target worker`), and `:latest` was re-tagged afterwards, so the previous images stayed untouched and the switch is reversible with `:pre-0005`.
+- The operations that use the worker image need at least 6 GB of free host memory when they start (the worker build dipped to about 3 GB); measure it just before.
+- The host ports 8000 and 5173 may belong to another project: publish the API on a free port with a temporary override outside the repository, or do not start it.
+- The upgrade took about 2 s and the worker was `healthy` about 15 s after it started.
 
 **5. Recovery (planned)**
 - *The upgrade fails or is interrupted:* nothing was applied; confirm `alembic current` is still `0004`, fix the cause and repeat.
@@ -303,6 +326,7 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 - Integration tests abort with `TEST_DATABASE_URL is required` or `Refusing to use database`: set a dedicated `*_test` database (see §3).
 - Startup error `Invalid configuration - CORS_ORIGINS ...`: set explicit origins in production and never use `*`.
 - Frontend page blank or `Failed to resolve import` after a dependency change: renew the container volume (`docker compose up -d --build -V frontend`).
+- A container still has an old variable, or does not see a changed one: the effective environment of an existing container is the one it was created with, not what Compose or the `.env` files say now. List the variable **names** it holds (`docker exec <container> env | cut -d= -f1 | sort`) and compare them with its `env_file`; `docker compose up -d --no-build --no-deps --dry-run <service>` prints `Recreate` when the container no longer matches the configuration. Recreate only that service (`docker compose up -d --no-build --no-deps <service>`; named volumes are kept; never use `down -v`), after stopping the services that connect to a database you are recreating. Removing a variable from a container does not rotate its value: change the secret itself if the old container could have exposed it (TD-038).
 - _(planned)_ Gemini 429/blocked responses locally: switch `LLM_PROVIDER=fake` to keep developing without the API.
 
 ### Ports already in use
