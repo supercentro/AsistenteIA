@@ -33,7 +33,7 @@ COMPOSE = Path(os.environ.get("COMPOSE_FILE_UNDER_TEST", REPO / "docker-compose.
 CI = REPO / ".github" / "workflows" / "ci.yml"
 
 # Read by the tests only, never by `Settings` (they live in backend/.env.test.example).
-NOT_SETTINGS = {"TEST_DATABASE_URL"}
+NOT_SETTINGS: set[str] = set()  # no example carries a test variable any more
 # Read by the Compose "db" service (backend/.env.db), never by the application.
 DB_VARIABLES = {"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"}
 # Seed variables are read by the CLI, not by `Settings`; they are documented commented-out.

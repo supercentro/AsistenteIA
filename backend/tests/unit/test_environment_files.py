@@ -1,8 +1,9 @@
 """Each environment file holds the secrets of one consumer (change `database-least-privilege`).
 
-Task 3.1 and 3.3. The files are read as text; nothing is started. The Compose file is not changed
-by this group (group 6 wires the new files to their services), so these tests cover the examples,
-the Git rules and the rule that no secret lives in two files with different owners.
+Task 3.1 and 3.3. The files are read as text; nothing is started. These tests cover the
+examples, the Git rules and the rule that no secret lives in two files with different owners;
+the Compose wiring of the files is asserted by `test_deployment_files.py` and
+`test_compose_database_flow.py`.
 """
 
 from pathlib import Path
