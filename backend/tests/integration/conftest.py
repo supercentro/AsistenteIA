@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import create_db_engine, create_session_factory
 from app.core.db_safety import UnsafeTestDatabaseError
 from app.models.user import UserRole
+from tests import least_privilege
 from tests.db_support import (
     MissingTestDatabaseError,
     alembic_config,
@@ -35,7 +36,15 @@ def test_db_url() -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def migrated_db(test_db_url: str) -> Iterator[str]:
-    """Test database at `alembic head`, built from scratch once and emptied at the end."""
+    """Test database at `alembic head`, built from scratch once and emptied at the end.
+
+    With `--least-privilege` it is built the way production is (bootstrap, migrator, grants).
+    """
+    if least_privilege.enabled():
+        least_privilege.activate(test_db_url)
+        yield test_db_url
+        least_privilege.deactivate(test_db_url)
+        return
     drop_everything(test_db_url)
     command.upgrade(alembic_config(test_db_url), "head")
     yield test_db_url

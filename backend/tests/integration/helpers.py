@@ -19,6 +19,7 @@ from app.repositories.enrollment_repository import EnrollmentRepository
 from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
 from tests.constants import TEST_JWT_SECRET
+from tests.least_privilege import role_url
 
 # Low Argon2 cost keeps the suite fast; production uses the library defaults.
 FAST_PASSWORDS = PasswordService(time_cost=1, memory_cost=8, parallelism=1)
@@ -47,6 +48,7 @@ def build_settings(database_url: str, **overrides: object) -> Settings:
         "upload_rate_limit": "1000/minute",
     }
     values.update(overrides)
+    values["database_url"] = role_url("app", str(values["database_url"]))  # roles mode
     return Settings(**values)  # type: ignore[arg-type]
 
 

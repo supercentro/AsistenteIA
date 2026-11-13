@@ -24,6 +24,7 @@ from app.core.database import create_db_engine, create_session_factory
 from app.rag.chunker import Page
 from app.rag.embedder import Embedder, FakeEmbedder
 from app.services.ingestion_service import IngestionLimits, IngestionService
+from tests.least_privilege import role_url
 
 # About 700 words: nine chunks of roughly 100 words with the fake embedder.
 WORDS = [f"term{i}" for i in range(700)]
@@ -76,7 +77,7 @@ def built_service(
     clock: Callable[[], float] | None = None,
     **limit_overrides: object,
 ) -> Iterator[Built]:
-    engine = create_db_engine(url)
+    engine = create_db_engine(role_url("worker", url))  # the worker role in the roles mode
     backends = track_backends(engine)
     factory = create_session_factory(engine)
     extra: dict[str, object] = {}

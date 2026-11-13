@@ -12,6 +12,7 @@ from app.rag.loaders import PdfLimits
 from app.repositories.chunk_repository import ChunkRepository, ScoredChunk, SearchActor
 from app.services.ingestion_service import Outcome
 from tests.ingestion_support import Scene, insert_pending, make_scene
+from tests.least_privilege import role_url
 from tests.pdf_support import pdf_with_pages
 from tests.service_support import built_service
 from tests.sql_support import insert_chunk, insert_enrollment, insert_user
@@ -35,7 +36,7 @@ def scene(clean_db: str) -> Scene:
 
 
 def search(url: str, actor: SearchActor, subject: uuid.UUID, question: str) -> list[ScoredChunk]:
-    engine = create_db_engine(url)
+    engine = create_db_engine(role_url("app", url))  # the application role in the roles mode
     try:
         with create_session_factory(engine)() as session:
             vector = FakeEmbedder().embed([question])[0]
