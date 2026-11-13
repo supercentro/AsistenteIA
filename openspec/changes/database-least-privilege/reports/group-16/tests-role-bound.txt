@@ -1,64 +1,14 @@
-# group 16 test run 2026-11-13T21:21:11Z | free RAM before: 10.96 GB
-# postgres image: pgvector/pgvector:0.8.7-pg16 | runner image: asistenteia-worker:main-f455234 | pytest args: -m role_bound tests/integration/test_db_admin_adopt.py tests/integration/test_db_admin_bootstrap.py tests/integration/test_db_admin_grants.py tests/integration/test_db_admin_identity.py tests/integration/test_db_admin_verify.py tests/integration/test_db_roles_lifecycle.py tests/integration/test_db_roles_startup.py
+# group 16 test run 2026-11-13T21:28:20Z | free RAM before: 10.92 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: -m role_bound tests/integration/test_db_admin_adopt.py tests/integration/test_db_admin_bootstrap.py tests/integration/test_db_admin_grants.py tests/integration/test_db_admin_identity.py tests/integration/test_db_admin_verify.py tests/integration/test_db_roles_lifecycle.py tests/integration/test_db_roles_startup.py
 # env files in the copy: 0
 [notice] A new release of pip is available: 25.0.1 -> 26.3
 [notice] To update, run: pip install --upgrade pip
 # pytest 9.1.1, httpx 0.28.1
-Unable to find image 'pgvector/pgvector:0.8.7-pg16' locally
-0.8.7-pg16: Pulling from pgvector/pgvector
-c8474e93cf43: Pulling fs layer
-dacdcfbc697e: Pulling fs layer
-eee1703e0e36: Pulling fs layer
-03a9acd43566: Pulling fs layer
-85320d1bc048: Pulling fs layer
-53b079a925c4: Pulling fs layer
-705db54eb6f9: Pulling fs layer
-40a1c034d098: Pulling fs layer
-a0c21698d159: Pulling fs layer
-d66fa994cd3b: Pulling fs layer
-88d6e4059ddb: Pulling fs layer
-bbc81ca93e43: Pulling fs layer
-02082338f6fc: Pulling fs layer
-85a95895b814: Pulling fs layer
-ae3b39dd856e: Pulling fs layer
-85320d1bc048: Download complete
-c8474e93cf43: Download complete
-53b079a925c4: Download complete
-eee1703e0e36: Download complete
-02082338f6fc: Download complete
-03a9acd43566: Download complete
-88d6e4059ddb: Download complete
-bbc81ca93e43: Download complete
-40a1c034d098: Download complete
-a0c21698d159: Download complete
-ae3b39dd856e: Download complete
-705db54eb6f9: Download complete
-85a95895b814: Download complete
-eee1703e0e36: Pull complete
-03a9acd43566: Pull complete
-837ceb5aa9a0: Download complete
-dacdcfbc697e: Download complete
-85320d1bc048: Pull complete
-705db54eb6f9: Pull complete
-dacdcfbc697e: Pull complete
-40a1c034d098: Pull complete
-a0c21698d159: Pull complete
-d66fa994cd3b: Download complete
-53b079a925c4: Pull complete
-02082338f6fc: Pull complete
-88d6e4059ddb: Pull complete
-bbc81ca93e43: Pull complete
-85a95895b814: Pull complete
-d66fa994cd3b: Pull complete
-c8474e93cf43: Pull complete
-ae3b39dd856e: Pull complete
-Digest: sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
-Status: Downloaded newer image for pgvector/pgvector:0.8.7-pg16
-# PostgreSQL 16.16 (Debian 16.16-1.pgdg12+1) on x86_64-pc-linu
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
 # pgvector 0.8.7
 # published ports: 0
 ........................................................................ [ 62%]
 ...........................................                              [100%]
-115 passed in 43.87s
+115 passed in 44.98s
 # pytest exit code: 0
 # containers left by this run: 1 (the PostgreSQL one is removed on exit)

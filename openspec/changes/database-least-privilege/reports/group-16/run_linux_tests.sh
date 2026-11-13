@@ -3,7 +3,7 @@
 #
 #   usage: run_group5_tests.sh <output file> [pytest arguments...]
 #
-# - PostgreSQL 15 + pgvector 0.8.7 (pgvector/pgvector:0.8.7-pg16), throwaway superuser and random
+# - PostgreSQL 15 + pgvector 0.8.7 (pgvector/pgvector:0.8.7-pg15), throwaway superuser and random
 #   password, tmpfs data, 1 CPU / 1 GB, on an internal Docker network: NO published port, no route to
 #   the real databases (which live in another Compose network).
 # - The runner is the Python 3.12 backend image of main with a COPY of app/, alembic/, tests/ and the
@@ -25,7 +25,7 @@ fi
 
 RUN="$(mktemp -d)"
 NET="g16net$$"; PG="g16pg$$"; LABEL="purpose=g16-linux-tests"
-IMAGE_PG="pgvector/pgvector:0.8.7-pg16"
+IMAGE_PG="pgvector/pgvector:0.8.7-pg15"
 IMAGE_RUN="${G5_RUNNER_IMAGE:-asistenteia-backend:main-f455234}"
 PW="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
 cleanup() {
