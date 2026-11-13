@@ -106,10 +106,10 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 12. Run Unit Tests and Verify Database State (MANDATORY)
 
-- [ ] 12.1 Capture the pre-test database baseline (development database untouched; test database state)
-- [ ] 12.2 Run the targeted tests first, then the full backend suite on Linux with PostgreSQL, ruff (`--no-cache`), `ruff format --check`, `mypy --strict`, `pip-audit`
-- [ ] 12.3 Verify the post-test state and restore it if needed
-- [ ] 12.4 Create `reports/YYYY-MM-DD-step-12-unit-test-and-db-verification.md` and mark the step only after the tests pass and the report exists
+- [x] 12.1 Capture the pre-test database baseline (development database untouched; test database state) (reports/group-12/snapshot-before.txt)
+- [x] 12.2 Run the targeted tests first, then the full backend suite on Linux with PostgreSQL, ruff (`--no-cache`), `ruff format --check`, `mypy --strict`, `pip-audit` (reports/2026-11-13-step-12-unit-test-and-db-verification.md; Linux: 1309 unit, 864 + 410 + 484 integration, 34 migrations; ruff, format, mypy, pip-audit clean)
+- [x] 12.3 Verify the post-test state and restore it if needed (snapshot-after.txt, snapshot-diff.txt: identical)
+- [x] 12.4 Create `reports/YYYY-MM-DD-step-12-unit-test-and-db-verification.md` and mark the step only after the tests pass and the report exists (reports/2026-11-13-step-12-unit-test-and-db-verification.md)
 
 ## 13. Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
 

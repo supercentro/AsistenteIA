@@ -1,0 +1,6 @@
+$ uv run --frozen ruff check --no-cache .
+All checks passed!
+$ uv run --frozen ruff format --check .
+230 files already formatted
+$ uv run --frozen mypy --strict app tests
+Success: no issues found in 228 source files

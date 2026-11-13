@@ -1,0 +1,19 @@
+✓ spec/api-error-handling
+✓ spec/chunk-retrieval
+✓ spec/continuous-integration
+✓ change/database-least-privilege
+✓ spec/dev-environment
+✓ spec/document-ingestion
+✓ spec/document-management
+✓ spec/document-storage
+✓ spec/frontend-api-client
+✓ spec/frontend-app-shell
+✓ spec/frontend-session-auth
+✓ spec/privacy-consent
+✓ spec/role-based-access
+✓ spec/service-health
+✓ spec/subject-enrollments
+✓ spec/subject-management
+✓ spec/text-embedding
+✓ spec/user-authentication
+Totals: 18 passed, 0 failed (18 items)

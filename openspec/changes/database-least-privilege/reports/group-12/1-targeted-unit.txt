@@ -1,0 +1,18 @@
+# group 12 test run 2026-11-13T16:57:56Z | free RAM before: 10.63 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/unit/test_endpoint_commits.py tests/unit/test_teacher_provisioning.py tests/unit/test_fetched_value_columns.py tests/unit/test_db_privileges_matrix.py tests/unit/test_db_privileges_inventory.py tests/unit/test_db_admin_sql.py tests/unit/test_ci_workflow.py tests/unit/test_ci_gate_scripts.py tests/unit/test_compose_database_flow.py tests/unit/test_environment_files.py tests/unit/test_consent_endpoint.py -p no:cacheprovider -rs
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 91%]
+..........ssss.......                                                    [100%]
+=========================== short test summary info ============================
+SKIPPED [4] tests/unit/test_environment_files.py:147: git or the repository metadata is not available
+233 passed, 4 skipped in 5.75s
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)
