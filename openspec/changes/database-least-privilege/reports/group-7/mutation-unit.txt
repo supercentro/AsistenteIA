@@ -1,0 +1,9 @@
+CAUGHT    the commit is removed (the original defect) | test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+CAUGHT    the commit is only a flush | test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+CAUGHT    the rollback is removed | test_a_refused_commit_is_an_error_and_rolls_the_session_back
+CAUGHT    the database error is swallowed | test_a_refused_commit_is_an_error_and_rolls_the_session_back
+CAUGHT    the commit happens before the user is updated | test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+CAUGHT    only ValueError is rolled back | test_a_refused_commit_is_an_error_and_rolls_the_session_back
+CAUGHT    the commit happens twice | test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+CAUGHT    the version is not validated before committing | test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+mutations: 8, caught: 8

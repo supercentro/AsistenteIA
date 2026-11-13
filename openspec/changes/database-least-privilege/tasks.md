@@ -61,9 +61,9 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 7. Consent endpoint: explicit commit (separate functional commit)
 
-- [ ] 7.1 Write the failing tests first (record the failing run in the group report): a separate session reads the consent evidence after a 200; a refused write (missing privilege) is an error response and stores nothing
-- [ ] 7.2 Add the explicit `commit()` before the response in the consent endpoint and handle the database error as the other endpoints do (HTTP 500 with the standard error body); verify the consent responses in `docs/api-spec.yml`
-- [ ] 7.3 Add the rule "an endpoint that promises persistence commits explicitly" to `docs/backend-standards.md` and an audit of the other endpoints (subjects, enrollments and registration flush inside the handler; documents commit explicitly)
+- [x] 7.1 Write the failing tests first (record the failing run in the group report): a separate session reads the consent evidence after a 200; a refused write (missing privilege) is an error response and stores nothing (reports/group-7/tdd-red-unit.txt, run-integration-red.txt) (reports/group-7: tdd-red-unit.txt, run-integration-red.txt)
+- [x] 7.2 Add the explicit `commit()` before the response in the consent endpoint and handle the database error as the other endpoints do (HTTP 500 with the standard error body); verify the consent responses in `docs/api-spec.yml` (users.py; api-spec 500 added) (users.py; api-spec 500)
+- [x] 7.3 Add the rule "an endpoint that promises persistence commits explicitly" to `docs/backend-standards.md` and an audit of the other endpoints (subjects, enrollments and registration flush inside the handler; documents commit explicitly) (backend-standards section 7; TD-039) (backend-standards section 7; TD-039)
 
 ## 8. Teacher provisioning separated at database level (design approved 2026-11-12, option A; implementation NOT authorised)
 

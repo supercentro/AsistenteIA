@@ -1,0 +1,110 @@
+# group 5 test run 2026-11-13T03:04:10Z | free RAM before: 6.28 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: tests/integration/test_consent_persistence.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+..FF.                                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_a_refused_update_is_an_error_and_stores_nothing _____________
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_ca27fce6_test'
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7d76741e08c0>
+
+    def test_a_refused_update_is_an_error_and_stores_nothing(
+        cluster: Cluster,
+        own_database: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        email = student(cluster, own_database)
+        caplog.set_level(logging.DEBUG)
+        with cluster.admin_connection(own_database) as conn:  # the defect of the spike: no UPDATE right
+            conn.execute(
+                f'REVOKE UPDATE {CONSENT_COLUMNS} ON TABLE "public"."users" FROM "{cluster.names.app}"'
+            )
+        with api_client(cluster, own_database) as client:
+            headers = bearer(login_token(client, email))
+    
+            response = client.post(CONSENT, json={"consent_version": CURRENT}, headers=headers)
+    
+>       assert response.status_code == 500  # never a 200 without stored evidence
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 200 == 500
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/integration/test_consent_persistence.py:102: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+----------------------------- Captured stderr call -----------------------------
+DEBUG [asyncio] Using selector: EpollSelector
+INFO  [app.services.auth_service] login ok id=a1983efe-9c81-4824-8c5d-11c3d46c5438
+INFO  [httpx] HTTP Request: POST http://testserver/api/v1/auth/login "HTTP/1.1 200 OK"
+INFO  [app.services.consent_service] consent recorded id=a1983efe-9c81-4824-8c5d-11c3d46c5438 version=2026-10-v1
+INFO  [httpx] HTTP Request: POST http://testserver/api/v1/users/me/consent "HTTP/1.1 200 OK"
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/users/me/consent
+------------------------------ Captured log call -------------------------------
+DEBUG    asyncio:selector_events.py:64 Using selector: EpollSelector
+INFO     app.services.auth_service:auth_service.py:46 login ok id=a1983efe-9c81-4824-8c5d-11c3d46c5438
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/auth/login "HTTP/1.1 200 OK"
+INFO     app.services.consent_service:consent_service.py:26 consent recorded id=a1983efe-9c81-4824-8c5d-11c3d46c5438 version=2026-10-v1
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/users/me/consent "HTTP/1.1 200 OK"
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=POST path=/api/v1/users/me/consent
+_____________ test_the_service_recovers_when_the_privilege_returns _____________
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_d59efc50_test'
+
+    def test_the_service_recovers_when_the_privilege_returns(
+        cluster: Cluster, own_database: str
+    ) -> None:
+        email = student(cluster, own_database)
+        with cluster.admin_connection(own_database) as conn:
+            conn.execute(
+                f'REVOKE UPDATE {CONSENT_COLUMNS} ON TABLE "public"."users" FROM "{cluster.names.app}"'
+            )
+        with api_client(cluster, own_database) as client:
+            headers = bearer(login_token(client, email))
+>           assert (
+                client.post(CONSENT, json={"consent_version": CURRENT}, headers=headers).status_code
+                == 500
+            )
+E           AssertionError: assert 200 == 500
+E            +  where 200 = <Response [200 OK]>.status_code
+E            +    where <Response [200 OK]> = post('/api/v1/users/me/consent', json={'consent_version': '2026-10-v1'}, headers={'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3OGE1NGM5Yi01NTNjLTRkNTctOGU3NS02M2NmYzJkZTV...Tc5NDU0MjY4MCwiaXNzIjoiYXNpc3RlbnRlaWEiLCJhdWQiOiJhc2lzdGVudGVpYS1hcGkifQ.hv0wrKBfnuPasFZGGCvzlNbi3WI3gLMpkM5NMHKzsnY'})
+E            +      where post = <starlette.testclient.TestClient object at 0x7d767399c710>.post
+
+tests/integration/test_consent_persistence.py:120: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/users/me/consent
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=POST path=/api/v1/users/me/consent
+=============================== warnings summary ===============================
+../../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_consent_persistence.py::test_a_refused_update_is_an_error_and_stores_nothing
+FAILED tests/integration/test_consent_persistence.py::test_the_service_recovers_when_the_privilege_returns
+2 failed, 3 passed, 1 warning in 4.08s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

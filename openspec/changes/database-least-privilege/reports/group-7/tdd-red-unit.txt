@@ -1,0 +1,8 @@
+$ pytest tests/unit/test_consent_endpoint.py -q   (before the fix)
+      1 4 failed in 0.79s
+      4 E       TypeError: record_consent() takes 3 positional arguments but 4 were given
+      1 FAILED tests/unit/test_consent_endpoint.py::test_a_refused_commit_is_an_error_and_rolls_the_session_back
+      1 FAILED tests/unit/test_consent_endpoint.py::test_a_second_acceptance_commits_again_and_keeps_the_version
+      1 FAILED tests/unit/test_consent_endpoint.py::test_a_wrong_version_commits_nothing
+      1 FAILED tests/unit/test_consent_endpoint.py::test_the_commit_happens_inside_the_handler_after_the_user_is_updated
+      4 tests\unit\test_consent_endpoint.py:51: TypeError

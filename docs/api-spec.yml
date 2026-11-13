@@ -171,6 +171,13 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '500':
+          description: |
+            The consent could not be stored (for example the database refused the write). The write is committed before
+            the response, so a 500 means nothing was stored and the client may retry. Code `INTERNAL_ERROR`, no details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /users/me/conversations:
     delete:
