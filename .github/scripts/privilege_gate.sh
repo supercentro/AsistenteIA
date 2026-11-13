@@ -136,9 +136,15 @@ url = os.environ["ADMIN_TO_APP_DATABASE"].replace("postgresql+psycopg", "postgre
 with psycopg.connect(url, autocommit=True) as conn:
     conn.execute('GRANT UPDATE ("role") ON TABLE "public"."users" TO "asistente_app"')
 PY
-  if verify; then
+  local report
+  if report="$(verify 2>&1)"; then
     fail "db-verify did not detect a privilege outside the matrix: the gate cannot see drift"
   fi
+  echo "$report"
+  case "$report" in
+    *"that the matrix does not grant"*) ;;
+    *) fail "db-verify failed, but not because of the privilege outside the matrix" ;;
+  esac
   echo "drift detected as expected; healing it with db-grants"
   env MIGRATION_DATABASE_URL="$(migrator_url)" $PYRUN -m app.cli db-grants
   verify

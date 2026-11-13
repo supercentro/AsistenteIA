@@ -13,6 +13,7 @@ that contains a password. Change `database-least-privilege`, task 10.1.
 """
 
 import os
+import socket
 import sys
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
@@ -53,9 +54,21 @@ def evaluate(facts: Facts, label: str, allowed_hosts: set[str]) -> list[str]:
     return problems
 
 
+def _address(host: str | None) -> str | None:
+    """The address a host name stands for, so localhost and 127.0.0.1 are one server."""
+    if host in {None, ""}:
+        return None
+    if host in {"localhost", "::1"}:
+        return "127.0.0.1"
+    try:
+        return socket.gethostbyname(str(host))
+    except OSError:
+        return str(host)
+
+
 def same_server(first: str, second: str) -> bool:
     a, b = urlsplit(first), urlsplit(second)
-    return (a.hostname, a.port) == (b.hostname, b.port)
+    return (_address(a.hostname), a.port) == (_address(b.hostname), b.port)
 
 
 def describe(facts: Facts, label: str) -> str:

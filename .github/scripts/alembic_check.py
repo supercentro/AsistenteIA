@@ -17,7 +17,14 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine
 
-MINIMUM_HEAD = "0006"  # the gate proves at least the migration of the teacher separation
+MINIMUM_HEAD = 6  # the gate proves at least migration 0006 (the teacher separation)
+
+
+def acceptable(head: str | None, current: str | None) -> bool:
+    """The database is at the head of the migrations and the head is at least `MINIMUM_HEAD`."""
+    if head is None or current != head or not head.isdigit():
+        return False
+    return int(head) >= MINIMUM_HEAD
 
 
 def main() -> int:
@@ -37,8 +44,8 @@ def main() -> int:
     finally:
         engine.dispose()
     print(f"revision in the database: {current}; head of the migrations: {head}")
-    if head is None or head < MINIMUM_HEAD or current != head:
-        print(f"::error::expected the database at the head, at least {MINIMUM_HEAD}: found {current} (head {head})")
+    if not acceptable(head, current):
+        print(f"::error::expected the database at the head (at least 000{MINIMUM_HEAD}): found {current}, head {head}")
         return 1
     command.check(config)  # raises when the models and the migrations differ
     print("alembic check: no drift between the models and the migrations")
