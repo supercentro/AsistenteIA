@@ -71,6 +71,9 @@ class WorkerSettings(BaseSettings):
     db_idle_in_transaction_timeout_seconds: int = Field(default=30, ge=1, le=3600)
     embedder_backend: Literal["local", "fake"] = "local"
     allow_fake_embedder: bool = False
+    # Test-only: the real-server and real-process tests run on throwaway clusters as the owner. The
+    # production entry points refuse a superuser connection otherwise (finding PG-01, DD-16).
+    allow_superuser_database_role: bool = False
     embedding_model_path: Path = Path("/opt/models/paraphrase-multilingual-MiniLM-L12-v2")
     embedding_threads: int | None = Field(default=None, ge=1, le=256)
 
@@ -87,6 +90,8 @@ class WorkerSettings(BaseSettings):
             raise ValueError(
                 "INGESTION_JOB_DEADLINE_SECONDS must be greater than INGESTION_LEASE_SECONDS"
             )
+        if self.allow_superuser_database_role and self.app_env != "test":
+            raise ValueError("ALLOW_SUPERUSER_DATABASE_ROLE is accepted only with APP_ENV=test")
         return self
 
     def effective_embedding_threads(self) -> int:

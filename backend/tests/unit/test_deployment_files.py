@@ -164,23 +164,36 @@ def test_secrets_in_the_examples_are_placeholders() -> None:
                 assert "CHANGE_ME" in raw, name
 
 
-def test_the_database_url_examples_agree_with_the_database_server_example() -> None:
+def test_the_database_url_examples_use_the_restricted_roles_not_the_administrator() -> None:
+    """Finding PG-01: the examples of the API and of the worker never carry the superuser."""
     server = example_assignments(DB_EXAMPLE)
-    expected_user = server["POSTGRES_USER"][1]
+    administrator = server["POSTGRES_USER"][1]
     expected_database = server["POSTGRES_DB"][1]
+    expected_user = {ENV_EXAMPLE: "asistente_app", WORKER_EXAMPLE: "asistente_worker"}
 
-    for path in (ENV_EXAMPLE, WORKER_EXAMPLE):
+    for path, user in expected_user.items():
         parts = urlsplit(example_assignments(path)["DATABASE_URL"][1])
-        assert parts.username == expected_user, path.name
+        assert parts.username == user, path.name
+        assert parts.username != administrator, path.name
         assert parts.path == "/" + expected_database, path.name
         assert parts.hostname == "db", path.name  # the Compose service name
 
 
-def test_the_two_database_url_examples_are_identical() -> None:
-    # The value is duplicated by design (the guide documents the risk of drifting apart).
-    assert (
-        example_assignments(ENV_EXAMPLE)["DATABASE_URL"]
-        == example_assignments(WORKER_EXAMPLE)["DATABASE_URL"]
+def test_the_database_url_examples_differ_only_in_the_role() -> None:
+    api = urlsplit(example_assignments(ENV_EXAMPLE)["DATABASE_URL"][1])
+    worker = urlsplit(example_assignments(WORKER_EXAMPLE)["DATABASE_URL"][1])
+
+    assert api.username != worker.username
+    assert (api.hostname, api.port, api.path) == (worker.hostname, worker.port, worker.path)
+
+
+def test_the_examples_do_not_tell_to_reuse_the_administrator_for_the_services() -> None:
+    for path in (ENV_EXAMPLE, WORKER_EXAMPLE, DB_EXAMPLE):
+        text = path.read_text(encoding="utf-8")
+        assert "same database and credentials" not in text, path.name
+        assert "Keep these values equal to the ones inside DATABASE_URL" not in text, path.name
+    assert "future CLI file" not in (ENV_EXAMPLE.parent / ".env.roles.example").read_text(
+        encoding="utf-8"
     )
 
 

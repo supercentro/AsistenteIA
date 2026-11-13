@@ -41,6 +41,15 @@ def enabled() -> bool:
     return os.environ.get(ENV_FLAG) == "1"
 
 
+def superuser_exception() -> dict[str, str]:
+    """The test-only setting for the child processes that run as the owner of a throwaway cluster.
+
+    The production entry points refuse a superuser connection (finding PG-01). In the roles mode the
+    child runs as its production role, so nothing is passed and the refusal stays armed.
+    """
+    return {} if enabled() else {"ALLOW_SUPERUSER_DATABASE_ROLE": "true"}
+
+
 def activate(test_db_url: str) -> Cluster:
     """Build the guarded test database under the roles; the cluster must be disposable."""
     global _cluster, _database

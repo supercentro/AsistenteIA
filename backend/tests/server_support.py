@@ -22,6 +22,7 @@ from pathlib import Path
 
 from tests.constants import TEST_JWT_SECRET
 from tests.integration.helpers import DEFAULT_PASSWORD
+from tests.least_privilege import superuser_exception
 
 BACKEND = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
@@ -59,6 +60,7 @@ def base_environment(url: str, **extra: str) -> dict[str, str]:
         LOGIN_RATE_LIMIT="10000/minute",
         PYTHONUNBUFFERED="1",
     )
+    env.update(superuser_exception())
     env.update(extra)
     return env
 
