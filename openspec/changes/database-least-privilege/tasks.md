@@ -75,6 +75,17 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 - [x] 8.6 Update `docs/data-model.md`, `docs/development_guide.md` and the technical-debt entry for the runtime role capability (data-model, development_guide, TD-040)
 - [x] 8.7 Mutation-check: restore the broad `INSERT` and show a test fails (reports/group-8/mutation-run.txt, mutation-compose-cli.txt: 15 of 15 caught)
 
+## 8A. Prerequisites of group 9 (owner authorisation of 2026-11-13; they must be done before group 9 runs)
+
+- [ ] 8A.1 Pair 1, `ingestion_jobs.locked_by` and `locked_until` (priority 1, the fencing token): tests that inspect the SQL the ORM emits (single and batch insert, `RETURNING`) fail first; then `server_default=FetchedValue()` on both columns and `eager_defaults=False` on the mapper; then the matrix drops the two columns from the application `INSERT`; the upload path works under the application role; refused-insert negative test; own commit
+- [ ] 8A.2 Pair 2, `documents.error_message` and `error_code`: same procedure (`FetchedValue()`, the application keeps `SELECT` on `documents`, so `RETURNING` needs nothing new); own commit
+- [ ] 8A.3 Pair 3, `users.consent_version` and `consent_accepted_at`: same procedure for the application role (registration) and the CLI role (create-teacher, seed); the consent `UPDATE` keeps its column grant; own commit
+- [ ] 8A.4 The inventory (`tests/privilege_inventory.py`) models `FetchedValue()` columns as not inserted and `eager_defaults=False` as `RETURNING` of the key only, and the assumption text is restored; the matrix returns to the narrow `INSERT` lists; stop and present an alternative if `FetchedValue()` changes a semantic or needs an extra `SELECT`
+- [ ] 8A.5 TD-039, `POST /auth/register`: test that reads the user from another session after the 201 and shows a refused write is an error with nothing stored; explicit `commit()` with rollback in the handler; no duplicate commit with `get_db`
+- [ ] 8A.6 TD-039, `POST /subjects` and `DELETE /subjects/{id}`: same procedure
+- [ ] 8A.7 TD-039, `POST /subjects/{id}/enrollments` and `DELETE`: same procedure; idempotency of the duplicate case and no partial change
+- [ ] 8A.8 Mutation checks of both prerequisites, regression of authentication, users, subjects, enrollments and ingestion, independent adversarial review, and the update of `docs/data-model.md`, `docs/backend-standards.md` and `docs/technical-debt.md` (TD-039 is updated with the evidence and not closed before the owner confirms)
+
 ## 9. Role-bound integration suite
 
 - [ ] 9.1 Write the failing role-bound tests first (record the failing run in the group report), then the fixtures that prepare a `*_test` database (connection rights, schema ACL, extension), run Alembic as the migrator, apply the grants and give each test the application, worker and CLI connections; reserved role prefix and sweep

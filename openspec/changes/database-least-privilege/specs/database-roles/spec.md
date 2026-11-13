@@ -207,3 +207,29 @@ Tests that run application operations under the least-privilege roles SHALL asse
 #### Scenario: Coverage of operations
 - **WHEN** the role-bound suite runs
 - **THEN** it executes every route of the API, every subcommand of the CLI and the claim, renew, complete, fail and sweep paths of the worker, with at least one single-chunk and one multi-chunk document
+
+### Requirement: The ORM inserts only the columns the code sets
+The model SHALL mark columns that the code never sets on insert (`ingestion_jobs.locked_by` and `locked_until`, `documents.error_message` and `error_code`, `users.consent_version` and `consent_accepted_at`) as fetched server values, so the `INSERT` the ORM emits omits them and the matrix grants `INSERT` only on the columns the code sets. A mapper whose application role cannot read a column MUST NOT request it through `RETURNING`.
+
+#### Scenario: The emitted INSERT omits the unset columns
+- **WHEN** the application creates a job, a document or a user, one object or several in one flush
+- **THEN** the captured `INSERT` lists only the columns the code sets and neither it nor its `RETURNING` names the six columns
+
+#### Scenario: The minimum privilege is enough
+- **WHEN** the application role, without `INSERT` on the six columns and without `SELECT` on `ingestion_jobs.locked_by` and `locked_until`, uploads a document and registers a user
+- **THEN** both succeed and the persisted rows have those columns `NULL`
+
+#### Scenario: A forged value is refused
+- **WHEN** a session of the application role inserts a value into one of the six columns
+- **THEN** PostgreSQL refuses with insufficient privilege
+
+### Requirement: An endpoint that promises persistence commits before it answers
+`POST /auth/register`, `POST` and `DELETE /subjects` and the enrollment `POST` and `DELETE` SHALL commit their transaction explicitly before the success response is built, and roll back and answer with the standard error when the database refuses the write, so a 2xx never exists without stored data.
+
+#### Scenario: Success is visible from another session
+- **WHEN** any of these operations answers with a success status
+- **THEN** a separate database session reads the stored change
+
+#### Scenario: A refused write is an error
+- **WHEN** the database refuses the write at commit
+- **THEN** the answer is the standard 500 body, nothing is stored, and the next request on the same service succeeds
