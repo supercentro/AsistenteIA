@@ -16,7 +16,7 @@ suffix `_test`; leftovers of both are removed before and after the session. Noth
 import os
 import secrets
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 import psycopg
@@ -37,7 +37,7 @@ DISPOSABLE_FLAG = "TEST_CLUSTER_IS_DISPOSABLE"
 
 @dataclass
 class Cluster:
-    admin_url: str
+    admin_url: str = field(repr=False)  # holds the administrator password
     names: RoleNames
     passwords: RolePasswords
 

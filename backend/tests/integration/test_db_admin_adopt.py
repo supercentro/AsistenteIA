@@ -240,6 +240,29 @@ def test_rollback_then_removing_the_roles_leaves_the_database_with_the_administr
     assert row_counts(cluster, database) == counts
 
 
+def test_removing_the_roles_also_clears_their_privileges_in_other_databases(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, counts = prepare(cluster, scratch_database)
+    other = scratch_database()
+    bootstrap(cluster.admin("postgres"), cluster.passwords, database=other, names=cluster.names)
+    run_adopt(cluster, database, apply=True)
+    with cluster.admin_connection(other) as conn:  # the roles hold privileges in a second database
+        conn.execute(f'GRANT CONNECT ON DATABASE "{other}" TO "{cluster.names.app}"')
+
+    rollback_adoption(
+        cluster.admin("postgres"), database=database, names=cluster.names, remove_roles=True
+    )
+
+    with cluster.admin_connection() as conn:
+        left = conn.execute(
+            "SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = ANY(%s)",
+            (list(cluster.names.all()),),
+        ).fetchone()
+    assert left == (0,)
+    assert row_counts(cluster, database) == counts
+
+
 def make_admin_name(cluster: Cluster) -> str:
     from sqlalchemy.engine import make_url
 

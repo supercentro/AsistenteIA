@@ -67,6 +67,8 @@ select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 "app/db_admin/*.py" = ["S608"]
 "tests/db_admin_support.py" = ["S608"]
 "tests/role_support.py" = ["S608"]
+"tests/db_roles_support.py" = ["S608"]
+"tests/integration/test_db_roles_*.py" = ["S608"]
 "tests/integration/test_db_admin_*.py" = ["S608"]
 
 [tool.mypy]
