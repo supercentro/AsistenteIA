@@ -88,10 +88,10 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 9. Role-bound integration suite
 
-- [ ] 9.1 Write the failing role-bound tests first (record the failing run in the group report), then the fixtures that prepare a `*_test` database (connection rights, schema ACL, extension), run Alembic as the migrator, apply the grants and give each test the application, worker and CLI connections; reserved role prefix and sweep
-- [ ] 9.2 Run every API route, every CLI subcommand and the claim, renew, complete, fail and sweep paths of the worker under the roles, with single-chunk and multi-chunk documents, asserting the **persisted state** of every write
-- [ ] 9.3 Parametrise the existing API and ingestion integration tests so they also run under the roles (marker `least_privilege`) without weakening any assertion
-- [ ] 9.4 Prove by mutation that removing a privilege makes a test fail while the endpoint still answers 200 (the persisted-state assertion catches it)
+- [x] 9.1 Write the failing role-bound tests first (record the failing run in the group report), then the fixtures that prepare a `*_test` database (connection rights, schema ACL, extension), run Alembic as the migrator, apply the grants and give each test the application, worker and CLI connections; reserved role prefix and sweep (reports/group-9: red-coverage.txt, tests/least_privilege.py)
+- [x] 9.2 Run every API route, every CLI subcommand and the claim, renew, complete, fail and sweep paths of the worker under the roles, with single-chunk and multi-chunk documents, asserting the **persisted state** of every write (test_db_roles_api_routes.py, test_least_privilege_coverage.py, test_db_roles_paths.py, test_db_roles_teacher.py)
+- [x] 9.3 Parametrise the existing API and ingestion integration tests so they also run under the roles (marker `least_privilege`) without weakening any assertion (pytest --least-privilege -m least_privilege: 484 tests; final-1-least-privilege-mode.txt)
+- [x] 9.4 Prove by mutation that removing a privilege makes a test fail while the endpoint still answers 200 (the persisted-state assertion catches it) (reports/group-9/mutation-run.txt: 11 of 11 caught; mutation-cause-0.txt; limit stated in group-9-report.md)
 
 ## 10. CI gate (decision D5)
 

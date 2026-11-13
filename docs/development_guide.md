@@ -317,6 +317,16 @@ uv run pytest tests/integration --cov=app --cov-report=term-missing   # needs th
 uv run pytest -m realmodel tests/unit/test_embedder_realmodel.py tests/unit/test_chunker_realmodel.py   # real model; only inside the worker image (excluded by default and in CI)
 ```
 
+**Role-bound mode (change `database-least-privilege`, group 9).** The same API and ingestion integration tests (the modules listed in `tests/conftest.py`, marker `least_privilege`) can run with the code under test connected as its production role instead of the superuser of the test cluster:
+
+```bash
+TEST_CLUSTER_IS_DISPOSABLE=true uv run pytest tests/integration --least-privilege -m least_privilege
+```
+
+The guarded test database is then built like production (bootstrap with the reserved `tstrole_` names, Alembic as the migrator, grants); `build_settings` (the API) uses the application role and `built_service` (the ingestion service) the worker role, while the seeding and inspection helpers keep the administrator URL, so no assertion changes. `TEST_CLUSTER_IS_DISPOSABLE=true` and `TEST_ADMIN_DATABASE_URL` (see `backend/.env.test.example`) are mandatory because the bootstrap closes `PUBLIC` on every database of the cluster: use the disposable test cluster, never the development database. `tests/integration/test_least_privilege_coverage.py` fails when an API route, a CLI subcommand or a worker path has no role-bound scenario, and `test_db_roles_effective.py` compares the privileges of the catalog with the matrix (run it with `-s` to print them).
+
+Limits of the mode, so nobody over-reads it: the code under test is the API (`build_settings`), the ingestion service (`built_service`) and the ingestion repository sessions (`session_for`, worker role by default, `role="app"` for retrieval); seeding and inspection stay with the administrator, and repository-level tests of other modules (for example `test_chunk_retrieval`) are not in the marked list and run as before. The roles have connection limits (application 20): the fixture `release_leaked_connections` collects engines that a test left behind, and a failure with `database unavailable` in this mode means a test leaks connections, not that the limit should be raised. Do not combine, in one pytest process, the role fixtures that drop every `tstdb_%_test` database (`cluster`, used by the `test_db_*` files) with the session database of this mode: run them as separate invocations.
+
 The real-server and real-process tests (Uvicorn started with the production arguments, killed workers, PDF child limits) run on Linux. On a Windows host where Application Control blocks the virtual environment, run the suite in the worker image with the repository mounted and `TEST_DATABASE_URL` pointing to the test database through `host.docker.internal:5442`. Coverage of `app` is 99 %: every module created by the ingestion change is at 100 % and the lines missed belong to older modules.
 
 Frontend (from `frontend/`):

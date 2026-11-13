@@ -1,0 +1,13 @@
+# group 5 test run 2026-11-13T14:01:20Z | free RAM before: 11.62 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/integration/test_migrations.py tests/integration/test_migrations_documents.py tests/integration/test_migrations_ingestion.py tests/integration/test_migrations_subjects.py tests/integration/test_migrations_user_role_default.py -p no:cacheprovider
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+..................................                                       [100%]
+34 passed in 8.76s
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

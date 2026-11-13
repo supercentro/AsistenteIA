@@ -1,0 +1,19 @@
+# group 9 mutation run 2026-11-13T13:38:51Z | free RAM before: 11.59 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+7 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | the consent UPDATE privilege is removed AND the commit moves after the answer: the endpoint answers 200 and the persisted-state assertion is the only thing that fails | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_api_routes.py::test_registration_login_profile_and_consent_are_persiste
+      cause:             assert client.get(f"{API}/health").status_code == 200
+      cause:             assert registered.status_code == 201
+      cause:             assert registered.json()["role"] == "student"
+      cause:             assert (
+      cause:             assert me.status_code == 200 and me.json()["id"] == user_id
+      cause:             assert me.json()["consent_version"] is None
+      cause:             assert consent.status_code == 200
+      cause: >           assert rows(
+      cause: E           AssertionError: assert [(None, False)] == [('2026-10-v1', True)]
+      cause: E             
+      cause: E             At index 0 diff: (None, False) != ('2026-10-v1', True)
+      cause: E             Use -v to get more diff
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)
