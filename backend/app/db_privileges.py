@@ -106,9 +106,13 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
     APP: {
         "users": TableGrant(
             select=_all("users"),
-            # `role` is inserted by the code today; task 8.4 stops that and the column leaves
-            # the code and the grant together (decision DD-9, option A).
-            insert=_cols("name", "email", "password_hash"),
+            # `role` is NOT granted: the registration code still inserts it, so registering a
+            # user under this role fails until task 8.4 (decision DD-9, option A). The database
+            # switch of group 17 must not happen before 8.4. The consent columns are
+            # in the list because the ORM sends every column without a server default, as NULL.
+            insert=_cols(
+                "name", "email", "password_hash", "consent_version", "consent_accepted_at"
+            ),
             update=_cols("consent_version", "consent_accepted_at"),
         ),
         "subjects": TableGrant(
@@ -125,7 +129,16 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         ),
         "documents": TableGrant(
             select=_all("documents"),
-            insert=_cols("subject_id", "filename", "content_type", "size_bytes", "status"),
+            # error_message and error_code: unset nullable columns are sent as NULL by the ORM.
+            insert=_cols(
+                "subject_id",
+                "filename",
+                "content_type",
+                "size_bytes",
+                "status",
+                "error_message",
+                "error_code",
+            ),  # fmt: skip
             delete=True,
         ),
         "document_chunks": TableGrant(
@@ -143,7 +156,8 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         "ingestion_jobs": TableGrant(
             # Not `locked_by` (the fencing token), `locked_until` or `document_id`.
             select=_cols("id", "payload", "attempts", "available_at", "created_at", "updated_at"),
-            insert=_cols("document_id", "payload"),
+            # locked_by and locked_until: sent as NULL by the ORM (no server default).
+            insert=_cols("document_id", "payload", "locked_by", "locked_until"),
         ),
     },
     WORKER: {
@@ -177,7 +191,9 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
     CLI: {
         "users": TableGrant(
             select=_all("users"),
-            insert=_cols("name", "email", "password_hash", "role"),
+            insert=_cols(
+                "name", "email", "password_hash", "role", "consent_version", "consent_accepted_at"
+            ),
         ),
         "subjects": TableGrant(),
         "enrollments": TableGrant(),

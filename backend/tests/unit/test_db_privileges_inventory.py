@@ -140,5 +140,12 @@ def test_api_needs_derived_from_orm_statements(inventory: Inventory) -> None:
 def test_cli_needs_only_users(inventory: Inventory) -> None:
     cli = inventory.required("cli")
     assert set(cli) == {"users"}
-    assert cli["users"]["INSERT"] == {"name", "email", "password_hash", "role"}
+    assert cli["users"]["INSERT"] == {
+        "name",
+        "email",
+        "password_hash",
+        "role",
+        "consent_version",
+        "consent_accepted_at",
+    }
     assert "UPDATE" not in cli["users"] and "DELETE" not in cli["users"]

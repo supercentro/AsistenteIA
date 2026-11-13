@@ -30,8 +30,10 @@ from app.core.database import Base
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
 
 ASSUMPTIONS = (
-    "ORM INSERT lists only the columns passed to the constructor and returns the primary key and "
-    "the server-generated columns (SELECT on them).",
+    "ORM INSERT lists the columns passed to the constructor AND every other column that has no "
+    "server default, as NULL (proved against PostgreSQL in group 5, task 5.4: the first version of "
+    "this assumption, 'only the columns passed', was refuted), and returns the primary key and the "
+    "server-generated columns (SELECT on them).",
     "A Core insert(Model) executed with a list of rows may return the primary key "
     "(INSERT ... RETURNING pk), observed in the spike (H4); it needs SELECT on the key.",
     "An ORM attribute assignment flushes UPDATE <t> SET <attrs> WHERE <pk> (SELECT on the key).",
@@ -396,6 +398,9 @@ class _Walker:
     def _construct(self, cls: str, call: ast.Call) -> None:
         table = MODEL_BY_CLASS[cls]
         columns = {kw.arg for kw in call.keywords if kw.arg}
+        columns |= (
+            set(TABLES[table]) - _SERVER_GENERATED[table]
+        )  # unset nullable columns go as NULL
         self._add("INSERT", table, columns, call.lineno)
         self._add("SELECT", table, {_PRIMARY_KEY[table]} | _SERVER_GENERATED[table], call.lineno)
 

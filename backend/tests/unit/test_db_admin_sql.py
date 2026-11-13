@@ -183,7 +183,8 @@ def test_full_column_sets_become_table_level_and_partial_ones_stay_column_level(
 
     assert f'GRANT SELECT ON TABLE "public"."users" TO {app}' in sql
     assert (
-        f'GRANT INSERT ("email", "name", "password_hash") ON TABLE "public"."users" TO {app}' in sql
+        f'GRANT INSERT ("consent_accepted_at", "consent_version", "email", "name", "password_hash") ON TABLE "public"."users" TO {app}'  # noqa: E501
+        in sql
     )
     assert (
         f'GRANT UPDATE ("consent_accepted_at", "consent_version") ON TABLE "public"."users" TO {app}'  # noqa: E501
@@ -199,14 +200,17 @@ def test_full_column_sets_become_table_level_and_partial_ones_stay_column_level(
 def test_nothing_is_granted_beyond_the_matrix() -> None:
     sql = statements()
 
-    assert not [s for s in sql if "locked_by" in s and DEFAULT_NAMES.app in s]
+    # The fencing token is never readable or changeable by the application role; it can only be
+    # sent as NULL by the ORM insert of a job (proved in group 5).
+    reads = [s for s in sql if "locked_by" in s and DEFAULT_NAMES.app in s]
+    assert all(s.startswith("GRANT INSERT") for s in reads)
     assert not [s for s in sql if s.startswith("GRANT") and "ALL" in s.split(" ON ")[0]]
     assert not [s for s in sql if "WITH GRANT OPTION" in s]
     assert not [s for s in sql if s.startswith("GRANT") and "PUBLIC" in s]
     cli = f'"{DEFAULT_NAMES.cli}"'
     assert [s for s in sql if s.startswith("GRANT") and s.endswith(f"TO {cli}")] == [
         f'GRANT SELECT ON TABLE "public"."users" TO {cli}',
-        f'GRANT INSERT ("email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
+        f'GRANT INSERT ("consent_accepted_at", "consent_version", "email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
     ]
 
 
