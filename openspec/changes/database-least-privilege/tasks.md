@@ -123,7 +123,7 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 15. Independent adversarial review of code and tests (required before any real run)
 
-- [ ] 15.1 Run the `adversarial-review` skill with a separate read-only subagent on the implemented code, tests, Compose changes and procedures; classify the findings in a report
+- [x] 15.1 Run the `adversarial-review` skill with a separate read-only subagent on the implemented code, tests, Compose changes and procedures; classify the findings in a report (reports/2026-11-13-step-15-adversarial-review.md: three read-only clean-context reviewers, verdict PASS WITH GAPS, 0 critical, 0 high, 10 medium; 15.2 is not authorised and stays open)
 - [ ] 15.2 Fix every blocking or major finding with tests first, re-run the affected gates and ask for a focused second review when the fix touches security; record accepted residual risks in `docs/technical-debt.md` with the owner's agreement
 
 ## 16. Rehearsal on a restored copy of the real backup (separate authorisation)
