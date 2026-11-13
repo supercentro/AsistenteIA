@@ -83,10 +83,11 @@ def test_every_public_method_of_the_worker_repository_has_a_role_bound_scenario(
     }
 
     assert public == set(WORKER_SCENARIOS)  # a new method cannot ship without a scenario
+    scenarios = module("test_db_roles_paths")
+    source = inspect.getsource(scenarios)
     for path, name in WORKER_SCENARIOS.items():
-        function = getattr(module("test_db_roles_paths"), name, None)
-        assert callable(function), path
-        assert f".{path}(" in inspect.getsource(function) or path == "sweep", (path, name)
+        assert callable(getattr(scenarios, name, None)), path
+        assert f"repo.{path}(" in source or f"Repository(session).{path}(" in source, path
 
 
 def test_every_route_is_really_called_by_the_scenarios() -> None:
