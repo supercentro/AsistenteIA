@@ -1,0 +1,33 @@
+# group 9 prerequisites mutation run 2026-11-13T13:03:48Z | free RAM before: 11.26 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+27 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | pair 1: the job lease columns lose FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_column_is_a_fetched_server_value[ingestion_jobs-colu
+[1] CAUGHT | pair 1: the job mapper fetches defaults eagerly again | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_job_mapper_does_not_ask_for_the_server_values_back
+[2] CAUGHT | pair 1: the matrix gives the application role INSERT on locked_by again | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_matrix_grants_the_application_role_only_what_the_job
+[3] CAUGHT | pair 1: the matrix lets the application role read the fencing token | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_privileges_matrix.py::test_matrix_equals_what_the_code_needs
+[4] CAUGHT | pair 2: the document error columns lose FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_column_is_a_fetched_server_value[documents-columns0]
+[5] CAUGHT | pair 2: the matrix gives the application role INSERT on error_message again | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_matrix_grants_the_application_role_only_what_the_doc
+[6] CAUGHT | pair 3: the user consent columns lose FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_column_is_a_fetched_server_value[users-columns2]
+[7] CAUGHT | pair 3: the matrix gives the application role INSERT on consent_version again | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_matrix_grants_the_runtime_roles_only_what_the_user_i
+[8] CAUGHT | TD-039: registration does not commit before the response | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[regi
+[9] CAUGHT | TD-039: create subject does not commit before the response | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[crea
+[10] CAUGHT | TD-039: delete subject does not commit before the response | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[dele
+[11] CAUGHT | TD-039: enrollment does not commit before the response | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[enro
+[12] CAUGHT | TD-039: enrollment removal does not commit before the response | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[remo
+[13] CAUGHT | TD-039: the helper no longer rolls back | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[regi
+[14] CAUGHT | TD-039: the helper swallows the database error | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[regi
+[15] CAUGHT | TD-039: the helper commits twice | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[regi
+[16] CAUGHT | integration: the job lease column locked_until loses FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_orm_insert_sql.py::test_a_job_insert_omits_the_fencing_token_and_asks_nothing_ba
+[17] CAUGHT | integration: documents.error_message loses FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_orm_insert_sql.py::test_a_document_insert_omits_the_error_columns
+[18] CAUGHT | integration: users.consent_accepted_at loses FetchedValue | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_orm_insert_sql.py::test_a_registration_insert_omits_the_consent_and_the_role
+[19] CAUGHT | integration: the application role may insert locked_by (the refusal test must fail) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_paths.py::test_columns_and_operations_that_are_not_granted_are_refused_
+[20] FAILED-ELSEWHERE (check manually: rc=1) | integration: registration does not commit before the response | baseline rc=0 mutant rc=1 | ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/auth/regi
+[21] FAILED-ELSEWHERE (check manually: rc=1) | integration: create subject does not commit before the response | baseline rc=0 mutant rc=1 | ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects
+[22] FAILED-ELSEWHERE (check manually: rc=1) | integration: delete subject does not commit before the response | baseline rc=0 mutant rc=1 | ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subject
+[23] FAILED-ELSEWHERE (check manually: rc=1) | integration: enrollment does not commit before the response | baseline rc=0 mutant rc=1 | ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects/
+[24] FAILED-ELSEWHERE (check manually: rc=1) | integration: enrollment removal does not commit before the response | baseline rc=0 mutant rc=1 | ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subject
+[25] CAUGHT | inventory: RETURNING always asks for the server-generated columns | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_fetched_value_columns.py::test_the_api_inventory_needs_no_insert_on_the_pair_of_ingesti
+[26] CAUGHT | helper: only ValueError is rolled back | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[regi
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)
