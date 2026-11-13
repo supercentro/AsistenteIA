@@ -1,0 +1,12 @@
+3,7c3,7
+< database|asistenteia owner=asistente allowconn=true istemplate=false acl=(default)
+< database|asistenteia_test owner=asistente allowconn=true istemplate=false acl=(default)
+< database|postgres owner=asistente allowconn=true istemplate=false acl=(default)
+< database|template0 owner=asistente allowconn=false istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+< database|template1 owner=asistente allowconn=true istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+---
+> database|asistenteia owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+> database|asistenteia_test owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+> database|postgres owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+> database|template0 owner=asistente allowconn=false istemplate=true acl={asistente=CTc/asistente,=c/asistente}
+> database|template1 owner=asistente allowconn=true istemplate=true acl={asistente=CTc/asistente,=c/asistente}

@@ -1,0 +1,20 @@
+4c4
+< database_acl|(default)
+---
+> database_acl|{asistente=CTc/asistente,=Tc/asistente}
+9,15c9,15
+< table|alembic_version owner=asistente acl=(default) rls=false
+< table|document_chunks owner=asistente acl=(default) rls=false
+< table|documents owner=asistente acl=(default) rls=false
+< table|enrollments owner=asistente acl=(default) rls=false
+< table|ingestion_jobs owner=asistente acl=(default) rls=false
+< table|subjects owner=asistente acl=(default) rls=false
+< table|users owner=asistente acl=(default) rls=false
+---
+> table|alembic_version owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|document_chunks owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|documents owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|enrollments owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|ingestion_jobs owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|subjects owner=asistente acl={asistente=arwdDxt/asistente} rls=false
+> table|users owner=asistente acl={asistente=arwdDxt/asistente} rls=false

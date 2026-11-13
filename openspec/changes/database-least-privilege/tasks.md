@@ -139,7 +139,7 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 - [x] 16.2 Rehearse bootstrap, adoption, grants, `db-verify`, the functional checks of the 2026-11-12 validation (45 + 17) with the roles, and the rollback across every database (reports/group-16/g16-output.txt: 209 of 209 checks; the 45 + 17 checks of 2026-11-12 are not a stored script, the 101 curl checks of group 13 were rerun on the adopted copy)
 - [x] 16.3 Record the report and the timings; stop if any check differs (report and timings recorded; the first run had 9 failures of the script itself, kept as superseded, the final run has none)
 
-## 17. Real run on the development database (separate explicit authorisation)
+## 17. Real run on the development database (separate explicit authorisation; the preparation 17A, with the runbook, the tested rollback and the GO/NO-GO checklist, was done on 2026-11-13 in reports/group-17a, nothing executed on the development database)
 
 - [ ] 17.1 Preflight (backup verified and second copy, free memory, services state), stop the API and the worker
 - [ ] 17.2 Bootstrap, adoption, grants and `db-verify`; switch the two `DATABASE_URL` values; `up -d --force-recreate`; prove the role of each process with `SELECT current_user`
