@@ -1,0 +1,171 @@
+G13 manual endpoint testing 2026-11-13T17:49:51Z | free host RAM before: 10.49 GB
+repo HEAD: 1628bca; the REAL docker-compose.yml is read, not modified
+temporary API port: 127.0.0.1:58734 (never 8000, 5173 or 5442)
+image asistenteia-backend:g13-branch built from the working tree (target api)
+image asistenteia-worker:g13-branch = main's worker image with backend/app of this branch (uv.lock unchanged: same dependencies)
+=== 13.1 cold start of the scratch project (db, bootstrap, migrate, backend, worker)
+up -d rc=0 | Container g13scratch-db-1 Started ;Container g13scratch-db-1 Healthy ;Container g13scratch-bootstrap-1 Started ;Container g13scratch-bootstrap-1 Exited ;Container g13scratch-migrate-1 Started ;Container g13scratch-db-1 Healthy ;Container g13scratch-db-1 Healthy ;Container g13scratch-migrate-1 Exited
+backend healthy rc=0 (0 = yes)
+worker healthy rc=0 (0 = yes)
+published ports: g13scratch-worker-1:[]
+g13scratch-backend-1:[8000/tcp -> 127.0.0.1:58734 ]
+g13scratch-db-1:[]
+alembic revision: 0006
+roles: asistente_app:superuser=false:limit=20 asistente_cli:superuser=false:limit=3 asistente_migrator:superuser=false:limit=5 asistente_worker:superuser=false:limit=10
+sessions by role: asistente_app=1 asistente_worker=1
+db-verify: no findings: the database matches the design 
+=== 13.2 health and unauthenticated access
+  [1] PASS GET /health | expected 200, obtained 200
+    body: {'status': 'ok'}
+  [2] PASS GET /users/me | expected 401, obtained 401
+  [3] PASS GET /subjects | expected 401, obtained 401
+  [4] PASS POST /subjects | expected 401, obtained 401
+=== registration (public, students only)
+  [5] PASS POST /auth/register | expected 201, obtained 201
+  [6] PASS registered role is student | expected student, obtained student
+  [7] PASS stored role in the database | expected student, obtained student
+  [8] PASS POST /auth/register | expected 201, obtained 201
+  [9] PASS a payload asking for role teacher still creates a student | expected student, obtained student
+  [10] PASS POST /auth/register | expected 409, obtained 409
+  [11] PASS a duplicate registration stores no second row | expected 1, obtained 1
+  [12] PASS POST /auth/register | expected 422, obtained 422
+  [13] PASS users stored so far | expected 2, obtained 2
+=== login and JWT
+  [14] PASS POST /auth/login | expected 200, obtained 200
+  [15] PASS POST /auth/login | expected 200, obtained 200
+  [16] PASS POST /auth/login | expected 401, obtained 401
+  [17] PASS GET /users/me | expected 200, obtained 200
+  [18] PASS the profile is the caller's | expected 9a0846ae-3c92-4e16-b9a7-4c33491a8e08, obtained 9a0846ae-3c92-4e16-b9a7-4c33491a8e08
+  [19] PASS GET /users/me | expected 401, obtained 401
+=== teacher accounts through the administrative command (role asistente_cli)
+ Container g13scratch-cli-run-08e01150c8e9 Creating 
+ Container g13scratch-cli-run-08e01150c8e9 Created 
+Created teacher id=<id> email=teacher1@example.com
+  [20] PASS stored role of teacher1 | expected teacher, obtained teacher
+  [21] PASS stored role of teacher2 | expected teacher, obtained teacher
+Error: An account with this email already exists; nothing was changed
+  [22] PASS a duplicate teacher stores no second row | expected 1, obtained 1
+  [23] PASS POST /auth/login | expected 200, obtained 200
+  [24] PASS POST /auth/login | expected 200, obtained 200
+=== consent (200 and the stored evidence)
+  [25] PASS POST /users/me/consent | expected 422, obtained 422
+    error code: INVALID_CONSENT_VERSION
+  [26] PASS nothing stored after a wrong version | expected , obtained 
+  [27] PASS POST /users/me/consent | expected 200, obtained 200
+  [28] PASS stored consent version | expected 2026-10-v1, obtained 2026-10-v1
+  [29] PASS stored consent time is set | expected t, obtained t
+  [30] PASS POST /users/me/consent | expected 200, obtained 200
+  [31] PASS POST /users/me/consent | expected 200, obtained 200
+  [32] PASS POST /users/me/consent | expected 401, obtained 401
+=== subjects (wrong role, other teacher, unauthenticated)
+  [33] PASS POST /subjects | expected 403, obtained 403
+  [34] PASS no subject stored by the student | expected 0, obtained 0
+  [35] PASS POST /subjects | expected 201, obtained 201
+  [36] PASS stored subject | expected 1, obtained 1
+  [37] PASS owner of the stored subject is teacher1 | expected teacher1@example.com, obtained teacher1@example.com
+  [38] PASS POST /subjects | expected 409, obtained 409
+  [39] PASS a duplicate name stores no second subject | expected 1, obtained 1
+  [40] PASS GET /subjects | expected 200, obtained 200
+  [41] PASS teacher1 lists one subject | expected 1, obtained 1
+  [42] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 200, obtained 200
+  [43] PASS GET /subjects | expected 200, obtained 200
+  [44] PASS teacher2 lists no subject of teacher1 | expected 0, obtained 0
+  [45] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 404, obtained 404
+  [46] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 404, obtained 404
+  [47] PASS the subject is still stored after the other teacher's delete | expected 1, obtained 1
+  [48] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 404, obtained 404
+  [49] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 401, obtained 401
+=== enrollments
+  [50] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 403, obtained 403
+  [51] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 404, obtained 404
+  [52] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 404, obtained 404
+  [53] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 201, obtained 201
+  [54] PASS stored enrollment | expected 1, obtained 1
+  [55] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 409, obtained 409
+  [56] PASS a duplicate enrollment stores no second row | expected 1, obtained 1
+  [57] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 201, obtained 201
+  [58] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 200, obtained 200
+  [59] PASS the teacher lists two enrollments | expected 2, obtained 2
+  [60] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments | expected 403, obtained 403
+  [61] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 200, obtained 200
+  [62] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments/b3f9be44-aba8-4d24-9b35-e1dca1c82007 | expected 204, obtained 204
+  [63] PASS the removed enrollment is gone, the other stays | expected 1, obtained 1
+  [64] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/enrollments/b3f9be44-aba8-4d24-9b35-e1dca1c82007 | expected 404, obtained 404
+  [65] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 404, obtained 404
+=== documents (TXT, Markdown, PDF) processed by the worker role
+  [66] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload notes.txt) | expected 403, obtained 403
+  [67] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload notes.txt) | expected 401, obtained 401
+  [68] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload notes.txt) | expected 404, obtained 404
+  [69] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload payload.exe) | expected 415, obtained 415
+  [70] PASS nothing stored by the refused uploads | expected 0, obtained 0
+  [71] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload notes.txt) | expected 202, obtained 202
+  [72] PASS the TXT document is persisted after the 202 | expected 1, obtained 1
+  [73] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload limits.md) | expected 202, obtained 202
+  [74] PASS POST /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents (upload series.pdf) | expected 202, obtained 202
+    document status after the worker: ready
+    document status after the worker: ready
+    document status after the worker: ready
+  [75] PASS TXT is ready | expected ready, obtained ready
+  [76] PASS Markdown is ready | expected ready, obtained ready
+  [77] PASS PDF is ready | expected ready, obtained ready
+  [78] PASS the three documents produced chunks | expected t, obtained t
+  [79] PASS the PDF chunks carry page numbers | expected t, obtained t
+  [80] PASS no job keeps the uploaded bytes after processing | expected 0, obtained 0
+  [81] PASS no lease is left | expected 0, obtained 0
+  [82] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents | expected 200, obtained 200
+  [83] PASS the teacher lists three ready documents | expected 3 ready, obtained 3 ready
+  [84] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents | expected 403, obtained 403
+  [85] PASS GET /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents | expected 404, obtained 404
+  [86] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents/9ef614f9-e098-4eb1-972c-f35cde0c6b6c | expected 404, obtained 404
+  [87] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents/9ef614f9-e098-4eb1-972c-f35cde0c6b6c | expected 403, obtained 403
+  [88] PASS the TXT document survives the refused deletes | expected 1, obtained 1
+  [89] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents/9ef614f9-e098-4eb1-972c-f35cde0c6b6c | expected 204, obtained 204
+  [90] PASS deleted document is gone | expected 0, obtained 0
+  [91] PASS its chunks and job are gone (cascade) | expected 0, obtained 0
+  [92] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6/documents/9ef614f9-e098-4eb1-972c-f35cde0c6b6c | expected 404, obtained 404
+=== subject deletion and cascades
+  [93] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 204, obtained 204
+  [94] PASS subject gone | expected 0, obtained 0
+  [95] PASS enrollments, documents, chunks and jobs of the subject are gone | expected 0, obtained 0
+  [96] PASS DELETE /subjects/d648a17a-8337-4b2e-9d72-2f1c83c5bda6 | expected 404, obtained 404
+  [97] PASS the four accounts remain | expected 4, obtained 4
+=== 13.3 isolation of the roles, checked with SQL on the live database
+  API role: forged teacher insert -> ERROR:  permission denied for table users 
+  API role: update users.role      -> ERROR:  permission denied for table users 
+  API role: DDL (create table)     -> ERROR:  permission denied for schema public LINE 1: CREATE TABLE public.forged (i int)                      ^ 
+  API role: create role            -> ERROR:  permission denied to create role 
+  API role: other database         -> psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  permission denied for database "postgres" DETAIL:  User does not have CONNECT privilege. 
+  worker: read users               -> ERROR:  permission denied for table users 
+  worker: read subjects            -> ERROR:  permission denied for table subjects 
+  worker: delete documents         -> ERROR:  permission denied for table documents 
+  worker: DDL (create table)       -> ERROR:  permission denied for schema public LINE 1: CREATE TABLE public.forged (i int)                      ^ 
+  CLI: read documents              -> ERROR:  permission denied for table documents 
+  CLI: update users.role           -> ERROR:  permission denied for table users 
+  CLI: read jobs                   -> ERROR:  permission denied for table ingestion_jobs 
+  CLI: read accounts (allowed)     -> 4 
+  [98] PASS every unauthorised statement above was refused by PostgreSQL | expected 9, obtained 9
+  [99] PASS no forged table or role was created | expected 0, obtained 0
+  [100] PASS no forged user exists | expected 0, obtained 0
+  [101] PASS no runtime or migrator role is a superuser | expected 0, obtained 0
+sessions by role during the run: asistente_app=1 asistente_worker=1
+secrets by service (variable NAMES only):
+  db: POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER 
+  backend: APP_ENV CORS_ORIGINS DATABASE_URL JWT_SECRET 
+  worker: APP_ENV DATABASE_URL DB_CONNECT_TIMEOUT_SECONDS DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS DB_STATEMENT_TIMEOUT_WORKER_SECONDS EMBEDDER_BACKEND 
+  bootstrap (exited one-shot): ADMIN_DATABASE_URL DB_APP_PASSWORD DB_CLI_PASSWORD DB_MIGRATOR_PASSWORD DB_WORKER_PASSWORD 
+  migrate (exited one-shot): MIGRATION_DATABASE_URL 
+  cli (run on demand, removed): CLI_DATABASE_URL 
+published ports at the end: g13scratch-worker-1:[]
+g13scratch-backend-1:[8000/tcp -> 127.0.0.1:58734 ]
+g13scratch-db-1:[]
+db-verify after the run: no findings: the database matches the design 
+final state of the scratch database: users=4 subjects=0 documents=0 chunks=0 jobs=0
+=== result: 101 checks passed, 0 failed (of 101)
+--- identity of every resource of the disposable project, before removal
+containers: g13scratch-worker-1 g13scratch-backend-1 g13scratch-migrate-1 g13scratch-bootstrap-1 g13scratch-db-1 
+networks:   g13scratch_default 
+volumes:    g13scratch_db_data 
+names outside the project among them (must be empty): 
+after removal: containers left=0 networks left=0 volumes left=0
+temporary image tags removed: 0 left
+other containers (the real stack and other projects) before and after identical: yes

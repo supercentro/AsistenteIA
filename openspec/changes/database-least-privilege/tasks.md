@@ -113,9 +113,9 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 13. Manual Endpoint Testing with curl (MANDATORY - AGENT MUST EXECUTE)
 
-- [ ] 13.1 Start the stack on a scratch project with the roles (or the rehearsal copy), never on the real development database before group 17
-- [ ] 13.2 With curl: register, login, consent (200 and the stored evidence), subjects, enrollments, document upload/list/delete, health; and the denied cases (wrong role, other teacher, unauthenticated)
-- [ ] 13.3 Verify the database state after each write and restore it; document every command and response in the report
+- [x] 13.1 Start the stack on a scratch project with the roles (or the rehearsal copy), never on the real development database before group 17 (reports/group-13: run_g13.sh, compose.g13.override.yml; project g13scratch)
+- [x] 13.2 With curl: register, login, consent (200 and the stored evidence), subjects, enrollments, document upload/list/delete, health; and the denied cases (wrong role, other teacher, unauthenticated) (reports/2026-11-13-step-13-manual-endpoint-testing.md; 101 of 101 checks)
+- [x] 13.3 Verify the database state after each write and restore it; document every command and response in the report (reports/group-13/g13-output.txt; scratch database destroyed, development database unchanged)
 
 ## 14. E2E Verification (not applicable: no user interface changes)
 
