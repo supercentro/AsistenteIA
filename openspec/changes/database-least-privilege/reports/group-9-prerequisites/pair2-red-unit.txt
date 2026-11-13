@@ -1,0 +1,4 @@
+$ pytest tests/unit/test_fetched_value_columns.py   (pair 2, before the model change)
+FAILED tests/unit/test_fetched_value_columns.py::test_the_column_is_a_fetched_server_value[documents-columns0]
+FAILED tests/unit/test_fetched_value_columns.py::test_the_matrix_grants_the_application_role_only_what_the_document_insert_sets
+2 failed, 5 passed in 0.56s

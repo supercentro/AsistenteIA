@@ -19,6 +19,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.core.database import create_db_engine
+from app.models.document import Document, DocumentStatus
 from app.models.ingestion import IngestionJob
 from tests.db_admin_support import Cluster
 from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
@@ -27,6 +28,7 @@ from tests.db_roles_support import SUBJECT
 from tests.db_roles_support import own_database as own_database
 
 JOB_COLUMNS = {"document_id", "payload"}
+DOCUMENT_COLUMNS = {"subject_id", "filename", "content_type", "size_bytes", "status"}
 
 
 @contextmanager
@@ -134,3 +136,56 @@ def test_a_job_object_does_not_expose_the_token_without_a_read_privilege(
         with pytest.raises(Exception, match="permission denied"):
             _ = job.locked_by  # expired after the flush: the SELECT is refused, as intended
         session.rollback()
+
+
+# ---- pair 2: documents.error_message and error_code -------------------------------------------
+
+
+def new_document(number: int) -> Document:
+    return Document(
+        subject_id=uuid.UUID(SUBJECT),
+        filename=f"n{number}.txt",
+        content_type="text/plain",
+        size_bytes=3,
+        status=DocumentStatus.PENDING,
+    )
+
+
+def test_a_document_insert_omits_the_error_columns(cluster: Cluster, own_database: str) -> None:
+    with app_session(cluster, own_database) as (session, statements):
+        document = new_document(0)
+        session.add(document)
+        session.flush()
+        session.commit()
+        assert document.error_message is None and document.error_code is None
+
+    (statement,) = statements
+    assert inserted_columns(statement) == DOCUMENT_COLUMNS
+    assert "error_" not in statement.split("RETURNING")[0]  # the columns list and the values
+    assert stored(
+        cluster,
+        own_database,
+        f"SELECT error_message, error_code, status::text FROM documents WHERE id = '{document.id}'",
+    ) == [(None, None, "pending")]
+
+
+def test_a_batch_of_documents_keeps_the_same_columns_and_stores_every_row(
+    cluster: Cluster, own_database: str
+) -> None:
+    with app_session(cluster, own_database) as (session, statements):
+        batch = [new_document(number) for number in range(3)]
+        session.add_all(batch)
+        session.flush()
+        session.commit()
+        ids = [d.id for d in batch]
+
+    assert statements
+    for statement in statements:
+        assert inserted_columns(statement) == DOCUMENT_COLUMNS
+    listed = ", ".join(f"'{i}'" for i in ids)
+    rows = stored(
+        cluster,
+        own_database,
+        f"SELECT error_message, error_code, chunks_count FROM documents WHERE id IN ({listed})",
+    )
+    assert rows == [(None, None, 0)] * 3

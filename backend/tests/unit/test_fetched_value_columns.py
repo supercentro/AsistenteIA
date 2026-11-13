@@ -7,12 +7,14 @@ from sqlalchemy import FetchedValue, inspect
 
 from app.core.database import Base
 from app.db_privileges import APP, MATRIX
+from app.models.document import Document
 from app.models.ingestion import IngestionJob
 from tests.privilege_inventory import Inventory, build_inventory
 from tests.privilege_matrix_check import ANTICIPATED_ROOTS
 
 FETCHED = {
     "ingestion_jobs": ("locked_by", "locked_until"),
+    "documents": ("error_message", "error_code"),
 }
 
 
@@ -43,3 +45,14 @@ def test_the_api_inventory_needs_no_insert_on_the_pair_of_ingestion_jobs(
 
 def test_the_matrix_grants_the_application_role_only_what_the_job_insert_sets() -> None:
     assert MATRIX[APP]["ingestion_jobs"].insert == frozenset({"document_id", "payload"})
+
+
+def test_documents_keep_the_default_returning_because_the_application_reads_them() -> None:
+    assert inspect(Document).eager_defaults == "auto"
+    assert {"error_message", "error_code"} <= MATRIX[APP]["documents"].select
+
+
+def test_the_matrix_grants_the_application_role_only_what_the_document_insert_sets() -> None:
+    assert MATRIX[APP]["documents"].insert == frozenset(
+        {"subject_id", "filename", "content_type", "size_bytes", "status"}
+    )

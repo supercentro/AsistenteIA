@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum,
+    FetchedValue,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -70,9 +71,16 @@ class Document(Base):
         nullable=False,
         server_default=DocumentStatus.PENDING.value,
     )
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Never set on insert (only the worker records a failure, with SQL). `FetchedValue()` keeps both
+    # out of the INSERT, so the API role needs no INSERT on them (DD-14 of change
+    # `database-least-privilege`); the default RETURNING reads them, and the API can SELECT them.
+    error_message: Mapped[str | None] = mapped_column(
+        Text, nullable=True, server_default=FetchedValue()
+    )
     # One value of `DocumentErrorCode` (app.models.ingestion); the catalogue lives in code.
-    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(
+        String(40), nullable=True, server_default=FetchedValue()
+    )
     chunks_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

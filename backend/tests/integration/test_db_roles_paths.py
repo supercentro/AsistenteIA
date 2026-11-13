@@ -181,6 +181,18 @@ UNGRANTED = [
     ("app", "SELECT attempts FROM ingestion_jobs"),
     (
         "app",
+        "INSERT INTO documents "
+        "(subject_id, filename, content_type, size_bytes, status, error_code) "
+        f"VALUES ('{SUBJECT}', 'f', 'text/plain', 1, 'pending', 'PROCESSING_FAILED')",
+    ),
+    (
+        "app",
+        "INSERT INTO documents "
+        "(subject_id, filename, content_type, size_bytes, status, error_message) "
+        f"VALUES ('{SUBJECT}', 'f', 'text/plain', 1, 'pending', 'forged')",
+    ),
+    (
+        "app",
         "INSERT INTO ingestion_jobs (document_id, payload, locked_by) "
         "VALUES (gen_random_uuid(), 'x', 't')",
     ),

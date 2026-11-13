@@ -128,16 +128,8 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         ),
         "documents": TableGrant(
             select=_all("documents"),
-            # error_message and error_code: unset nullable columns are sent as NULL by the ORM.
-            insert=_cols(
-                "subject_id",
-                "filename",
-                "content_type",
-                "size_bytes",
-                "status",
-                "error_message",
-                "error_code",
-            ),  # fmt: skip
+            # error_message and error_code are fetched server values: the ORM does not insert them.
+            insert=_cols("subject_id", "filename", "content_type", "size_bytes", "status"),
             delete=True,
         ),
         "document_chunks": TableGrant(
