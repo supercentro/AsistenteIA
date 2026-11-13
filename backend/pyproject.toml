@@ -70,6 +70,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "S"]
 "tests/db_roles_support.py" = ["S608"]
 "tests/integration/test_db_roles_*.py" = ["S608"]
 "tests/integration/test_orm_insert_columns.py" = ["S608"]
+"tests/integration/test_consent_persistence.py" = ["S608"]
 "tests/integration/test_db_admin_*.py" = ["S608"]
 
 [tool.mypy]
