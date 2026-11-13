@@ -172,3 +172,22 @@ def test_a_password_argument_is_refused_by_the_real_process(
     assert result.returncode == 2
     assert TEACHER_PASSWORD not in all_output(result)
     assert accounts(clean_db) == {}
+
+
+def test_the_command_refuses_the_api_credentials_and_creates_nothing(
+    clean_db: str, tmp_path: Path
+) -> None:
+    """The administrative command reads CLI_DATABASE_URL only: the API URL and the JWT secret that
+    the process used to need are no longer a way in (change `database-least-privilege`, group 8)."""
+    result = run_cli(
+        clean_db,
+        tmp_path,
+        ["create-teacher", "--email", "api.only@example.com", "--password-stdin"],
+        stdin="a-strong-password-1\n",
+        extra_env={"CLI_DATABASE_URL": "", "DATABASE_URL": clean_db, "JWT_SECRET": "j" * 48},
+    )
+
+    assert result.returncode != 0
+    assert "CLI_DATABASE_URL" in all_output(result)
+    assert clean_db.split("@")[0].split(":")[-1] not in all_output(result)  # the password
+    assert accounts(clean_db) == {}
