@@ -1,0 +1,44 @@
+# group 15.2 test run 2026-11-13T19:45:59Z | free RAM before: 9.47 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/unit
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [  5%]
+........................................................................ [ 10%]
+........................................................................ [ 15%]
+........................................................................ [ 20%]
+........................................................................ [ 25%]
+............................................................sssssss..... [ 31%]
+........................................................................ [ 36%]
+........................................................................ [ 41%]
+..ssss.................................................................. [ 46%]
+........................................................................ [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 62%]
+..................................................s..................... [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 93%]
+........................................................................ [ 98%]
+....................                                                     [100%]
+=============================== warnings summary ===============================
+tests/unit/test_security.py::test_decode_rejects_other_hmac_algorithms
+  /opt/venv/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 48 bytes for SHA384. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [3] tests/unit/test_deployment_files.py:229: git or the repository metadata is not available
+SKIPPED [3] tests/unit/test_deployment_files.py:241: git or the repository metadata is not available
+SKIPPED [1] tests/unit/test_deployment_files.py:248: git or the repository metadata is not available
+SKIPPED [4] tests/unit/test_environment_files.py:147: git or the repository metadata is not available
+SKIPPED [1] tests/unit/test_pdf_child.py:107: AES encryption needs the cryptography package
+1376 passed, 12 skipped, 23 deselected, 1 warning in 42.09s
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

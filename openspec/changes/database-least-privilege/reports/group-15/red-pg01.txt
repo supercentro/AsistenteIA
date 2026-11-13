@@ -1,0 +1,8 @@
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_superuser_refusal.py:22: in <module>
+    from app.core.database import SuperuserConnectionError, assert_restricted_database_role
+E   ImportError: cannot import name 'SuperuserConnectionError' from 'app.core.database' (C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\app\core\database.py)
+=========================== short test summary info ===========================
+ERROR tests/unit/test_superuser_refusal.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.61s

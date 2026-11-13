@@ -1,0 +1,26 @@
+# group 15.2 mutation run 2026-11-13T19:47:32Z | free RAM before: 9.46 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+20 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | the superuser check never refuses | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_decision_follows_what_the_server_reports[row1-False]
+[1] CAUGHT | the check ignores the roles of the session (reads only the setting) | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_decision_follows_what_the_server_reports[row2-False]
+[2] CAUGHT | an unverifiable identity is accepted (fails open) | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_an_unreachable_database_fails_closed_without_leaking_the_err
+[3] CAUGHT | the API entry point does not check | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_api_entry_point_checks_the_identity
+[4] CAUGHT | the worker main does not enforce the check | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_worker_main_enforces_the_check
+[5] CAUGHT | the test-only exception is accepted in any environment | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_exception_is_rejected_outside_the_test_environment[devel
+[6] CAUGHT | db-migrate does not check the identity | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_identity.py::test_migrate_as_the_administrator_is_refused_before_any_dd
+[7] CAUGHT | db-migrate --downgrade does not check the identity | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_identity.py::test_downgrade_as_the_administrator_changes_nothing
+[8] CAUGHT | db-verify does not check the identity | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_identity.py::test_verify_as_the_administrator_is_refused
+[9] CAUGHT | the identity check accepts any user | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_identity.py::test_migrate_as_the_administrator_is_refused_before_any_dd
+[10] CAUGHT | DELETE of a document commits with a bare commit() | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[dele
+[11] CAUGHT | the shared helper no longer rolls back | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[regi
+[12] CAUGHT | a lost connection is no longer a 503 | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_commit_failure_responses.py::test_a_connection_lost_at_commit_is_a_503_with_the_fixed_b
+[13] CAUGHT | a refused write is reported as a 503 | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_commit_failure_responses.py::test_a_write_refused_at_commit_is_a_500_with_the_fixed_bod
+[14] CAUGHT | db-bootstrap accepts a system database | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_target_guard.py::test_bootstrap_refuses_a_system_database_before_connecting[po
+[15] CAUGHT | db-adopt accepts a system database | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_target_guard.py::test_adopt_refuses_a_system_database_before_connecting[False-
+[16] CAUGHT | the rollback accepts a system database | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_db_admin_target_guard.py::test_the_rollback_refuses_a_system_database_before_connecting
+[17] CAUGHT | the rollback reassigns in another database than the named one | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_acts_only_on_the_named_database_and_reports
+[18] CAUGHT | the rollback does not report the other databases | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_acts_only_on_the_named_database_and_reports
+[19] CAUGHT | the rollback accepts a database that does not exist | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_refuses_a_database_that_does_not_exist
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)

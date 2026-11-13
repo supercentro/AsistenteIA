@@ -1,0 +1,6 @@
+tests\unit\test_deployment_files.py:193: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/unit/test_deployment_files.py::test_the_database_url_examples_use_the_restricted_roles_not_the_administrator
+FAILED tests/unit/test_deployment_files.py::test_the_database_url_examples_differ_only_in_the_role
+FAILED tests/unit/test_deployment_files.py::test_the_examples_do_not_tell_to_reuse_the_administrator_for_the_services
+3 failed, 36 deselected in 0.25s
