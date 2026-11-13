@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import auth, enrollments, subjects
+from app.api.v1.endpoints import auth, documents, enrollments, subjects
 from app.core.errors import ConflictError
 from app.models.subject import Enrollment, Subject
 from app.models.user import User, UserRole
@@ -77,7 +77,7 @@ class Recorder:
             created_at=NOW,
         )
 
-    def delete(self, teacher: User, subject_id: uuid.UUID) -> None:
+    def delete(self, *args: object) -> None:  # a subject, or a document (teacher id first)
         self._run("service")
 
     def enroll(self, teacher: User, subject_id: uuid.UUID, student_email: str) -> EnrollmentRow:
@@ -110,6 +110,12 @@ def delete_subject(r: Recorder) -> Any:
     return subjects.delete_subject(uuid.uuid4(), TEACHER, cast(Any, r), session_of(r))
 
 
+def delete_document(r: Recorder) -> Any:
+    return documents.delete_document(
+        TEACHER, uuid.uuid4(), uuid.uuid4(), cast(Any, r), session_of(r)
+    )
+
+
 def enroll(r: Recorder) -> Any:
     body = EnrollmentRequest(student_email="s@example.com")
     return enrollments.enroll_student(uuid.uuid4(), body, TEACHER, cast(Any, r), session_of(r))
@@ -125,6 +131,7 @@ OPERATIONS: dict[str, Callable[[Recorder], Any]] = {
     "register": register,
     "create-subject": create_subject,
     "delete-subject": delete_subject,
+    "delete-document": delete_document,
     "enroll": enroll,
     "remove-enrollment": remove,
 }

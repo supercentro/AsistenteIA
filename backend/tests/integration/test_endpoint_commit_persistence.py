@@ -19,6 +19,7 @@ from app.models.user import UserRole
 from tests.db_admin_support import Cluster
 from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
 from tests.db_admin_support import scratch_database as scratch_database  # noqa: F401  (fixture)
+from tests.db_roles_support import VECTOR
 from tests.db_roles_support import own_database as own_database
 from tests.integration.helpers import DEFAULT_PASSWORD, bearer, build_app, insert_user, login_token
 
@@ -216,4 +217,43 @@ def test_an_enrollment_removal_is_stored_when_it_answers_204_and_keeps_the_row_w
 
     assert accepted.status_code == 204
     assert world.count("enrollments", f"subject_id = '{subject}'") == 0
+    assert missing.status_code == 404
+
+
+def test_a_document_deletion_is_stored_when_it_answers_204_and_keeps_everything_when_refused(
+    cluster: Cluster, world: World
+) -> None:
+    """15.2 F-1: the deletion of a document commits with the shared helper, like the others."""
+    subject = world.subject()
+    document = uuid.uuid4()
+    with cluster.admin_connection(world.database) as conn:
+        conn.execute(
+            "INSERT INTO documents (id, subject_id, filename, content_type, size_bytes, status) "
+            f"VALUES ('{document}', '{subject}', 'a.txt', 'text/plain', 3, 'ready')"
+        )
+        conn.execute(
+            "INSERT INTO document_chunks "
+            "(document_id, subject_id, chunk_index, content, embedding) "
+            f"VALUES ('{document}', '{subject}', 0, 'abc', {VECTOR})"
+        )
+        conn.execute(f"INSERT INTO ingestion_jobs (document_id) VALUES ('{document}')")
+    url = f"/api/v1/subjects/{subject}/documents/{document}"
+    refuse_commit(cluster, world.database, "documents", "DELETE")
+    with api_client(cluster, world.database) as client:
+        headers = world.teacher_headers(client)
+        refused = client.delete(url, headers=headers)
+        assert_standard_500(refused)
+        # read from another session: the document, its chunk and its job are all still there
+        assert world.count("documents", f"id = '{document}'") == 1
+        assert world.count("document_chunks", f"document_id = '{document}'") == 1
+        assert world.count("ingestion_jobs", f"document_id = '{document}'") == 1
+
+        accept_commit(cluster, world.database, "documents")
+        accepted = client.delete(url, headers=headers)
+        missing = client.delete(url, headers=headers)
+
+    assert accepted.status_code == 204
+    assert world.count("documents", f"id = '{document}'") == 0
+    assert world.count("document_chunks", f"document_id = '{document}'") == 0
+    assert world.count("ingestion_jobs", f"document_id = '{document}'") == 0
     assert missing.status_code == 404

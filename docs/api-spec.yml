@@ -74,11 +74,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '500': { $ref: '#/components/responses/InternalError' }
-        '503':
-          description: Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details)
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /auth/login:
     post:
@@ -173,6 +169,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /users/me/conversations:
     delete:
@@ -216,6 +213,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /subjects/{subject_id}:
     parameters:
@@ -242,6 +240,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /subjects/{subject_id}/enrollments:
     parameters:
@@ -288,6 +287,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /subjects/{subject_id}/enrollments/{student_id}:
     delete:
@@ -306,6 +306,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /subjects/{subject_id}/documents:
     parameters:
@@ -414,6 +415,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /chat:
     post:
@@ -532,9 +535,17 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     InternalError:
       description: |
-        The write was refused when it was committed (for example by the database), so nothing was stored or removed
-        and the client may retry. The commit happens before the success response is built. Code `INTERNAL_ERROR`,
-        no details.
+        Unexpected server error (code `INTERNAL_ERROR`, no details). When the cause is a write that the
+        database refused at commit, the transaction was rolled back and nothing was stored or removed.
+        An error raised after a successful commit is reported the same way, so a client that must be
+        sure reads the resource before it repeats a request that is not idempotent.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ServiceUnavailable:
+      description: |
+        The database could not be reached or the connection was lost (code `SERVICE_UNAVAILABLE`, no details,
+        no connection data). When the connection was lost while the write was being committed, the outcome is
+        uncertain: the change may or may not be stored, so read the resource before repeating the request
+        (a creation that was in fact stored answers 409 when it is repeated).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
     Error:
