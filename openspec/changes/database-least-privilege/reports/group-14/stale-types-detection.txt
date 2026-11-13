@@ -1,0 +1,11 @@
+$ (deliberate contract change: a 507 response added to POST /auth/register, types NOT regenerated)
+warning: in the working copy of 'docs/api-spec.yml', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 13 insertions(+), 7 deletions(-)
+> node scripts/api-types.mjs --check
+
+src/types/api.generated.ts is missing or out of date with docs/api-spec.yml. Run `npm run generate:api` and commit the result.
+exit: 1
+$ (contract restored byte-for-byte: sha before == after: yes)
+
+API types are up to date.
+exit: 0

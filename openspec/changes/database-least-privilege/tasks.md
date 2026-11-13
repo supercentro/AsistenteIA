@@ -117,9 +117,9 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 - [x] 13.2 With curl: register, login, consent (200 and the stored evidence), subjects, enrollments, document upload/list/delete, health; and the denied cases (wrong role, other teacher, unauthenticated) (reports/2026-11-13-step-13-manual-endpoint-testing.md; 101 of 101 checks)
 - [x] 13.3 Verify the database state after each write and restore it; document every command and response in the report (reports/group-13/g13-output.txt; scratch database destroyed, development database unchanged)
 
-## 14. E2E Verification (not applicable: no user interface changes)
+## 14. E2E Verification (no browser E2E required: no interface or logic change; the only frontend file changed is the generated API types)
 
-- [ ] 14.1 Record that no frontend change is made, and that the mocked Playwright suite in CI runs unchanged
+- [x] 14.1 Record that the only frontend file changed is the generated API types (`frontend/src/types/api.generated.ts`, regenerated after the documented `500` responses; no component, logic or dependency change), that the steps of the CI job `frontend` are unchanged and pass locally except Playwright, and that the mocked Playwright suite was NOT run in this group (it runs in CI; no browser E2E was executed here) (finding F-14-1 in reports/2026-11-13-step-14-e2e-applicability.md, correction in reports/2026-11-13-step-14-closure.md)
 
 ## 15. Independent adversarial review of code and tests (required before any real run)
 

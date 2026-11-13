@@ -43,6 +43,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 | L25 | A late edit after the last green gate broke CI | document-ingestion (group 9) | implemented (rule in base-standards 9.9) |
 | L26 | Files that a change modifies but no test reads, and test seams in production code | document-ingestion (groups 10 and 11) | implemented (tests) |
 | L27 | A verification task must not depend on writing to the development database | document-ingestion (group 13) | implemented (tasks.md, development guide) |
+| L30 | A contract edit must regenerate the files derived from it in the same change | database-least-privilege (groups 7 and 14) | implemented (backend standards, development guide) |
 
 ## Lessons
 
@@ -309,3 +310,12 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Solution applied:** the effective variable names were compared with the declared ones, `docker compose up -d --no-build --no-deps --dry-run db` showed that only `db` would be recreated, and the container was recreated with the worker stopped; image, volume, port, network, catalog, rows and revision were identical afterwards. The values were not rotated (TD-038); the shared superuser (TD-030) stays open.
 - **Preventive measure:** after changing the variables of a service, list the variable **names** of the running container (`docker exec <container> env | cut -d= -f1`) and recreate it when they differ; treat "variable removed from a container" as exposure that already happened and rotate the secret when sharing or deploying. The command and the steps are in the Troubleshooting section of `development_guide.md`, linked here and not copied.
 - **Evidence:** `docs/development_guide.md` ("State of the local development environment", Troubleshooting); `docs/technical-debt.md` (TD-038, TD-030).
+
+### L30. A contract edit must regenerate the files derived from it in the same change
+- **Origin:** database-least-privilege (task 7.2 added a response to `docs/api-spec.yml`; found in the E2E applicability review of group 14).
+- **Problem:** the `500` response of `POST /users/me/consent` was documented in `docs/api-spec.yml` and `frontend/src/types/api.generated.ts` was not regenerated, so the `check:api-types` step of the CI job `frontend` would have failed on the first run, before the Playwright suite. The claim "the frontend is unchanged" was true of the source and false of the gate. The same change had also made five more endpoints answer `500` on a refused write without documenting it.
+- **Root cause:** the backend gates (ruff, mypy, pytest, the privilege gate) do not run the frontend checks, the review of group 7 did not include them, and the contract test compares only the document paths, so a missing response elsewhere is invisible to it.
+- **Impact / repetition risk:** a red first CI run on the frontend job and a contract that is silent about a real behaviour; any later spec edit can repeat it. Medium.
+- **Solution applied:** the contract documents the `500` of all six endpoints that commit before answering (shared `InternalError` response), the types were regenerated with `npm run generate:api` (only the contract's additions changed), and a deliberate contract change without regeneration was shown to fail `check:api-types`.
+- **Preventive measure:** whenever `docs/api-spec.yml` changes, run `npm run generate:api` and `npm run check:api-types` in the same change and commit the result; a task that edits the contract lists the derived files; a "no frontend change" statement is verified with `check:api-types`, not only with `git diff -- frontend`.
+- **Evidence:** `openspec/changes/database-least-privilege/reports/2026-11-13-step-14-e2e-applicability.md`, `.../2026-11-13-step-14-closure.md`, `.../group-14/stale-types-detection.txt`.

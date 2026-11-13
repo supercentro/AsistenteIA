@@ -73,6 +73,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/InternalError' }
         '503':
           description: Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details)
           content:
@@ -171,13 +172,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '500':
-          description: |
-            The consent could not be stored (for example the database refused the write). The write is committed before
-            the response, so a 500 means nothing was stored and the client may retry. Code `INTERNAL_ERROR`, no details.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /users/me/conversations:
     delete:
@@ -220,6 +215,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /subjects/{subject_id}:
     parameters:
@@ -245,6 +241,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /subjects/{subject_id}/enrollments:
     parameters:
@@ -290,6 +287,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /subjects/{subject_id}/enrollments/{student_id}:
     delete:
@@ -307,6 +305,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /subjects/{subject_id}/documents:
     parameters:
@@ -530,6 +529,12 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     ValidationError:
       description: Request validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    InternalError:
+      description: |
+        The write was refused when it was committed (for example by the database), so nothing was stored or removed
+        and the client may retry. The commit happens before the success response is built. Code `INTERNAL_ERROR`,
+        no details.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
     Error:

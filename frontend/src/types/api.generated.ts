@@ -98,6 +98,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                500: components["responses"]["InternalError"];
                 /** @description Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details) */
                 503: {
                     headers: {
@@ -306,6 +307,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                500: components["responses"]["InternalError"];
             };
         };
         delete?: never;
@@ -410,6 +412,7 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
             };
         };
         delete?: never;
@@ -478,6 +481,7 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
             };
         };
         options?: never;
@@ -562,6 +566,7 @@ export interface paths {
                 404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
             };
         };
         delete?: never;
@@ -604,6 +609,7 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
             };
         };
         options?: never;
@@ -1229,6 +1235,19 @@ export interface components {
         };
         /** @description Request validation failed */
         ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description The write was refused when it was committed (for example by the database), so nothing was stored or removed
+         *     and the client may retry. The commit happens before the success response is built. Code `INTERNAL_ERROR`,
+         *     no details.
+         */
+        InternalError: {
             headers: {
                 [name: string]: unknown;
             };

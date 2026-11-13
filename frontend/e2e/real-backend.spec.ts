@@ -2,9 +2,18 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
 
 /**
- * Runs the authentication flow against the REAL stack (docker compose: frontend 5173, backend
- * 8000, database). Skipped unless E2E_REAL_BACKEND=1, so CI (which has no backend for this suite)
- * never runs it.
+ * Runs the authentication flow against a REAL stack (frontend 5173, backend 8000, database).
+ * Skipped unless E2E_REAL_BACKEND=1, so CI (which has no backend for this suite) never runs it.
+ *
+ * Since the change `database-least-privilege` the Compose services `backend` and `worker` wait for
+ * the one-shot services `bootstrap` and `migrate`, which read the optional files
+ * `backend/.env.roles` and `backend/.env.migrate` (plus `backend/.env.cli` for the administrative
+ * command). A plain `docker compose up` on a checkout that does not have them does not give a
+ * usable stack, and the real development stack must NOT be moved to the restricted roles without
+ * the owner's authorisation (OpenSpec tasks 3.3b and groups 16 and 17). Run this suite against a
+ * disposable stack instead (a separate Compose project with its own database and temporary
+ * credentials, as in `openspec/changes/database-least-privilege/reports/group-13/`), pointing
+ * E2E_BASE_URL, E2E_API_URL and VITE_API_URL at it.
  *
  *   E2E_REAL_BACKEND=1 npm run test:e2e -- real-backend
  *   E2E_REAL_BACKEND=1 E2E_SHORT_TOKEN=1 ...   also runs the expiry case; the backend must run
