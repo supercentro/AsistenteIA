@@ -155,3 +155,35 @@ def test_the_report_never_contains_the_password() -> None:
     text = cluster.describe(GOOD, "flow")
 
     assert "5433" in text and "password" not in text.lower()
+
+
+# ---- cluster identity and revision checks (review L1 and L8 of group 10)
+
+
+def test_localhost_and_the_loopback_address_are_the_same_server() -> None:
+    assert cluster.same_server(
+        "postgresql+psycopg://u:p@localhost:5433/postgres",
+        "postgresql+psycopg://u:p@127.0.0.1:5433/postgres",
+    )
+
+
+alembic_check = load("alembic_check")
+
+
+@pytest.mark.parametrize(
+    ("head", "current", "expected"),
+    [
+        ("0006", "0006", True),
+        ("0007", "0007", True),
+        ("0010", "0010", True),
+        ("0005", "0005", False),
+        ("0006", "0005", False),
+        ("0006", None, False),
+        (None, None, False),
+        ("abc", "abc", False),
+    ],
+)
+def test_the_database_must_be_at_the_head_and_the_head_at_least_0006(
+    head: str | None, current: str | None, expected: bool
+) -> None:
+    assert alembic_check.acceptable(head, current) is expected

@@ -157,3 +157,73 @@ def test_the_gate_scripts_fail_on_any_error() -> None:
         assert "|| true" not in text and "set +e" not in text
     assert (SCRIPTS / "check_results.py").is_file()
     assert (SCRIPTS / "assert_disposable_cluster.py").is_file()
+
+
+# ---- wiring of the gate script (review M2 of group 10) -------------------------------------------
+
+
+def gate_text() -> str:
+    return (SCRIPTS / "privilege_gate.sh").read_text(encoding="utf-8")
+
+
+def function_body(name: str) -> str:
+    text = gate_text()
+    start = text.index(f"{name}() {{")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_the_summary_checks_the_three_reports_with_their_minimums() -> None:
+    body = function_body("step_summary")
+
+    for report, minimum in (("unit.xml", 60), ("role-suites.xml", 400), ("roles-mode.xml", 480)):
+        assert re.search(rf"{re.escape(report)}:\$\{{MIN_[A-Z_]+:-{minimum}\}}", body), report
+
+
+def test_the_role_bound_and_the_roles_mode_steps_select_the_expected_tests() -> None:
+    suites = function_body("step_role_suites")
+    mode = function_body("step_roles_mode")
+
+    assert "-m role_bound" in suites and "--junitxml" in suites
+    assert "--least-privilege -m least_privilege" in mode and "--junitxml" in mode
+
+
+def test_the_flow_runs_the_real_commands_twice_and_verifies_each_time() -> None:
+    flow = function_body("step_flow")
+
+    for command in ("bootstrap", "migrate", "verify"):
+        assert len(re.findall(rf"^  {command}$", flow, re.MULTILINE)) == 2, command
+    assert "alembic_check.py" in flow
+
+
+def test_the_drift_selfcheck_requires_the_right_failure_and_a_clean_recovery() -> None:
+    body = function_body("step_drift_selfcheck")
+
+    assert "that the matrix does not grant" in body
+    assert "db-grants" in body and body.rstrip().endswith("verify")
+
+
+def test_the_privilege_unit_step_runs_the_matrix_tests_and_the_gate_tests() -> None:
+    body = function_body("step_privilege_unit")
+
+    for name in ("test_db_privileges_matrix", "test_db_privileges_inventory", "test_ci_workflow"):
+        assert name in body
+
+
+def test_every_module_that_builds_a_cluster_is_role_bound_and_none_is_left_out() -> None:
+    from tests.conftest import LEAST_PRIVILEGE_MODULES, ROLE_BOUND_PREFIXES
+
+    integration = Path(__file__).resolve().parents[1] / "integration"
+    for module in sorted(integration.glob("test_*.py")):
+        source = module.read_text(encoding="utf-8")
+        if "cluster as cluster" in source or "import cluster" in source:
+            assert module.stem.startswith(ROLE_BOUND_PREFIXES), module.stem
+            assert module.stem not in LEAST_PRIVILEGE_MODULES, module.stem
+
+
+def test_every_job_has_a_time_limit_and_no_job_keeps_the_token(workflow: dict[str, Any]) -> None:
+    for name, job_ in workflow["jobs"].items():
+        assert 0 < int(job_["timeout-minutes"]) <= 45, name
+        checkout = next(
+            s for s in job_["steps"] if str(s.get("uses", "")).startswith("actions/checkout")
+        )
+        assert checkout["with"]["persist-credentials"] is False, name
