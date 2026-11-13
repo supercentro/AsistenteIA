@@ -105,11 +105,11 @@ erDiagram
 ## Entities
 
 ### users
-- `id` uuid PK (default `gen_random_uuid()`); `name` varchar(100) not null; `email` varchar(255) unique not null (ASCII only and stored lowercase, enforced by check constraints `ck_users_email_lowercase`: `email = lower(email)` and `ck_users_email_ascii`: `octet_length(email) = char_length(email)`; internationalised domains are stored in punycode); `password_hash` text not null (Argon2id); `role` PostgreSQL enum type `user_role` (`teacher`, `student`) not null.
+- `id` uuid PK (default `gen_random_uuid()`); `name` varchar(100) not null; `email` varchar(255) unique not null (ASCII only and stored lowercase, enforced by check constraints `ck_users_email_lowercase`: `email = lower(email)` and `ck_users_email_ascii`: `octet_length(email) = char_length(email)`; internationalised domains are stored in punycode); `password_hash` text not null (Argon2id); `role` PostgreSQL enum type `user_role` (`teacher`, `student`) not null, with the server default `'student'` (migration `0006`).
 - `consent_version` varchar(20) and `consent_accepted_at` timestamptz: evidence of the privacy-policy acceptance; only the latest acceptance is stored (re-acceptance overwrites both). The recorded version must equal the currently configured policy version (`PRIVACY_POLICY_VERSION`). The API must refuse chat usage until consent for the current version is recorded (enforced by the chat change).
-- Teacher accounts are created only by the `python -m app.cli create-teacher` and `seed` commands (public registration creates students), so a role can never be self-assigned.
+- Teacher accounts are created only by the `python -m app.cli create-teacher` and `seed` commands (public registration creates students), so a role can never be self-assigned. This is also enforced by the database (change `database-least-privilege`, option A of DD-9): the registration code does not name `role`, PostgreSQL supplies `student`, and the application role has no `INSERT` or `UPDATE` privilege on `users.role`; the commands run under a separate CLI role (`asistente_cli`, credential in `backend/.env.cli`) that the API never holds.
 - Validation: email format and ASCII-only characters (look-alike Unicode addresses cannot become separate accounts); password length 10-128 (validated at the API layer, never stored; passwords are not Unicode-normalized).
-- Created by migration `0002` (downgrade drops the table, then the `user_role` type).
+- Created by migration `0002` (downgrade drops the table, then the `user_role` type). Migration `0006` adds the default `'student'` to `role` (its downgrade drops only the default; no row changes).
 
 ### subjects
 - `teacher_id` FK → users (must have role `teacher`, enforced in the service layer), `ON DELETE RESTRICT`. Unique `(teacher_id, name)`; names are compared exactly (case-sensitive) after trimming.

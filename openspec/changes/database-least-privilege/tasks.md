@@ -65,15 +65,15 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 - [x] 7.2 Add the explicit `commit()` before the response in the consent endpoint and handle the database error as the other endpoints do (HTTP 500 with the standard error body); verify the consent responses in `docs/api-spec.yml` (users.py; api-spec 500 added) (users.py; api-spec 500)
 - [x] 7.3 Add the rule "an endpoint that promises persistence commits explicitly" to `docs/backend-standards.md` and an audit of the other endpoints (subjects, enrollments and registration flush inside the handler; documents commit explicitly) (backend-standards section 7; TD-039) (backend-standards section 7; TD-039)
 
-## 8. Teacher provisioning separated at database level (design approved 2026-11-12, option A; implementation NOT authorised)
+## 8. Teacher provisioning separated at database level (design approved 2026-11-12, option A; implemented in group 8)
 
 - [x] 8.1 Obtain the owner's decision on the option of DD-9 and record it in `design.md` (done in the group 2 stage at the owner's instruction: option A, five identities)
-- [ ] 8.2 Write the failing tests first (option A): the application role cannot insert or update `users.role` (42501); public registration still stores `student`; the administrative command creates a teacher with its own identity; the API container holds no credential of that identity; `seed` follows the same path
-- [ ] 8.3 Migration `0006` (reversible): server default `'student'` on `users.role`, with migration tests (and `alembic check`); `0004` and `0005` are not edited
-- [ ] 8.4 Registration path omits the role column; model default updated; matrix: `INSERT` on `users` without `role` for the application role
-- [ ] 8.5 New CLI identity, its environment file, `CliSettings` (no JWT secret) and a one-shot Compose service; matrix row for the CLI role
-- [ ] 8.6 Update `docs/data-model.md`, `docs/development_guide.md` and the technical-debt entry for the runtime role capability
-- [ ] 8.7 Mutation-check: restore the broad `INSERT` and show a test fails
+- [x] 8.2 Write the failing tests first (option A): the application role cannot insert or update `users.role` (42501); public registration still stores `student`; the administrative command creates a teacher with its own identity; the API container holds no credential of that identity; `seed` follows the same path (reports/group-8: tdd-red-*.txt, test_db_roles_teacher.py)
+- [x] 8.3 Migration `0006` (reversible): server default `'student'` on `users.role`, with migration tests (and `alembic check`); `0004` and `0005` are not edited (0006_users_role_server_default.py; test_migrations_user_role_default.py)
+- [x] 8.4 Registration path omits the role column; model default updated; matrix: `INSERT` on `users` without `role` for the application role (auth_service, model, KNOWN_GAPS emptied)
+- [x] 8.5 New CLI identity, its environment file, `CliSettings` (no JWT secret) and a one-shot Compose service; matrix row for the CLI role (CliSettings, .env.cli.example, cli Compose service)
+- [x] 8.6 Update `docs/data-model.md`, `docs/development_guide.md` and the technical-debt entry for the runtime role capability (data-model, development_guide, TD-040)
+- [x] 8.7 Mutation-check: restore the broad `INSERT` and show a test fails (reports/group-8/mutation-run.txt, mutation-compose-cli.txt: 15 of 15 caught)
 
 ## 9. Role-bound integration suite
 

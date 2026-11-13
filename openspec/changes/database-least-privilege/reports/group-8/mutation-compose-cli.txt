@@ -1,0 +1,7 @@
+unmutated file: exit 0 (57 passed in 0.69s)
+CAUGHT    the API receives the CLI credential file | test_each_identity_has_its_own_environment_file
+CAUGHT    the cli service starts with every plain up | test_the_cli_is_a_profiled_one_shot_with_its_own_identity
+CAUGHT    the worker receives the CLI credential file | test_each_identity_has_its_own_environment_file
+CAUGHT    the cli service restarts after exit | test_the_cli_is_a_profiled_one_shot_with_its_own_identity
+CAUGHT    the cli service publishes a port | test_the_cli_is_a_profiled_one_shot_with_its_own_identity
+mutations: 5, caught: 5

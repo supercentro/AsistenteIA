@@ -58,7 +58,8 @@ Backend variables. The column **File** says where each one lives: `API` = `backe
 | `EMBEDDER_BACKEND`, `ALLOW_FAKE_EMBEDDER` | worker | `local` (real model) or `fake` (deterministic vectors). `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside production | `local`, `false` |
 | `EMBEDDING_MODEL_PATH` | worker | Directory of the model inside the worker image | `/opt/models/paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_THREADS` | worker | Threads used for inference (1-256). Commented out in `.env.worker.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
-| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | API | Read only by `python -m app.cli seed`; no defaults exist | optional |
+| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | CLI | Read only by `python -m app.cli seed` (environment, `backend/.env.cli` or `backend/.env`); no defaults exist | optional |
+| `CLI_DATABASE_URL` | CLI (`.env.cli`) | URL of the CLI database role used by `create-teacher` and `seed`; deliberately not `DATABASE_URL` | required for the commands |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | db | Read by the `db` compose service | required for compose |
 | `TEST_DATABASE_URL` | `.env.test` (host only) | **Integration tests only**; never read by the application and not part of `backend/.env.example` any more. A legacy value in `backend/.env` is still honoured | required for integration tests |
 | `TEST_ADMIN_DATABASE_URL` | `.env.test` (host only) | Administrator URL of the role-bound tests (same server as `TEST_DATABASE_URL`); they fail, not skip, when it is missing | required for role-bound tests (group 9) |
@@ -243,15 +244,19 @@ Only `backend/app` is mounted into the backend container, so a **new migration f
 
 Teacher accounts can only be created from the command line; no HTTP endpoint creates teachers or changes roles.
 
+The commands run under the **CLI database role** (`asistente_cli`), with the credential in `backend/.env.cli` (copy `backend/.env.cli.example`; the password is `DB_CLI_PASSWORD` of `backend/.env.roles`). The API container never receives that file, and the API database role cannot insert a teacher or change a role (change `database-least-privilege`, group 8). The `cli` Compose service is in the profile `cli`, so a plain `up` never starts it; it waits for `migrate`. Until the stack is moved to the roles flow (task 3.3b and group 16) the older form `docker compose exec backend python -m app.cli ...` no longer works: the command needs `CLI_DATABASE_URL`.
+
 ```bash
 # Interactive hidden prompt (asks twice). The password is never accepted as an argument.
-docker compose exec backend python -m app.cli create-teacher --email teacher@example.com --name "Ana Teacher"
+docker compose run --rm cli create-teacher --email teacher@example.com --name "Ana Teacher"
 # Non-interactive: first line of standard input
-printf '%s\n' "$TEACHER_PASSWORD" | docker compose exec -T backend python -m app.cli create-teacher --email teacher@example.com --password-stdin
+printf '%s\n' "$TEACHER_PASSWORD" | docker compose run --rm -T cli create-teacher --email teacher@example.com --password-stdin
 
 # Demo accounts: one teacher and one student, no subjects. Development and test only.
-# Set the four SEED_* variables first (in backend/.env or with `docker compose exec -e ...`).
-docker compose exec backend python -m app.cli seed
+# Set the four SEED_* variables first (in backend/.env.cli or with `docker compose run --rm -e ...`).
+# APP_ENV is not read from any API file and defaults to production, where the seed is refused:
+# pass `-e APP_ENV=development` (or `test`) explicitly.
+docker compose run --rm -e APP_ENV=development cli seed
 ```
 
 - Passwords are 10-128 characters. Emails must be ASCII (lowercased; write internationalised domains in punycode, for example `user@xn--bcher-kva.com`). An existing email is never modified or promoted (non-zero exit).
