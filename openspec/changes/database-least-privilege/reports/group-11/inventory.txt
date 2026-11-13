@@ -1,0 +1,46 @@
+M db_support.py  env=19 guard=16 alembic=1 settings=3
+M integration/conftest.py  env=4 guard=6 alembic=3 settings=2
+M integration/helpers.py  settings=16
+  integration/test_auth_rate_limit.py  settings=4
+M integration/test_cli.py  env=1 settings=9
+M integration/test_cli_process.py  env=2 settings=4
+  integration/test_consent.py  settings=2
+  integration/test_documents_api.py  settings=2
+  integration/test_email_ascii.py  settings=2
+  integration/test_health.py  settings=6
+  integration/test_migrations.py  alembic=13
+  integration/test_migrations_documents.py  alembic=11
+M integration/test_migrations_ingestion.py  alembic=15
+  integration/test_migrations_subjects.py  alembic=11
+  integration/test_real_server.py  env=5
+  integration/test_review_hardening.py  env=1 compose=3 settings=2
+  integration/test_role_guards.py  settings=4
+  integration/test_transaction.py  settings=2
+  integration/test_upload_concurrency.py  settings=2
+  integration/test_upload_server.py  env=1
+  integration/test_users_me.py  settings=4
+  integration/test_worker_process.py  env=1
+  server_support.py  env=1
+  unit/test_api_contract.py  settings=2
+  unit/test_api_errors.py  settings=2
+  unit/test_auth_settings.py  env=13 settings=14
+  unit/test_chunker_realmodel.py  env=1
+  unit/test_config.py  env=8 guard=4 settings=20
+  unit/test_consent_service.py  settings=2
+  unit/test_db_guard_no_connections.py  guard=16 settings=7
+  unit/test_db_safety.py  guard=29 settings=7
+  unit/test_db_timeout.py  env=3 settings=4
+M unit/test_deployment_files.py  env=51 guard=1 compose=36 settings=9
+  unit/test_embedder.py  settings=2
+  unit/test_embedder_realmodel.py  env=1
+  unit/test_embedding_fixtures.py  env=1
+  unit/test_error_hardening.py  settings=2
+  unit/test_ingestion_settings.py  env=12 settings=13
+  unit/test_normalizer_runs.py  compose=1
+  unit/test_pdf_wrapper.py  env=3 settings=3
+  unit/test_security.py  settings=2
+  unit/test_test_seams.py  settings=2
+  unit/test_worker_health.py  env=2 settings=6
+  unit/test_worker_loop.py  env=1 settings=9
+  unit/test_worker_settings.py  env=23 settings=51
+45 existing files touch these areas; 7 modified; 107 existing test files in main

@@ -101,8 +101,8 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 11. Review and Update Existing Unit Tests (MANDATORY)
 
-- [ ] 11.1 List the existing tests that read the environment files, the guard, `alembic/env.py`, the Compose file or the settings, and update them with their justification; keep every assertion at least as strong
-- [ ] 11.2 Record the list and the reasons in `reports/YYYY-MM-DD-regression-review.md`
+- [x] 11.1 List the existing tests that read the environment files, the guard, `alembic/env.py`, the Compose file or the settings, and update them with their justification; keep every assertion at least as strong (reports/2026-11-13-regression-review.md; reports/group-11: inventory, assertion counts, mutation-regression.txt 10 of 10, mutation-cli-process.txt)
+- [x] 11.2 Record the list and the reasons in `reports/YYYY-MM-DD-regression-review.md` (reports/2026-11-13-regression-review.md)
 
 ## 12. Run Unit Tests and Verify Database State (MANDATORY)
 

@@ -1,0 +1,12 @@
+unmutated copy: exit 0 (179 passed, 11 skipped in 0.95s)
+CAUGHT    TEST_DATABASE_URL comes back into the API example (it moved to .env.test.example) | test_each_secret_variable_is_declared_in_exactly_one_example[TEST_DATABASE_URL-test]
+CAUGHT    the test example holds a real-looking password | test_the_new_examples_hold_only_placeholders[test]
+CAUGHT    the CLI example holds a real-looking password | test_the_new_examples_hold_only_placeholders[cli]
+CAUGHT    the administrator URL example holds a real-looking password | test_the_new_examples_hold_only_placeholders[roles]
+CAUGHT    the compose file loses the bootstrap service dependency of migrate | test_the_order_is_database_then_bootstrap_then_migrate
+CAUGHT    the API receives the migrator file | test_each_service_receives_only_its_own_environment_file
+CAUGHT    the guard compares with nothing when DATABASE_URL is missing | test_the_guard_does_not_silently_skip_the_comparison_without_the_application_url
+CAUGHT    the administrator URL may name another server | test_the_administrator_url_must_be_on_the_same_server_as_the_test_database
+CAUGHT    the migration settings fall back to the API database URL | test_migration_settings_need_only_the_migrator_url
+CAUGHT    the guard accepts a test database named like the application one | test_the_guard_still_rejects_the_same_database_name_on_another_host
+mutations: 10, caught: 10
