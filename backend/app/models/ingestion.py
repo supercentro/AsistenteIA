@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -73,6 +74,11 @@ class IngestionJob(Base):
     """
 
     __tablename__ = "ingestion_jobs"
+    # The lease columns are never set on insert. `FetchedValue()` keeps them out of the INSERT (the
+    # ORM would otherwise send NULL and the application role would need INSERT on the fencing
+    # token), and `eager_defaults=False` keeps them out of RETURNING (which would need SELECT).
+    # Only the worker writes them, with SQL. Decision DD-14 of change `database-least-privilege`.
+    __mapper_args__ = {"eager_defaults": False}
     __table_args__ = (
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
         CheckConstraint("(locked_by IS NULL) = (locked_until IS NULL)", name="lease_consistent"),
@@ -95,8 +101,12 @@ class IngestionJob(Base):
     )
     payload: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    locked_by: Mapped[str | None] = mapped_column(String(CLAIM_TOKEN_MAX_LENGTH), nullable=True)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(
+        String(CLAIM_TOKEN_MAX_LENGTH), nullable=True, server_default=FetchedValue()
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, server_default=FetchedValue()
+    )
     available_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

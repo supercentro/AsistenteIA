@@ -1,0 +1,19 @@
+# group 5 test run 2026-11-13T12:30:21Z | free RAM before: 10.68 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/integration/test_document_models.py tests/integration/test_document_repository.py tests/integration/test_document_storage_integrity.py tests/integration/test_documents_api.py tests/integration/test_documents_leaks.py tests/integration/test_ingestion_end_to_end.py tests/integration/test_ingestion_final_transaction.py tests/integration/test_ingestion_heartbeat.py tests/integration/test_ingestion_job_integrity.py tests/integration/test_ingestion_job_repository.py tests/integration/test_ingestion_lease_fencing.py tests/integration/test_ingestion_service.py tests/integration/test_migrations.py tests/integration/test_migrations_documents.py tests/integration/test_migrations_ingestion.py tests/integration/test_migrations_subjects.py tests/integration/test_migrations_user_role_default.py tests/integration/test_upload_asgi.py tests/integration/test_upload_concurrency.py tests/integration/test_upload_resources.py tests/integration/test_upload_server.py tests/integration/test_worker_process.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 90%]
+............................................                             [100%]
+476 passed in 135.10s (0:02:15)
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

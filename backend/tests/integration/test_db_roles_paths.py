@@ -178,6 +178,17 @@ UNGRANTED = [
     ("app", "UPDATE ingestion_jobs SET attempts = 0"),
     ("app", "SELECT locked_by FROM ingestion_jobs"),
     ("app", "SELECT locked_until FROM ingestion_jobs"),
+    ("app", "SELECT attempts FROM ingestion_jobs"),
+    (
+        "app",
+        "INSERT INTO ingestion_jobs (document_id, payload, locked_by) "
+        "VALUES (gen_random_uuid(), 'x', 't')",
+    ),
+    (
+        "app",
+        "INSERT INTO ingestion_jobs (document_id, payload, locked_until) "
+        "VALUES (gen_random_uuid(), 'x', now())",
+    ),
     ("app", "SELECT created_at FROM document_chunks"),
     ("app", "DELETE FROM document_chunks"),
     ("app", "DELETE FROM ingestion_jobs"),

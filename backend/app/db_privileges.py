@@ -153,10 +153,11 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
             notes=("read by the retrieval query that the chat endpoint will use",),
         ),
         "ingestion_jobs": TableGrant(
-            # Not `locked_by` (the fencing token), `locked_until` or `document_id`.
-            select=_cols("id", "payload", "attempts", "available_at", "created_at", "updated_at"),
-            # locked_by and locked_until: sent as NULL by the ORM (no server default).
-            insert=_cols("document_id", "payload", "locked_by", "locked_until"),
+            # Not `locked_by` (the fencing token), `locked_until` or `document_id`; nor the columns
+            # the INSERT used to return, since the mapper no longer fetches defaults (DD-14).
+            select=_cols("id", "payload"),
+            # locked_by and locked_until are fetched server values: the ORM does not insert them.
+            insert=_cols("document_id", "payload"),
         ),
     },
     WORKER: {

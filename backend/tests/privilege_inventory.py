@@ -31,9 +31,11 @@ APP_DIR = Path(__file__).resolve().parents[1] / "app"
 
 ASSUMPTIONS = (
     "ORM INSERT lists the columns passed to the constructor AND every other column that has no "
-    "server default, as NULL (proved against PostgreSQL in group 5, task 5.4: the first version of "
-    "this assumption, 'only the columns passed', was refuted), and returns the primary key and the "
-    "server-generated columns (SELECT on them).",
+    "server default and is not a `FetchedValue()`, as NULL (proved against PostgreSQL in group 5, "
+    "task 5.4: the first version of this assumption, 'only the columns passed', was refuted; and "
+    "in group 8A for `FetchedValue()`, which keeps a column out of the INSERT), and returns the "
+    "primary key and the server-generated columns (SELECT on them), unless the mapper sets "
+    "`eager_defaults=False`, which returns only the primary key.",
     "A Core insert(Model) executed with a list of rows may return the primary key "
     "(INSERT ... RETURNING pk), observed in the spike (H4); it needs SELECT on the key.",
     "An ORM attribute assignment flushes UPDATE <t> SET <attrs> WHERE <pk> (SELECT on the key).",
@@ -59,6 +61,18 @@ for _name, _table in Base.metadata.tables.items():
         if isinstance(column, Column) and column.server_default is not None
     }
     _PRIMARY_KEY[_name] = _table.primary_key.columns.values()[0].name
+
+# Columns the INSERT ... RETURNING asks for: the key and the server-generated columns, or only the
+# key when the mapper does not fetch defaults eagerly.
+_EAGER_FALSE = {
+    str(mapper.class_.__tablename__)
+    for mapper in Base.registry.mappers
+    if mapper.eager_defaults is False
+}
+_RETURNED: dict[str, set[str]] = {
+    name: {_PRIMARY_KEY[name]} | (set() if name in _EAGER_FALSE else _SERVER_GENERATED[name])
+    for name in Base.metadata.tables
+}
 
 _SQL_KEYWORDS = {
     "where", "set", "join", "on", "left", "right", "inner", "order", "for", "limit", "using",
@@ -402,7 +416,7 @@ class _Walker:
             set(TABLES[table]) - _SERVER_GENERATED[table]
         )  # unset nullable columns go as NULL
         self._add("INSERT", table, columns, call.lineno)
-        self._add("SELECT", table, {_PRIMARY_KEY[table]} | _SERVER_GENERATED[table], call.lineno)
+        self._add("SELECT", table, _RETURNED[table], call.lineno)
 
     def _core_insert(self, call: ast.Call) -> None:
         table = self._entity(call.args[0])
