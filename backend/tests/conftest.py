@@ -44,6 +44,17 @@ LEAST_PRIVILEGE_MODULES = frozenset(
 )
 
 
+# Integration tests that build their own clusters, roles and databases: they need the disposable
+# cluster of the privilege gate (marker `role_bound`) and are left out of the ordinary backend job.
+ROLE_BOUND_PREFIXES = (
+    "test_db_",
+    "test_orm_insert_",
+    "test_consent_persistence",
+    "test_endpoint_commit_persistence",
+    "test_least_privilege_coverage",
+)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--least-privilege",
@@ -57,6 +68,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "least_privilege: also runs under the least-privilege database roles"
     )
+    config.addinivalue_line(
+        "markers",
+        "role_bound: needs the disposable cluster of the privilege gate (CI job privileges)",
+    )
     if config.getoption("--least-privilege"):
         os.environ[ENV_FLAG] = "1"
 
@@ -65,6 +80,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     kept: list[pytest.Item] = []
     dropped: list[pytest.Item] = []
     for item in items:
+        if item.path.stem.startswith(ROLE_BOUND_PREFIXES):
+            item.add_marker(pytest.mark.role_bound)
         if item.path.stem in LEAST_PRIVILEGE_MODULES:
             item.add_marker(pytest.mark.least_privilege)
         elif config.getoption("--least-privilege"):
