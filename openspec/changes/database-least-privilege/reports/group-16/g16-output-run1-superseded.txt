@@ -1,0 +1,525 @@
+=== 0 preflight 2026-11-13T21:08:32Z
+free host RAM before: 12.17 GB (the rehearsal needs 8)
+repo HEAD: a953b6f
+=== 16.1a the backup (read only)
+  [1] PASS sha256 of the dump equals the recorded .sha256 file | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+  [2] PASS sha256 of the dump equals the manifest | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+    manifest: created (UTC):   20261112T034241Z;database:        asistenteia (development), alembic revision 0004;format:          pg_dump -Fc (custom), PostgreSQL 15.19 (pg_dump 15.19), pgvector 0.8.7;rows:            users 0, subjects 0, enrollments 0, documents 0, document_chunks 0;
+  [3] PASS the second copy has the same sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+  [4] PASS the working copy has the same sha256 (the original is never written) | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+=== images (the API from this branch; the worker = main's worker image with this branch's code)
+images built: asistenteia-backend:g16-branch, asistenteia-worker:g16-branch
+=== 16.1b the disposable cluster
+server: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linux-gnu, com
+pgvector available: 0.8.7
+identity: container g16pg513, network g16net513 (only member network: g16net513 )
+published ports: [] | mounts: 0 (data on tmpfs)
+  [5] PASS the cluster shares no network with the development stack | expected 0, obtained 0
+  [6] PASS no volume of the development database is mounted in the rehearsal cluster | expected 0, obtained 0
+  [7] PASS initial roles of the cluster | expected asistente(superuser), obtained asistente(superuser)
+=== 16.1c restore the backup into two databases (the main one and a second copy for the scoping tests)
+  [pg_restore --list] rc=0 (243 ms)
+      | 3506; 1259 503148 INDEX public ix_document_chunks_subject_id asistente
+      | 3500; 1259 503127 INDEX public ix_documents_subject_id asistente
+      | 3495; 1259 114351 INDEX public ix_enrollments_student_id asistente
+      | 3515; 2606 503143 FK CONSTRAINT public document_chunks fk_document_chunks_document_id_documents asistente
+      | 3514; 2606 503122 FK CONSTRAINT public documents fk_documents_subject_id_subjects asistente
+      | 3512; 2606 114346 FK CONSTRAINT public enrollments fk_enrollments_student_id_users asistente
+      | 3513; 2606 114341 FK CONSTRAINT public enrollments fk_enrollments_subject_id_subjects asistente
+      | 3511; 2606 114327 FK CONSTRAINT public subjects fk_subjects_teacher_id_users asistente
+  [8] FAIL the table of contents lists 51 entries | expected 51, obtained 36
+  [pg_restore into asistenteia] rc=0 (274 ms)
+  [pg_restore into asistenteia_copy2] rc=0 (255 ms)
+  restored asistenteia: revision 0004, owners [alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,subjects=asistente,users=asistente], counts [ERROR:  relation "ingestion_jobs" does not exist
+LINE 1: ...document_chunks)||',jobs='||(select count(*) from ingestion_...
+                                                             ^], vector 0.8.7
+  [9] PASS asistenteia restored at the revision of the backup | expected 0004, obtained 0004
+  [10] PASS asistenteia: every restored table is owned by the original administrator | expected asistente, obtained asistente
+  restored asistenteia_copy2: revision 0004, owners [alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,subjects=asistente,users=asistente], counts [ERROR:  relation "ingestion_jobs" does not exist
+LINE 1: ...document_chunks)||',jobs='||(select count(*) from ingestion_...
+                                                             ^], vector 0.8.7
+  [11] PASS asistenteia_copy2 restored at the revision of the backup | expected 0004, obtained 0004
+  [12] PASS asistenteia_copy2: every restored table is owned by the original administrator | expected asistente, obtained asistente
+  catalog fingerprint of the restored backup: bcf7be1268b8f46acb84ce8cb8cc1d7e
+=== 16.2a bring the copy to the state of the development database (0005, still the original owner)
+  [alembic upgrade 0005 as the original administrator (asistenteia)] rc=0 (1419 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+  [alembic upgrade 0005 as the original administrator (asistenteia_copy2)] rc=0 (1343 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+  [13] PASS asistenteia at 0005 | expected 0005, obtained 0005
+  [14] PASS asistenteia_copy2 at 0005 | expected 0005, obtained 0005
+  [15] PASS every table (including alembic_version) is owned by the original administrator | expected asistente|asistente, obtained asistente|asistente
+  [16] PASS users.role has no default yet (it is the 0006 migration) | expected (none), obtained (none)
+=== synthetic rows in the second copy (the main copy stays empty like the development database)
+  state before, asistenteia : rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  state before, asistenteia_copy2: rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1;fp=820f07555bee9ad33015fac0d05389be
+  database ACLs before the bootstrap: asistenteia=(default) ; asistenteia_copy2=(default) ; postgres=(default) ; template0={=c/asistente,asistente=CTc/asistente} ; template1={=c/asistente,asistente=CTc/asistente}
+=== 16.2b bootstrap (roles, access, extension); the ownership drift of the old tables is REPORTED, not repaired (exit 1)
+  [db-bootstrap asistenteia] rc=1 (1314 ms)
+      |   table document_chunks owned by asistente
+      |   table documents owned by asistente
+      |   table enrollments owned by asistente
+      |   table ingestion_jobs owned by asistente
+      |   table subjects owned by asistente
+      |   table users owned by asistente
+      |   type document_status owned by asistente
+      |   type user_role owned by asistente
+  [17] PASS bootstrap reports the drift with exit 1 before the adoption | expected 1, obtained 1
+  [db-bootstrap asistenteia_copy2] rc=1 (1332 ms)
+      |   table document_chunks owned by asistente
+      |   table documents owned by asistente
+      |   table enrollments owned by asistente
+      |   table ingestion_jobs owned by asistente
+      |   table subjects owned by asistente
+      |   table users owned by asistente
+      |   type document_status owned by asistente
+      |   type user_role owned by asistente
+  roles now: asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker
+  database ACLs after the bootstrap (PG-08: PUBLIC is closed on every database of the cluster): asistenteia={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; asistenteia_copy2={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; postgres={asistente=CTc/asistente} ; template0={asistente=CTc/asistente} ; template1={asistente=CTc/asistente}
+  [18] PASS the four roles exist and none but the administrator is a superuser | expected asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker, obtained asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker
+  [19] PASS the bootstrap did not touch ownership, revision or rows of asistenteia | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+=== failure BEFORE the adoption: verify finds the drift; the migrator cannot migrate tables it does not own
+  [db-verify before adoption] rc=1 (1483 ms)
+      | [privileges] asistente_worker lacks SELECT (content_type, filename, id, status, subject_id) on documents
+      | [privileges] asistente_worker lacks UPDATE (chunks_count, error_code, error_message, status) on documents
+      | [privileges] asistente_worker lacks SELECT (attempts, available_at, created_at, document_id, id, locked_by, locked_until, payload) on ingestion_jobs
+      | [privileges] asistente_worker lacks UPDATE (attempts, locked_by, locked_until, payload, updated_at) on ingestion_jobs
+      | [privileges] asistente_cli lacks SELECT (consent_accepted_at, consent_version, created_at, email, id, name, password_hash, role) on users
+      | [privileges] asistente_cli lacks INSERT (email, name, password_hash, role) on users
+  [20] PASS verify before the adoption exits 1 | expected 1, obtained 1
+  [db-migrate before adoption (must fail safe)] rc=1 (1396 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | Error: ProgrammingError (SQLSTATE 42501)
+  [21] PASS migrating before the adoption fails | expected 1, obtained 1
+  [22] PASS nothing changed after the refused migration | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [23] PASS users.role still without default | expected (none), obtained (none)
+=== wrong identity
+  [db-migrate with the administrator URL] rc=1 (1277 ms)
+      | Error: db-migrate must connect as the migrator role asistente_migrator; check the URL (nothing was changed)
+  [24] PASS refused (exit 1) | expected 1, obtained 1
+  [db-migrate --downgrade with the administrator URL] rc=1 (1286 ms)
+      | Error: db-migrate --downgrade must connect as the migrator role asistente_migrator; check the URL (nothing was changed)
+  [25] PASS refused (exit 1) | expected 1, obtained 1
+  [db-migrate with the application role URL] rc=1 (1308 ms)
+      | Error: db-migrate must connect as the migrator role asistente_migrator; check the URL (nothing was changed)
+  [26] PASS refused (exit 1) | expected 1, obtained 1
+  [db-verify with the administrator URL] rc=1 (1370 ms)
+      | Error: db-verify must connect as the migrator role asistente_migrator; check the URL (nothing was changed)
+  [27] PASS refused (exit 1) | expected 1, obtained 1
+  [28] PASS no change after the wrong identities | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+=== wrong database and system databases
+  [db-bootstrap --database postgres] rc=1 (1283 ms)
+      | Error: db-bootstrap cannot target a system database (postgres, template0, template1); name the application database
+  [29] PASS bootstrap refuses postgres | expected 1, obtained 1
+  [db-adopt --database postgres] rc=1 (1283 ms)
+      | Error: db-adopt cannot target a system database (postgres, template0, template1); name the application database
+  [30] PASS adopt refuses postgres | expected 1, obtained 1
+  [db-adopt --rollback --apply --database postgres] rc=1 (1264 ms)
+      | Error: db-adopt --rollback cannot target a system database (postgres, template0, template1); name the application database
+  [31] PASS rollback refuses postgres | expected 1, obtained 1
+  [db-bootstrap --database template0] rc=1 (1326 ms)
+      | Error: db-bootstrap cannot target a system database (postgres, template0, template1); name the application database
+  [32] PASS bootstrap refuses template0 | expected 1, obtained 1
+  [db-adopt --database template0] rc=1 (1285 ms)
+      | Error: db-adopt cannot target a system database (postgres, template0, template1); name the application database
+  [33] PASS adopt refuses template0 | expected 1, obtained 1
+  [db-adopt --rollback --apply --database template0] rc=1 (1302 ms)
+      | Error: db-adopt --rollback cannot target a system database (postgres, template0, template1); name the application database
+  [34] PASS rollback refuses template0 | expected 1, obtained 1
+  [db-bootstrap --database template1] rc=1 (1286 ms)
+      | Error: db-bootstrap cannot target a system database (postgres, template0, template1); name the application database
+  [35] PASS bootstrap refuses template1 | expected 1, obtained 1
+  [db-adopt --database template1] rc=1 (1267 ms)
+      | Error: db-adopt cannot target a system database (postgres, template0, template1); name the application database
+  [36] PASS adopt refuses template1 | expected 1, obtained 1
+  [db-adopt --rollback --apply --database template1] rc=1 (1300 ms)
+      | Error: db-adopt --rollback cannot target a system database (postgres, template0, template1); name the application database
+  [37] PASS rollback refuses template1 | expected 1, obtained 1
+  [db-bootstrap --database POSTGRES] rc=1 (1316 ms)
+      | Error: db-bootstrap cannot target a system database (postgres, template0, template1); name the application database
+  [38] PASS bootstrap refuses POSTGRES | expected 1, obtained 1
+  [db-adopt --database POSTGRES] rc=1 (1269 ms)
+      | Error: db-adopt cannot target a system database (postgres, template0, template1); name the application database
+  [39] PASS adopt refuses POSTGRES | expected 1, obtained 1
+  [db-adopt --rollback --apply --database POSTGRES] rc=1 (1298 ms)
+      | Error: db-adopt --rollback cannot target a system database (postgres, template0, template1); name the application database
+  [40] PASS rollback refuses POSTGRES | expected 1, obtained 1
+  [db-adopt --database a_database_that_does_not_exist] rc=1 (1346 ms)
+      | Error: cannot connect to db:5432 as asistente (SQLSTATE none, OperationalError)
+  [41] PASS adopt of a missing database fails (exit 1) | expected 1, obtained 1
+  [db-adopt --rollback --apply --database a_database_that_does_not_exist] rc=1 (1315 ms)
+      | Error: database a_database_that_does_not_exist does not exist or does not accept connections
+  [42] PASS rollback of a missing database is refused (exit 1) | expected 1, obtained 1
+  [43] PASS nothing changed in the cluster after those refusals | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [44] PASS roles unchanged after those refusals | expected asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker, obtained asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker
+=== adoption: dry run, then the partial-failure cases, then the real adoption (in the copy only)
+  [db-adopt dry run] rc=0 (1335 ms)
+      | adoption dry run (nothing changed; use --apply): 9 object(s)
+      |   table alembic_version: asistente -> asistente_migrator
+      |   table document_chunks: asistente -> asistente_migrator
+      |   table documents: asistente -> asistente_migrator
+      |   table enrollments: asistente -> asistente_migrator
+      |   table ingestion_jobs: asistente -> asistente_migrator
+      |   table subjects: asistente -> asistente_migrator
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [45] PASS the dry run exits 0 | expected 0, obtained 0
+  [46] PASS the dry run changed nothing | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  a session that holds the database blocks the adoption (guard)
+  [db-adopt --apply with a foreign session] rc=1 (1284 ms)
+      | Error: session(s) hold this database; stop the API, the worker and the CLI before adopting: asistente [psql] x1
+  [47] PASS refused while another session holds the database (exit 1) | expected 1, obtained 1
+  [48] PASS nothing changed after the refusal | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  PARTIAL failure: a prepared transaction (no session) holds a lock on one table, so the adoption alters others and then times out
+    prepared transactions: 1 ; sessions on asistenteia: 0
+  [db-adopt --apply with a lock held by a prepared transaction] rc=1 (6341 ms)
+      | Error: could not get a lock within lock_timeout; nothing was changed
+  [49] PASS the adoption fails on the lock timeout (exit 1) | expected 1, obtained 1
+  [50] PASS ATOMIC: owners, types, rows and catalog are exactly as before | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [51] PASS the lock holder is gone | expected 0, obtained 0
+  [db-adopt --apply (asistenteia)] rc=0 (1303 ms)
+      | adoption applied: 9 object(s)
+      |   table alembic_version: asistente -> asistente_migrator
+      |   table document_chunks: asistente -> asistente_migrator
+      |   table documents: asistente -> asistente_migrator
+      |   table enrollments: asistente -> asistente_migrator
+      |   table ingestion_jobs: asistente -> asistente_migrator
+      |   table subjects: asistente -> asistente_migrator
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [52] PASS adoption applied (exit 0) | expected 0, obtained 0
+  [53] PASS every table and the enum types now belong to the migrator | expected asistente_migrator|asistente_migrator, obtained asistente_migrator|asistente_migrator
+  [54] PASS revision, rows and catalog are unchanged by the adoption | expected rev=0005;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [db-adopt --apply (asistenteia_copy2, with the bulk rows)] rc=0 (1332 ms)
+      |   table document_chunks: asistente -> asistente_migrator
+      |   table documents: asistente -> asistente_migrator
+      |   table enrollments: asistente -> asistente_migrator
+      |   table ingestion_jobs: asistente -> asistente_migrator
+      |   table subjects: asistente -> asistente_migrator
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [55] PASS adoption of the second copy applied (exit 0) | expected 0, obtained 0
+    PG-08 / TD-044: adoption of asistenteia_copy2 with 200002 users took 1561 ms including the container start (the row counts run inside the exclusive-lock transaction)
+  [56] PASS the second copy kept all its rows | expected counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1, obtained counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1
+=== migration 0006 as the migrator, the grants, and the verifier
+  [db-migrate (asistenteia)] rc=0 (1442 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+      | migrated to head and applied the privilege grants
+  [57] PASS migrated to head and granted (exit 0) | expected 0, obtained 0
+  [db-migrate (asistenteia_copy2)] rc=0 (1382 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+      | migrated to head and applied the privilege grants
+  [58] PASS second copy migrated (exit 0) | expected 0, obtained 0
+  [59] PASS asistenteia at 0006 | expected 0006, obtained 0006
+  [60] PASS asistenteia_copy2 at 0006 | expected 0006, obtained 0006
+  [61] PASS users.role DEFAULT is 'student' | expected 'student'::user_role, obtained 'student'::user_role
+  [db-grants] rc=0 (1327 ms)
+      | applied 52 grant statement(s) in one transaction
+  [62] PASS grants applied again (idempotent, exit 0) | expected 0, obtained 0
+  [db-verify (asistenteia)] rc=1 (1360 ms)
+      | [databases] asistente_migrator can connect to database asistenteia_copy2
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  [63] FAIL db-verify reports no drift on the main copy | expected 0, obtained 1
+  [db-verify (asistenteia_copy2)] rc=1 (1436 ms)
+      | [databases] asistente_migrator can connect to database asistenteia
+      | [databases] asistente_app can connect to database asistenteia
+      | [databases] asistente_worker can connect to database asistenteia
+      | [databases] asistente_cli can connect to database asistenteia
+  [64] FAIL db-verify reports no drift on the second copy | expected 0, obtained 1
+  [65] PASS the bulk copy kept its rows through adoption, migration and grants | expected counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1, obtained counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1
+=== effective privileges of the roles (the verifier recomputes them per column; these are independent probes)
+  roles: asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker
+  attributes: asistente_app:super=false:createrole=false:createdb=false:limit=20 asistente_cli:super=false:createrole=false:createdb=false:limit=3 asistente_migrator:super=false:createrole=false:createdb=false:limit=5 asistente_worker:super=false:createrole=false:createdb=false:limit=10
+  [66] PASS no working role is a superuser or can create roles or databases | expected 0, obtained 0
+  [67] PASS API role cannot insert a teacher | expected permission denied, obtained permission denied
+  [68] PASS API role cannot change users.role | expected permission denied, obtained permission denied
+  [69] PASS worker role cannot read users | expected permission denied, obtained permission denied
+  [70] PASS CLI role cannot read documents | expected permission denied, obtained permission denied
+  [71] PASS no role but the migrator can create objects | expected permission denied, obtained permission denied
+=== functional validation with the roles (synthetic data): API as asistente_app, worker as asistente_worker, teachers by the CLI
+  API log: 2 start line(s) | worker started: 1
+  sessions by role: asistente_app=1 asistente_worker=1
+=== functional: health and unauthenticated access
+  [72] PASS GET /health | expected 200, obtained 200
+    body: {'status': 'ok'}
+  [73] PASS GET /users/me | expected 401, obtained 401
+  [74] PASS GET /subjects | expected 401, obtained 401
+  [75] PASS POST /subjects | expected 401, obtained 401
+=== registration (public, students only)
+  [76] PASS POST /auth/register | expected 201, obtained 201
+  [77] PASS registered role is student | expected student, obtained student
+  [78] PASS stored role in the database | expected student, obtained student
+  [79] PASS POST /auth/register | expected 201, obtained 201
+  [80] PASS a payload asking for role teacher still creates a student | expected student, obtained student
+  [81] PASS POST /auth/register | expected 409, obtained 409
+  [82] PASS a duplicate registration stores no second row | expected 1, obtained 1
+  [83] PASS POST /auth/register | expected 422, obtained 422
+  [84] PASS users stored so far | expected 2, obtained 2
+=== login and JWT
+  [85] PASS POST /auth/login | expected 200, obtained 200
+  [86] PASS POST /auth/login | expected 200, obtained 200
+  [87] PASS POST /auth/login | expected 401, obtained 401
+  [88] PASS GET /users/me | expected 200, obtained 200
+  [89] PASS the profile is the caller's | expected cfb989d7-6f9f-429c-b82b-2c42638f1d4c, obtained cfb989d7-6f9f-429c-b82b-2c42638f1d4c
+  [90] PASS GET /users/me | expected 401, obtained 401
+=== teacher accounts through the administrative command (role asistente_cli)
+Created teacher id=<id> email=teacher1@example.com
+  [91] PASS stored role of teacher1 | expected teacher, obtained teacher
+  [92] PASS stored role of teacher2 | expected teacher, obtained teacher
+Error: An account with this email already exists; nothing was changed
+  [93] PASS a duplicate teacher stores no second row | expected 1, obtained 1
+  [94] PASS POST /auth/login | expected 200, obtained 200
+  [95] PASS POST /auth/login | expected 200, obtained 200
+=== consent (200 and the stored evidence)
+  [96] PASS POST /users/me/consent | expected 422, obtained 422
+    error code: INVALID_CONSENT_VERSION
+  [97] PASS nothing stored after a wrong version | expected , obtained 
+  [98] PASS POST /users/me/consent | expected 200, obtained 200
+  [99] PASS stored consent version | expected 2026-10-v1, obtained 2026-10-v1
+  [100] PASS stored consent time is set | expected t, obtained t
+  [101] PASS POST /users/me/consent | expected 200, obtained 200
+  [102] PASS POST /users/me/consent | expected 200, obtained 200
+  [103] PASS POST /users/me/consent | expected 401, obtained 401
+=== subjects (wrong role, other teacher, unauthenticated)
+  [104] PASS POST /subjects | expected 403, obtained 403
+  [105] PASS no subject stored by the student | expected 0, obtained 0
+  [106] PASS POST /subjects | expected 201, obtained 201
+  [107] PASS stored subject | expected 1, obtained 1
+  [108] PASS owner of the stored subject is teacher1 | expected teacher1@example.com, obtained teacher1@example.com
+  [109] PASS POST /subjects | expected 409, obtained 409
+  [110] PASS a duplicate name stores no second subject | expected 1, obtained 1
+  [111] PASS GET /subjects | expected 200, obtained 200
+  [112] PASS teacher1 lists one subject | expected 1, obtained 1
+  [113] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 200, obtained 200
+  [114] PASS GET /subjects | expected 200, obtained 200
+  [115] PASS teacher2 lists no subject of teacher1 | expected 0, obtained 0
+  [116] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 404, obtained 404
+  [117] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 404, obtained 404
+  [118] PASS the subject is still stored after the other teacher's delete | expected 1, obtained 1
+  [119] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 404, obtained 404
+  [120] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 401, obtained 401
+=== enrollments
+  [121] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 403, obtained 403
+  [122] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 404, obtained 404
+  [123] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 404, obtained 404
+  [124] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 201, obtained 201
+  [125] PASS stored enrollment | expected 1, obtained 1
+  [126] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 409, obtained 409
+  [127] PASS a duplicate enrollment stores no second row | expected 1, obtained 1
+  [128] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 201, obtained 201
+  [129] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 200, obtained 200
+  [130] PASS the teacher lists two enrollments | expected 2, obtained 2
+  [131] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments | expected 403, obtained 403
+  [132] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 200, obtained 200
+  [133] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments/acba3d06-77dc-4c13-8e57-5a79577d2923 | expected 204, obtained 204
+  [134] PASS the removed enrollment is gone, the other stays | expected 1, obtained 1
+  [135] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/enrollments/acba3d06-77dc-4c13-8e57-5a79577d2923 | expected 404, obtained 404
+  [136] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 404, obtained 404
+=== documents (TXT, Markdown, PDF) processed by the worker role
+  [137] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload notes.txt) | expected 403, obtained 403
+  [138] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload notes.txt) | expected 401, obtained 401
+  [139] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload notes.txt) | expected 404, obtained 404
+  [140] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload payload.exe) | expected 415, obtained 415
+  [141] PASS nothing stored by the refused uploads | expected 0, obtained 0
+  [142] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload notes.txt) | expected 202, obtained 202
+  [143] PASS the TXT document is persisted after the 202 | expected 1, obtained 1
+  [144] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload limits.md) | expected 202, obtained 202
+  [145] PASS POST /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents (upload series.pdf) | expected 202, obtained 202
+    document status after the worker: ready
+    document status after the worker: ready
+    document status after the worker: ready
+  [146] PASS TXT is ready | expected ready, obtained ready
+  [147] PASS Markdown is ready | expected ready, obtained ready
+  [148] PASS PDF is ready | expected ready, obtained ready
+  [149] PASS the three documents produced chunks | expected t, obtained t
+  [150] PASS the PDF chunks carry page numbers | expected t, obtained t
+  [151] PASS no job keeps the uploaded bytes after processing | expected 0, obtained 0
+  [152] PASS no lease is left | expected 0, obtained 0
+  [153] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents | expected 200, obtained 200
+  [154] PASS the teacher lists three ready documents | expected 3 ready, obtained 3 ready
+  [155] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents | expected 403, obtained 403
+  [156] PASS GET /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents | expected 404, obtained 404
+  [157] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents/2f81c727-bcf0-492e-81a8-84a351886ed2 | expected 404, obtained 404
+  [158] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents/2f81c727-bcf0-492e-81a8-84a351886ed2 | expected 403, obtained 403
+  [159] PASS the TXT document survives the refused deletes | expected 1, obtained 1
+  [160] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents/2f81c727-bcf0-492e-81a8-84a351886ed2 | expected 204, obtained 204
+  [161] PASS deleted document is gone | expected 0, obtained 0
+  [162] PASS its chunks and job are gone (cascade) | expected 0, obtained 0
+  [163] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997/documents/2f81c727-bcf0-492e-81a8-84a351886ed2 | expected 404, obtained 404
+=== subject deletion and cascades
+  [164] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 204, obtained 204
+  [165] PASS subject gone | expected 0, obtained 0
+  [166] PASS enrollments, documents, chunks and jobs of the subject are gone | expected 0, obtained 0
+  [167] PASS DELETE /subjects/aa7e6c8b-a84f-408d-923e-645cc954e997 | expected 404, obtained 404
+  [168] PASS the four accounts remain | expected 4, obtained 4
+=== isolation of the roles, checked with SQL on the live database
+  API role: forged teacher insert -> ERROR:  permission denied for table users 
+  API role: update users.role      -> ERROR:  permission denied for table users 
+  API role: DDL (create table)     -> ERROR:  permission denied for schema public LINE 1: CREATE TABLE public.forged (i int)                      ^ 
+  API role: create role            -> ERROR:  permission denied to create role 
+  API role: other database         -> psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  permission denied for database "postgres" DETAIL:  User does not have CONNECT privilege. 
+  worker: read users               -> ERROR:  permission denied for table users 
+  worker: read subjects            -> ERROR:  permission denied for table subjects 
+  worker: delete documents         -> ERROR:  permission denied for table documents 
+  worker: DDL (create table)       -> ERROR:  permission denied for schema public LINE 1: CREATE TABLE public.forged (i int)                      ^ 
+  CLI: read documents              -> ERROR:  permission denied for table documents 
+  CLI: update users.role           -> ERROR:  permission denied for table users 
+  CLI: read jobs                   -> ERROR:  permission denied for table ingestion_jobs 
+  CLI: read accounts (allowed)     -> 4 
+  [169] PASS every unauthorised statement above was refused by PostgreSQL | expected 9, obtained 9
+  [170] PASS no forged table or role was created | expected 0, obtained 0
+  [171] PASS no forged user exists | expected 0, obtained 0
+  [172] PASS no runtime or migrator role is a superuser | expected 0, obtained 0
+sessions by role during the run: asistente_app=1 asistente_worker=1
+secrets by service (variable NAMES only):
+  g16api513: APP_ENV CORS_ORIGINS DATABASE_URL JWT_SECRET 
+  g16wk513: APP_ENV DATABASE_URL DB_CONNECT_TIMEOUT_SECONDS DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS DB_STATEMENT_TIMEOUT_WORKER_SECONDS EMBEDDER_BACKEND 
+  g16pg513: POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER 
+  cli (run on demand): CLI_DATABASE_URL 
+published ports: API 8000/tcp -> 127.0.0.1:52650  | database: [] | worker: []
+  [db-verify after the functional run (asistenteia)] rc=1 (1381 ms)
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  [173] FAIL db-verify has no drift after the functional run | expected 0, obtained 1
+  final functional state: users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0
+=== re-execution and idempotence (everything again on the adopted copy)
+  [db-bootstrap again] rc=0 (1389 ms)
+      | roles updated: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+      | databases closed to PUBLIC: 5
+      | ownership: no drift
+  [174] PASS bootstrap again: exit 0 (no drift any more) | expected 0, obtained 0
+  [db-adopt again (dry run)] rc=0 (1365 ms)
+      | adoption dry run (nothing changed; use --apply): 0 object(s)
+  [175] PASS adopt again: exit 0, nothing to do | expected 0, obtained 0
+  [db-adopt --apply again] rc=0 (1326 ms)
+      | adoption dry run (nothing changed; use --apply): 0 object(s)
+  [176] PASS adopt --apply again: exit 0 | expected 0, obtained 0
+  [db-migrate again] rc=0 (1405 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | migrated to head and applied the privilege grants
+  [177] PASS migrate again: exit 0 | expected 0, obtained 0
+  [db-grants again] rc=0 (1311 ms)
+      | applied 52 grant statement(s) in one transaction
+  [178] PASS grants again: exit 0 | expected 0, obtained 0
+  [db-verify again] rc=1 (1433 ms)
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  [179] FAIL verify again: no drift | expected 0, obtained 1
+  [180] FAIL the second copy is closed to PUBLIC too (bootstrap ran for it): verify | expected 0, obtained 1
+=== PG-05: the grants run after Alembic; a column added by a migration is visible to table-level grants until db-grants
+  roles that can SELECT the new column, per table: ERROR:  column "g16_probe" of relation "alembic_version" does not exist
+  [db-verify with the exposed columns] rc=1 (1463 ms)
+      | [privileges] asistente_app has SELECT (g16_probe) on documents that the matrix does not grant
+      | [privileges] asistente_app has SELECT (g16_probe) on enrollments that the matrix does not grant
+      | [privileges] asistente_app has SELECT (g16_probe) on subjects that the matrix does not grant
+      | [privileges] asistente_app has SELECT (g16_probe) on users that the matrix does not grant
+      | [privileges] asistente_cli has SELECT (g16_probe) on users that the matrix does not grant
+  verify exit code with a column added outside db-migrate: 1 (1 = it is detected)
+  [db-grants heals it] rc=0 (1389 ms)
+      | applied 52 grant statement(s) in one transaction
+  [db-verify after db-grants] rc=1 (1424 ms)
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  verify after db-grants: 1
+  [db-verify after dropping the probe columns] rc=1 (1471 ms)
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  [181] FAIL the probe columns are gone and the database matches the design | expected 0, obtained 1
+=== PG-08: a database whose name has a quote makes the bootstrap abort (availability); nothing is changed
+  [db-bootstrap with a quoted database name present] rc=1 (1330 ms)
+      | Error: a catalog name (9 characters) cannot be quoted
+  [182] PASS the bootstrap aborts (exit 1) | expected 1, obtained 1
+  [183] PASS and changed nothing (state, roles, database ACLs) | expected rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be|asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker|asistenteia={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; asistenteia_copy2={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; g16"quote=(default) ; postgres={asistente=CTc/asistente} ; template0={asistente=CTc/asistente} ; template1={asistente=CTc/asistente}, obtained rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be|asistente(superuser),asistente_app,asistente_cli,asistente_migrator,asistente_worker|asistenteia={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; asistenteia_copy2={asistente=CTc/asistente,asistente_migrator=c/asistente,asistente_app=c/asistente,asistente_worker=c/asistente,asistente_cli=c/asistente} ; g16"quote=(default) ; postgres={asistente=CTc/asistente} ; template0={asistente=CTc/asistente} ; template1={asistente=CTc/asistente}
+=== rollback and recovery: the way back, one database at a time
+  1. dry run of the rollback names the database only
+  [db-adopt --rollback (dry run) asistenteia] rc=0 (1287 ms)
+      | dry run: --rollback would REASSIGN OWNED BY the migrator to the administrator in database asistenteia only; nothing was changed, add --apply to do it
+  [184] PASS dry run exit 0 | expected 0, obtained 0
+  [185] PASS dry run changed nothing | expected rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  2. --remove-roles while the second database is still owned: refused BEFORE any change (second review R7)
+  [rollback --remove-roles asistenteia while asistenteia_copy2 is still adopted] rc=1 (1294 ms)
+      | Error: role asistente_migrator still owns objects in: asistenteia_copy2; run db-adopt --rollback --database <name> for each of them first, then remove the roles with the last one (nothing was changed)
+  [186] PASS refused (exit 1) | expected 1, obtained 1
+  [187] PASS the refusal names the other database | expected 1, obtained 1
+  [188] PASS nothing changed, the main copy is still adopted | expected rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0006;owners=alembic_version=asistente_migrator,document_chunks=asistente_migrator,documents=asistente_migrator,enrollments=asistente_migrator,ingestion_jobs=asistente_migrator,subjects=asistente_migrator,users=asistente_migrator;types=document_status=asistente_migrator,user_role=asistente_migrator;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  3. rollback of ONE database leaves the other one alone
+  [db-adopt --rollback --apply asistenteia] rc=0 (1352 ms)
+      | rollback: 1 statement(s), owners verified: True
+      | the migrator still owns objects in: asistenteia_copy2; roll those databases back too before removing the roles
+  [189] PASS rollback applied (exit 0) | expected 0, obtained 0
+  [190] PASS the report names the other database still owned by the migrator | expected 1, obtained 1
+  [191] PASS main copy: tables and types back to the original administrator | expected asistente|asistente, obtained asistente|asistente
+  [192] PASS second copy: still owned by the migrator | expected asistente_migrator|asistente_migrator, obtained asistente_migrator|asistente_migrator
+  [193] PASS the main copy kept its rows and catalog through the rollback | expected counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [db-adopt --rollback --apply asistenteia again (idempotence)] rc=0 (1294 ms)
+      | rollback: 1 statement(s), owners verified: True
+      | the migrator still owns objects in: asistenteia_copy2; roll those databases back too before removing the roles
+  [194] PASS the rollback can be run again (exit 0) | expected 0, obtained 0
+  4. adopt again (idempotence of the way forward) and roll forward the grants
+  [db-adopt --apply asistenteia again after a rollback] rc=0 (1355 ms)
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [195] PASS re-adoption works (exit 0) | expected 0, obtained 0
+  [196] PASS owned by the migrator again | expected asistente_migrator|asistente_migrator, obtained asistente_migrator|asistente_migrator
+  [db-verify after re-adoption] rc=1 (1364 ms)
+      | [databases] asistente_app can connect to database asistenteia_copy2
+      | [databases] asistente_worker can connect to database asistenteia_copy2
+      | [databases] asistente_cli can connect to database asistenteia_copy2
+  [197] FAIL no drift after re-adoption | expected 0, obtained 1
+  5. the whole way back for both databases: downgrade 0006, rollback ownership, remove the roles with the last one
+  [db-migrate --downgrade 0005 (asistenteia)] rc=0 (1374 ms)
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running downgrade 0006 -> 0005, Give users.role a server default of 'student'.
+      | downgraded to 0005 (no grants applied)
+  [198] PASS downgraded (exit 0) | expected 0, obtained 0
+  [db-migrate --downgrade 0005 (asistenteia_copy2)] rc=0 (1295 ms)
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running downgrade 0006 -> 0005, Give users.role a server default of 'student'.
+      | downgraded to 0005 (no grants applied)
+  [199] PASS downgraded (exit 0) | expected 0, obtained 0
+  [200] PASS asistenteia back at 0005 and users.role without default | expected 0005|(none), obtained 0005|(none)
+  [rollback asistenteia] rc=0 (1318 ms)
+      | rollback: 1 statement(s), owners verified: True
+      | the migrator still owns objects in: asistenteia_copy2; roll those databases back too before removing the roles
+  [rollback asistenteia_copy2 and remove the roles (the last database)] rc=0 (1361 ms)
+      | rollback: 21 statement(s), owners verified: True
+  [201] PASS the last rollback with --remove-roles succeeds (exit 0) | expected 0, obtained 0
+  [202] PASS the cluster has only the original administrator again | expected asistente(superuser), obtained asistente(superuser)
+  [203] FAIL main copy equals the state before the bootstrap (revision, owners, types, rows, catalog) | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=0,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=4,subjects=0,enrollments=0,documents=0,chunks=0,jobs=0;fp=820f07555bee9ad33015fac0d05389be
+  [204] PASS second copy equals its state before the bootstrap | expected rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1;fp=820f07555bee9ad33015fac0d05389be, obtained rev=0005;owners=alembic_version=asistente,document_chunks=asistente,documents=asistente,enrollments=asistente,ingestion_jobs=asistente,subjects=asistente,users=asistente;types=document_status=asistente,user_role=asistente;counts=users=200002,subjects=1,enrollments=1,documents=1,chunks=1,jobs=1;fp=820f07555bee9ad33015fac0d05389be
+  database ACLs after the whole way back (the closing of PUBLIC is NOT undone by the rollback; PG-08): asistenteia={asistente=CTc/asistente} ; asistenteia_copy2={asistente=CTc/asistente} ; postgres={asistente=CTc/asistente} ; template0={asistente=CTc/asistente} ; template1={asistente=CTc/asistente}
+=== recovery from the backup: drop the main copy, restore it again from the verified dump
+  [205] PASS the dump still has its recorded hash | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+  [pg_restore again] rc=0 (251 ms)
+  [206] PASS restored at the revision of the backup | expected 0004, obtained 0004
+  [207] PASS the catalog of the restored backup equals the first restoration | expected bcf7be1268b8f46acb84ce8cb8cc1d7e, obtained bcf7be1268b8f46acb84ce8cb8cc1d7e
+  [208] PASS owners are the original administrator again | expected asistente, obtained asistente
+=== result: 199 checks passed, 9 failed (of 208)
+--- identity of every resource of this rehearsal, before removal
+containers: g16pg513 
+networks:   g16net513 
+names outside the g16 scheme among them (must be empty): 
+after removal: containers left=0 networks left=0 volumes left (tmpfs, none created)=0
+temporary image tags left: 0
+other containers (the real stack and other projects) before and after identical: yes
+original backup untouched: sha equal, size/mtime equal

@@ -133,11 +133,11 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
   - [x] 15.2.6 Incident of the exposed credential: record without the value, affected service and credential, copies checked, coordinated rotation procedure prepared, nothing rotated (reports/2026-11-13-credential-exposure-incident.md; nothing rotated)
   - [x] 15.2.7 Gates on the final code (ruff, format, mypy strict, unit, role-bound and roles-mode integration, migrations, administrative commands, mutations of the critical controls, frontend gates, `openspec validate`) and the focused second adversarial review (reports/2026-11-13-step-15-2-corrections.md: gates on the final code, 22 mutations caught, second review PASS WITH GAPS with no critical or high finding, its findings handled)
 
-## 16. Rehearsal on a restored copy of the real backup (separate authorisation)
+## 16. Rehearsal on a restored copy of the real backup (done 2026-11-13 under a separate authorisation)
 
-- [ ] 16.1 Verify the backup (checksum, `pg_restore --list`) and restore it into a disposable server
-- [ ] 16.2 Rehearse bootstrap, adoption, grants, `db-verify`, the functional checks of the 2026-11-12 validation (45 + 17) with the roles, and the rollback across every database
-- [ ] 16.3 Record the report and the timings; stop if any check differs
+- [x] 16.1 Verify the backup (checksum, `pg_restore --list`) and restore it into a disposable server (reports/2026-11-13-step-16-rehearsal.md: SHA-256 verified in four places, `pg_restore --list` readable, restored twice; the only backup is of revision 0004, 0005 was reconstructed in the copy)
+- [x] 16.2 Rehearse bootstrap, adoption, grants, `db-verify`, the functional checks of the 2026-11-12 validation (45 + 17) with the roles, and the rollback across every database (reports/group-16/g16-output.txt: 209 of 209 checks; the 45 + 17 checks of 2026-11-12 are not a stored script, the 101 curl checks of group 13 were rerun on the adopted copy)
+- [x] 16.3 Record the report and the timings; stop if any check differs (report and timings recorded; the first run had 9 failures of the script itself, kept as superseded, the final run has none)
 
 ## 17. Real run on the development database (separate explicit authorisation)
 
