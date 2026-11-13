@@ -58,12 +58,10 @@ def test_the_decided_least_privilege_properties() -> None:
     assert not any(MATRIX[CLI][t] != TableGrant() for t in TABLES if t != "users")
 
 
-def test_the_known_gap_is_real_and_documented(inventory: Inventory) -> None:
-    ((role, table, kind, column), reason) = next(iter(KNOWN_GAPS.items()))
-    assert (role, table, kind, column) == (APP, "users", "INSERT", "role")
-    assert column in inventory.required("api")[table][kind]
-    assert column not in MATRIX[role][table].insert
-    assert "8.4" in reason
+def test_no_known_gap_remains_after_task_8_4(inventory: Inventory) -> None:
+    assert KNOWN_GAPS == {}
+    assert "role" not in inventory.required("api")["users"]["INSERT"]
+    assert "role" in inventory.required("cli")["users"]["INSERT"]
 
 
 # ---- mutation checks (task 2.4): each mutated matrix must be rejected ---------------------------
@@ -164,11 +162,12 @@ def test_mutation_a_new_table_needs_a_decision(inventory: Inventory) -> None:
     )
 
 
-def test_mutation_a_gap_that_is_closed_must_be_removed(inventory: Inventory) -> None:
+def test_mutation_granting_the_role_to_the_application_is_rejected(inventory: Inventory) -> None:
     mutated = _mutable()
     grant = mutated[APP]["users"]
     mutated[APP]["users"] = dataclasses.replace(grant, insert=grant.insert | {"role"})
-    assert any("already granted" in p for p in _problems(mutated, inventory))
+    problems = _problems(mutated, inventory)
+    assert any("role" in p for p in problems), problems
 
 
 def test_mutation_a_stale_gap_is_rejected(inventory: Inventory) -> None:

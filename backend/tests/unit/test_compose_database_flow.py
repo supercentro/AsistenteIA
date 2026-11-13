@@ -128,6 +128,7 @@ def test_each_identity_has_its_own_environment_file(services: dict[str, dict[str
     assert files["backend"] == ["./backend/.env"]
     assert files["worker"] == ["./backend/.env.worker"]
     assert files["db"] == ["./backend/.env.db"]
+    assert files["cli"] == ["./backend/.env.cli"]
     flat = [f for listed in files.values() for f in listed]
     assert len(flat) == len(set(flat)), "an environment file is shared between two services"
 
@@ -145,6 +146,25 @@ def test_the_administrator_files_reach_only_the_database_and_the_bootstrap(
         "./backend/.env.roles": ["bootstrap"],
         "./backend/.env.migrate": ["migrate"],
     }
+
+
+def test_the_cli_is_a_profiled_one_shot_with_its_own_identity(
+    services: dict[str, dict[str, Any]],
+) -> None:
+    cli = services["cli"]
+
+    assert cli["profiles"] == ["cli"]  # never started by a plain `up`
+    assert cli["restart"] == "no"
+    assert cli["entrypoint"] == ["python", "-m", "app.cli"]
+    assert cli["env_file"] == [{"path": "./backend/.env.cli", "required": False}]
+    assert "ports" not in cli and "volumes" not in cli
+    assert conditions(cli) == {"migrate": "service_completed_successfully"}
+
+
+def test_only_the_cli_holds_the_cli_credential(services: dict[str, dict[str, Any]]) -> None:
+    holders = [n for n, s in services.items() if "./backend/.env.cli" in env_paths(s)]
+
+    assert holders == ["cli"]  # the API, the worker and the one-shots never receive it
 
 
 def test_no_test_file_and_no_inline_secret_reaches_any_service(

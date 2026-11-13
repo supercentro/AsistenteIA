@@ -10,7 +10,6 @@ from sqlalchemy import text
 
 from app.core.database import create_db_engine
 from app.models.user import UserRole
-from tests.constants import TEST_JWT_SECRET
 from tests.integration.helpers import MakeUser
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -41,8 +40,7 @@ def run_cli(
     env.update(
         {
             "PYTHONPATH": str(BACKEND_DIR),
-            "DATABASE_URL": database_url,
-            "JWT_SECRET": TEST_JWT_SECRET,
+            "CLI_DATABASE_URL": database_url,
             "APP_ENV": "test",
         }
     )

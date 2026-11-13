@@ -12,12 +12,7 @@ from tests.privilege_inventory import TABLES, Inventory
 ACTOR_ROLE = {"api": APP, "worker": WORKER, "cli": CLI}
 
 # (role, table, kind, column): the code needs it today, the matrix does not grant it yet.
-KNOWN_GAPS: dict[tuple[str, str, str, str], str] = {
-    (APP, "users", "INSERT", "role"): (
-        "registration still passes role=student; task 8.4 removes it from the code and "
-        "migration 0006 gives users.role a server default (decision DD-9, option A)"
-    ),
-}
+KNOWN_GAPS: dict[tuple[str, str, str, str], str] = {}  # closed by task 8.4 (DD-9, option A)
 
 # Anticipated needs: the matrix grants them although no entry point reaches the statement yet.
 # The statements are named by the extra root given to the inventory, and `compare` fails as soon

@@ -133,8 +133,8 @@ def test_api_needs_derived_from_orm_statements(inventory: Inventory) -> None:
     assert "DELETE" in api["documents"] and "DELETE" not in api["ingestion_jobs"]
     # The fencing token and the lease are never read by the API.
     assert not {"locked_by", "locked_until"} & api["ingestion_jobs"]["SELECT"]
-    # The registration still inserts the role today (task 8.4 removes it).
-    assert "role" in api["users"]["INSERT"]
+    # Registration no longer inserts the role (task 8.4): the server default supplies `student`.
+    assert "role" not in api["users"]["INSERT"]
 
 
 def test_cli_needs_only_users(inventory: Inventory) -> None:

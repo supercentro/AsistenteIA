@@ -49,10 +49,9 @@ def catalog_snapshot(url: str) -> dict[str, object]:
     }
 
 
-def test_revision_chain_ends_in_0005_after_0004() -> None:
+def test_revision_0005_follows_0004() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql+psycopg://x/y_test"))
 
-    assert script.get_heads() == ["0005"]
     revision = script.get_revision("0005")
     assert revision is not None
     assert revision.down_revision == "0004"

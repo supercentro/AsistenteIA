@@ -151,15 +151,19 @@ def test_deleting_a_document_and_a_subject_cascades_without_delete_on_the_childr
             assert conn.execute(f"SELECT count(*) FROM {table}").fetchone() == (0,), table
 
 
-def test_registration_cannot_create_a_user_under_the_application_role_until_task_8(
+def test_registration_stores_a_student_under_the_application_role(
     cluster: Cluster, own_database: str
 ) -> None:
-    # Known gap (KNOWN_GAPS in tests/privilege_matrix_check.py): the code still inserts `role`.
-    user = User(name="X", email="x@example.com", password_hash="h", role="student")
+    # The code no longer inserts `role`: the server default of migration 0006 supplies `student`.
+    user = User(name="X", email="x@example.com", password_hash="h")
     with session_for(cluster, "app", own_database) as session:
-        with pytest.raises(ProgrammingError) as caught:
-            UserRepository(session).add(user)
-        assert getattr(caught.value.orig, "sqlstate", None) == "42501"
+        created = UserRepository(session).add(user)
+        assert created.role.value == "student"
+        session.commit()
+    with cluster.admin_connection(own_database) as conn:
+        assert conn.execute(
+            "SELECT role::text FROM users WHERE email = 'x@example.com'"
+        ).fetchone() == ("student",)
 
 
 # noqa: E501

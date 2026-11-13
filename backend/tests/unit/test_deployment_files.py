@@ -295,8 +295,8 @@ def compose() -> dict[str, dict[str, object]]:
     return services
 
 
-def test_compose_has_the_six_services(compose: dict[str, dict[str, object]]) -> None:
-    assert set(compose) == {"db", "bootstrap", "migrate", "backend", "worker", "frontend"}
+def test_compose_has_the_seven_services(compose: dict[str, dict[str, object]]) -> None:
+    assert set(compose) == {"db", "bootstrap", "migrate", "cli", "backend", "worker", "frontend"}
 
 
 def test_compose_builds_the_api_and_the_worker_from_their_own_targets(

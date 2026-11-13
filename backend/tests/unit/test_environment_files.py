@@ -19,6 +19,7 @@ EXAMPLES = {
     "db": BACKEND_DIR / ".env.db.example",
     "migrate": BACKEND_DIR / ".env.migrate.example",
     "roles": BACKEND_DIR / ".env.roles.example",
+    "cli": BACKEND_DIR / ".env.cli.example",
     "test": BACKEND_DIR / ".env.test.example",
 }
 ROLE_PASSWORDS = {
@@ -35,6 +36,7 @@ SINGLE_OWNER = {
     "POSTGRES_DB": "db",
     "MIGRATION_DATABASE_URL": "migrate",
     "ADMIN_DATABASE_URL": "roles",
+    "CLI_DATABASE_URL": "cli",
     **dict.fromkeys(ROLE_PASSWORDS, "roles"),
     "TEST_DATABASE_URL": "test",
     "TEST_ADMIN_DATABASE_URL": "test",
@@ -60,7 +62,15 @@ def test_each_secret_variable_is_declared_in_exactly_one_example(variable: str, 
 def test_the_api_example_receives_no_database_administration_or_test_variable() -> None:
     names = set(declared("api"))
 
-    for forbidden in ("POSTGRES_", "TEST_", "MIGRATION_", "ADMIN_", "DB_MIGRATOR", "DB_CLI"):
+    for forbidden in (
+        "POSTGRES_",
+        "TEST_",
+        "MIGRATION_",
+        "ADMIN_",
+        "DB_MIGRATOR",
+        "DB_CLI",
+        "CLI_",
+    ):
         assert not [n for n in names if n.startswith(forbidden)], forbidden
     assert not names & ROLE_PASSWORDS
 
@@ -75,6 +85,14 @@ def test_the_migrate_example_holds_exactly_the_migrator_url() -> None:
     assert set(declared("migrate")) == {"MIGRATION_DATABASE_URL"}
 
 
+def test_the_cli_example_holds_exactly_the_cli_url_for_the_cli_role() -> None:
+    assert set(declared("cli")) == {"CLI_DATABASE_URL"}
+    parts = urlsplit(declared("cli")["CLI_DATABASE_URL"][1])
+
+    assert parts.username == "asistente_cli" and parts.hostname == "db"
+    assert parts.path == "/" + declared("db")["POSTGRES_DB"][1]
+
+
 def test_the_roles_example_holds_exactly_the_administrator_url_and_the_four_passwords() -> None:
     assert set(declared("roles")) == {"ADMIN_DATABASE_URL", *ROLE_PASSWORDS}
 
@@ -83,7 +101,7 @@ def test_the_test_example_holds_exactly_the_two_host_only_urls() -> None:
     assert set(declared("test")) == {"TEST_DATABASE_URL", "TEST_ADMIN_DATABASE_URL"}
 
 
-@pytest.mark.parametrize("kind", ["migrate", "roles", "test"])
+@pytest.mark.parametrize("kind", ["migrate", "roles", "cli", "test"])
 def test_the_new_examples_hold_only_placeholders(kind: str) -> None:
     for name, (active, raw) in declared(kind).items():
         assert active, name
@@ -120,7 +138,7 @@ def test_the_test_example_database_differs_from_the_application_database() -> No
     assert api.path != test.path
 
 
-@pytest.mark.parametrize("kind", ["migrate", "roles", "test"])
+@pytest.mark.parametrize("kind", ["migrate", "roles", "cli", "test"])
 def test_the_new_real_files_are_ignored_and_the_examples_are_not(kind: str) -> None:
     real = f"backend/{EXAMPLES[kind].name.removesuffix('.example')}"
     verdicts = (git_ignores(real), git_ignores(f"backend/{EXAMPLES[kind].name}"))
