@@ -15,6 +15,43 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot database administration (change database-least-privilege). Both run on EVERY `up`
+  # (a plain `up` starts finished containers again), so both are idempotent; both use the code of the
+  # image, not the working tree, so `up -d --build` is needed after `app/` or `alembic/` change.
+  # They are in the default profile on purpose: a service in an inactive profile that others
+  # depend on makes the whole project invalid. If either fails, `backend` and `worker` are created
+  # but never started. Each holds only the credentials of its own job.
+  bootstrap:
+    build:
+      context: ./backend
+      target: api
+    # The administrator URL and the four role passwords: no other service receives this file.
+    # `required: false` keeps `docker compose ps/logs/exec/down` working on a machine that does not
+    # have the file yet; running the service without it fails at once, naming the missing variable.
+    env_file:
+      - path: ./backend/.env.roles
+        required: false
+    command: ["python", "-m", "app.cli", "db-bootstrap", "--database", "asistenteia"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: ./backend
+      target: api
+    # Only the migrator URL (MIGRATION_DATABASE_URL): no JWT secret, no API or administrator setting.
+    # Optional for the same reason as above.
+    env_file:
+      - path: ./backend/.env.migrate
+        required: false
+    command: ["python", "-m", "app.cli", "db-migrate"]
+    restart: "no"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
   backend:
     build:
       context: ./backend
@@ -26,6 +63,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./backend/app:/app/app
     command:
@@ -56,6 +95,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     cpus: 4
     mem_limit: 2g
     # Restart after any exit: a crash, an out-of-memory kill, or the worker ending itself when it

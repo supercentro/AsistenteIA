@@ -11,6 +11,7 @@ Each Compose service receives only its own environment file: `backend/.env` (API
 longer see `JWT_SECRET` or any other variable they do not read.
 """
 
+import os
 import re
 import shutil
 import subprocess
@@ -28,7 +29,7 @@ ENV_EXAMPLE = BACKEND_DIR / ".env.example"
 WORKER_EXAMPLE = BACKEND_DIR / ".env.worker.example"
 DB_EXAMPLE = BACKEND_DIR / ".env.db.example"
 DOCKERFILE = BACKEND_DIR / "Dockerfile"
-COMPOSE = REPO / "docker-compose.yml"
+COMPOSE = Path(os.environ.get("COMPOSE_FILE_UNDER_TEST", REPO / "docker-compose.yml"))
 CI = REPO / ".github" / "workflows" / "ci.yml"
 
 # Read by the tests only, never by `Settings` (they live in backend/.env.test.example).
@@ -294,8 +295,8 @@ def compose() -> dict[str, dict[str, object]]:
     return services
 
 
-def test_compose_has_the_four_services(compose: dict[str, dict[str, object]]) -> None:
-    assert set(compose) == {"db", "backend", "worker", "frontend"}
+def test_compose_has_the_six_services(compose: dict[str, dict[str, object]]) -> None:
+    assert set(compose) == {"db", "bootstrap", "migrate", "backend", "worker", "frontend"}
 
 
 def test_compose_builds_the_api_and_the_worker_from_their_own_targets(
@@ -309,7 +310,10 @@ def test_a_plain_compose_up_starts_the_worker(compose: dict[str, dict[str, objec
     worker = compose["worker"]
 
     assert "profiles" not in worker
-    assert worker["depends_on"] == {"db": {"condition": "service_healthy"}}
+    assert worker["depends_on"] == {
+        "db": {"condition": "service_healthy"},
+        "migrate": {"condition": "service_completed_successfully"},
+    }
     assert "ports" not in worker  # the worker listens on nothing
     assert "command" not in worker  # it uses the image's own `python -m app.worker`
     assert worker["env_file"] == ["./backend/.env.worker"]
@@ -321,6 +325,8 @@ def test_each_service_receives_only_its_own_environment_file(
     assert compose["backend"]["env_file"] == ["./backend/.env"]
     assert compose["worker"]["env_file"] == ["./backend/.env.worker"]
     assert compose["db"]["env_file"] == ["./backend/.env.db"]
+    assert compose["bootstrap"]["env_file"] == [{"path": "./backend/.env.roles", "required": False}]
+    assert compose["migrate"]["env_file"] == [{"path": "./backend/.env.migrate", "required": False}]
     assert compose["frontend"]["env_file"] == ["./frontend/.env"]
 
 
