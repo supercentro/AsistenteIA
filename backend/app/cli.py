@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.config import CliSettings, ConfigurationError, load_cli_settings
 from app.core.database import create_db_engine, create_session_factory
 from app.core.errors import ConflictError
 from app.core.security import PasswordService
@@ -159,7 +159,7 @@ def _create_teacher(
 
 
 def _seed(
-    settings: Settings,
+    settings: CliSettings,
     session: Session,
     passwords: PasswordService,
     env: Mapping[str, str],
@@ -201,7 +201,7 @@ def _seed(
 def run(
     argv: list[str],
     *,
-    settings: Settings,
+    settings: CliSettings,
     session_factory: sessionmaker[Session],
     passwords: PasswordService,
     env: Mapping[str, str],
@@ -236,14 +236,17 @@ def main(argv: list[str] | None = None) -> int:
         args = build_parser().parse_args(arguments)
         return run_database_command(args, print, lambda message: print(message, file=sys.stderr))
     try:
-        settings = load_settings()
+        settings = load_cli_settings()
     except ConfigurationError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    # Values from backend/.env sit below the real environment, like for the application settings.
+    # Seed variables: backend/.env (host use) below backend/.env.cli, both below the environment.
     env = {k: v for k, v in dotenv_values(".env").items() if v is not None}
+    env.update({k: v for k, v in dotenv_values(".env.cli").items() if v is not None})
     env.update(os.environ)
-    engine = create_db_engine(settings.database_url, settings.db_connect_timeout_seconds)
+    engine = create_db_engine(
+        settings.cli_database_url.get_secret_value(), settings.db_connect_timeout_seconds
+    )
     try:
         return run(
             arguments,

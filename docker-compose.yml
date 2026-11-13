@@ -52,6 +52,23 @@ services:
       bootstrap:
         condition: service_completed_successfully
 
+  # Administrative commands (create-teacher, seed) under the CLI database role. Run on demand, never
+  # by a plain `up`: docker compose run --rm cli create-teacher --email ... --password-stdin
+  # It holds only the CLI credential (CLI_DATABASE_URL); the API and the worker never receive it.
+  cli:
+    profiles: ["cli"]
+    build:
+      context: ./backend
+      target: api
+    env_file:
+      - path: ./backend/.env.cli
+        required: false
+    entrypoint: ["python", "-m", "app.cli"]
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   backend:
     build:
       context: ./backend

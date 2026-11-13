@@ -247,6 +247,26 @@ class RolesSettings(BaseSettings):
         return self
 
 
+class CliSettings(BaseSettings):
+    """What the administrative commands need: the CLI role URL and the environment name.
+
+    The variable is deliberately not `DATABASE_URL`: the command fails instead of silently using the
+    API credential, and the CLI never reads `JWT_SECRET` or any other API setting.
+    """
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    cli_database_url: SecretStr
+    # Fail closed: the command reads no API file, so an unset APP_ENV must not open the seed gate.
+    app_env: Literal["development", "test", "production"] = "production"
+    db_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
+
+    @field_validator("cli_database_url")
+    @classmethod
+    def _check_url(cls, value: SecretStr) -> SecretStr:
+        return _check_database_url(value, "CLI_DATABASE_URL")
+
+
 def _load[SettingsT: BaseSettings](model: type[SettingsT], env_file: str | None) -> SettingsT:
     """Build `model`, turning validation errors into a message naming the variables only."""
     try:
@@ -264,6 +284,11 @@ def _load[SettingsT: BaseSettings](model: type[SettingsT], env_file: str | None)
 def load_settings(env_file: str | None = ".env") -> Settings:
     """Load the API settings (`.env`)."""
     return _load(Settings, env_file)
+
+
+def load_cli_settings(env_file: str | None = ".env.cli") -> CliSettings:
+    """Load the CLI role credential (`.env.cli`); no API setting is read or required."""
+    return _load(CliSettings, env_file)
 
 
 def load_worker_settings(env_file: str | None = ".env.worker") -> WorkerSettings:
