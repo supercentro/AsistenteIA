@@ -19,7 +19,7 @@ from typing import Any
 
 import psycopg
 
-from app.db_admin.connection import connect
+from app.db_admin.connection import connect, refuse_system_database
 from app.db_admin.errors import DbAdminError
 from app.db_admin.names import DEFAULT_NAMES, RoleNames
 from app.db_admin.sql import quote_catalog_name, quote_ident, quote_qualified, raw
@@ -53,11 +53,19 @@ class RollbackReport:
     statements: tuple[str, ...]
     first_removal_index: int
     owners_verified: bool
+    other_databases: tuple[str, ...] = ()
 
     def summary(self) -> list[str]:
-        return [
+        lines = [
             f"rollback: {len(self.statements)} statement(s), owners verified: {self.owners_verified}"  # noqa: E501
         ]
+        if self.other_databases:
+            lines.append(
+                "the migrator still owns objects in: "
+                + ", ".join(self.other_databases)
+                + "; roll those databases back too before removing the roles"
+            )
+        return lines
 
 
 def _expected_tables() -> set[str]:
@@ -235,6 +243,7 @@ def adopt(
     lock_timeout_ms: int = 5000,
     ignore_application_names: Sequence[str] = (),
 ) -> AdoptReport:
+    refuse_system_database(database, "db-adopt")
     quote_ident(database)
     for role in names.all():
         quote_ident(role)
@@ -356,6 +365,23 @@ def _drop_roles(admin_url: str, names: RoleNames) -> list[str]:
     return statements
 
 
+def _owned_by_database(conn: "psycopg.Connection[Any]", role: str) -> dict[str, int]:
+    """Objects a role owns, per database (`pg_shdepend` is a cluster-wide catalogue)."""
+    rows = conn.execute(
+        raw(
+            "SELECT d.datname, count(*) FROM pg_catalog.pg_shdepend s "
+            "JOIN pg_catalog.pg_database d ON d.oid = s.dbid "
+            "WHERE s.deptype = 'o' "
+            "AND s.classid <> 'pg_catalog.pg_default_acl'::pg_catalog.regclass "
+            "AND s.refclassid = 'pg_catalog.pg_authid'::pg_catalog.regclass "
+            "AND s.refobjid = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = %s) "
+            "GROUP BY d.datname ORDER BY d.datname"
+        ),
+        (role,),
+    ).fetchall()
+    return {str(name): int(count) for name, count in rows}
+
+
 def rollback_adoption(
     admin_url: str,
     *,
@@ -363,7 +389,12 @@ def rollback_adoption(
     names: RoleNames = DEFAULT_NAMES,
     remove_roles: bool = False,
 ) -> RollbackReport:
-    """Give every object back to the administrator; optionally remove the roles afterwards."""
+    """Give the objects of ONE database back to the administrator; optionally remove the roles.
+
+    Only the named database is touched (PG-07). Objects the migrator owns in other databases are
+    reported and left alone, and removing the roles stays refused until none is left.
+    """
+    refuse_system_database(database, "db-adopt --rollback")
     quote_ident(database)
     statements: list[str] = []
     with connect(admin_url, database="postgres") as conn:
@@ -374,19 +405,34 @@ def rollback_adoption(
         ).fetchone()
         sessions = _runtime_sessions(conn, names)
         databases = _connectable_databases(conn)
+        owned_elsewhere = (
+            tuple(name for name in _owned_by_database(conn, names.migrator) if name != database)
+            if exists is not None
+            else ()
+        )
+    if database not in databases:
+        raise AdoptRefusedError(
+            f"database {database} does not exist or does not accept connections"
+        )
     if sessions:
         raise AdoptRefusedError(f"{sessions} session(s) of the roles exist; stop them first")
     if exists is not None:
         target = quote_catalog_name(admin)
-        for name in databases:
-            with connect(admin_url, database=name) as scoped:
-                statement = f"REASSIGN OWNED BY {quote_ident(names.migrator)} TO {target}"
-                scoped.execute(raw(statement))
-                statements.append(f"{statement} (database {name})")
+        with connect(admin_url, database=database) as scoped:
+            statement = f"REASSIGN OWNED BY {quote_ident(names.migrator)} TO {target}"
+            scoped.execute(raw(statement))
+            statements.append(f"{statement} (database {database})")
         with connect(admin_url, database="postgres") as conn:
-            if _owned_count(conn, names.migrator):
-                raise AdoptRefusedError("the migrator still owns objects after the reassignment")
+            if _owned_by_database(conn, names.migrator).get(database):
+                raise AdoptRefusedError(
+                    f"the migrator still owns objects in {database} after the reassignment"
+                )
     first_removal = len(statements)
     if remove_roles:
         statements.extend(_drop_roles(admin_url, names))
-    return RollbackReport(tuple(statements), first_removal, owners_verified=exists is not None)
+    return RollbackReport(
+        tuple(statements),
+        first_removal,
+        owners_verified=exists is not None,
+        other_databases=owned_elsewhere,
+    )

@@ -11,6 +11,8 @@ from app.db_admin.errors import DbAdminError
 from app.db_admin.sql import Step, raw
 
 APPLICATION_NAME = "asistenteia-db-admin"
+# Databases the cluster itself depends on: no application command may be pointed at them.
+SYSTEM_DATABASES = frozenset({"postgres", "template0", "template1"})
 # The only URL query parameters that are passed on: the ones that decide whether TLS is used.
 TLS_PARAMETERS = ("sslmode", "sslrootcert", "sslcert", "sslkey")
 
@@ -98,3 +100,16 @@ def require_identity(url: str, expected: str, command: str) -> None:
     """Open a short read-only session, check the identity and close it."""
     with connect(url, read_only=True) as conn:
         check_identity(conn, expected, command)
+
+
+def refuse_system_database(database: str, command: str) -> None:
+    """Stop before any connection when the target is a system database (PG-07, DD-16).
+
+    The comparison ignores case and surrounding blanks, so a near miss of a system name is refused
+    too instead of being taken for an application database.
+    """
+    if database.strip().lower() in SYSTEM_DATABASES:
+        raise DbAdminError(
+            f"{command} cannot target a system database ({', '.join(sorted(SYSTEM_DATABASES))}); "
+            "name the application database"
+        )

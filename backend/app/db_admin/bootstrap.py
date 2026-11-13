@@ -15,7 +15,7 @@ the per-schema one has no effect (A-05). Ownership of an existing database is on
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from app.db_admin.connection import connect, run_steps
+from app.db_admin.connection import connect, refuse_system_database, run_steps
 from app.db_admin.errors import DbAdminError
 from app.db_admin.names import (
     CONNECTION_LIMITS,
@@ -213,7 +213,8 @@ def bootstrap(
     names: RoleNames = DEFAULT_NAMES,
 ) -> BootstrapReport:
     """Converge the cluster to the role and access state of the design (idempotent)."""
-    quote_ident(database)  # refuse before any connection
+    refuse_system_database(database, "db-bootstrap")  # refuse before any connection
+    quote_ident(database)
     for role in names.all():
         quote_ident(role)
     verifiers = {logical: scram_verifier(getattr(passwords, logical)) for logical in _LOGICAL}

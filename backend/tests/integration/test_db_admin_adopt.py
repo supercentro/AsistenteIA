@@ -269,3 +269,88 @@ def make_admin_name(cluster: Cluster) -> str:
     name = make_url(cluster.admin_url).username
     assert name
     return name
+
+
+# --- the rollback acts on the database it is told to (PG-07, task 15.2) --------------------------
+
+
+def adopted_pair(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> tuple[str, str, dict[str, int], dict[str, int]]:
+    first, first_counts = prepare(cluster, scratch_database)
+    second, second_counts = prepare(cluster, scratch_database)
+    run_adopt(cluster, first, apply=True)
+    run_adopt(cluster, second, apply=True)
+    return first, second, first_counts, second_counts
+
+
+def test_the_rollback_acts_only_on_the_named_database_and_reports_the_other(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    first, second, first_counts, second_counts = adopted_pair(cluster, scratch_database)
+
+    report = rollback_adoption(
+        cluster.admin("postgres"), database=first, names=cluster.names, remove_roles=False
+    )
+
+    assert set(owners(cluster, first).values()) == {make_admin_name(cluster)}
+    assert set(owners(cluster, second).values()) == {cluster.names.migrator}  # untouched
+    assert row_counts(cluster, first) == first_counts
+    assert row_counts(cluster, second) == second_counts
+    assert report.other_databases == (second,)
+    assert second in "\n".join(report.summary())
+    assert all(f"(database {second})" not in statement for statement in report.statements)
+
+
+def test_removing_the_roles_is_refused_while_another_database_is_still_owned(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    first, second, _, second_counts = adopted_pair(cluster, scratch_database)
+
+    with pytest.raises(AdoptRefusedError, match="owns"):
+        rollback_adoption(
+            cluster.admin("postgres"), database=first, names=cluster.names, remove_roles=True
+        )
+
+    with cluster.admin_connection() as conn:
+        left = conn.execute(
+            "SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = ANY(%s)",
+            (list(cluster.names.all()),),
+        ).fetchone()
+    assert left == (len(cluster.names.all()),)  # no role was dropped
+    assert set(owners(cluster, second).values()) == {cluster.names.migrator}
+    assert row_counts(cluster, second) == second_counts
+
+
+def test_rolling_back_the_last_database_removes_the_roles(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    first, second, _, _ = adopted_pair(cluster, scratch_database)
+    rollback_adoption(
+        cluster.admin("postgres"), database=first, names=cluster.names, remove_roles=False
+    )
+
+    rollback_adoption(
+        cluster.admin("postgres"), database=second, names=cluster.names, remove_roles=True
+    )
+
+    with cluster.admin_connection() as conn:
+        left = conn.execute(
+            "SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = ANY(%s)",
+            (list(cluster.names.all()),),
+        ).fetchone()
+    assert left == (0,)
+
+
+def test_the_rollback_refuses_a_database_that_does_not_exist(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    prepare(cluster, scratch_database)
+
+    with pytest.raises(AdoptRefusedError, match="does not exist"):
+        rollback_adoption(
+            cluster.admin("postgres"),
+            database="tstdb_nonexistent_test",
+            names=cluster.names,
+            remove_roles=False,
+        )

@@ -277,7 +277,7 @@ The API and the worker, started through their production entry points, SHALL ask
 - **THEN** each stops with the identity error and changes nothing
 
 ### Requirement: Cluster-wide commands cannot be pointed at a system database
-`db-bootstrap` and `db-adopt` SHALL refuse `postgres`, `template0` and `template1` as the target database before any connection, and the adoption rollback SHALL act only on the named database, refusing (and naming the databases) when the migrator still owns objects elsewhere instead of reassigning them silently.
+`db-bootstrap` and `db-adopt` SHALL refuse `postgres`, `template0` and `template1` as the target database before any connection, and the adoption rollback SHALL act only on the named database, report the databases where the migrator still owns objects, and keep refusing to remove the roles until none is left.
 
 #### Scenario: A system database is refused
 - **WHEN** `--database` is `postgres`, `template0` or `template1`
@@ -285,4 +285,4 @@ The API and the worker, started through their production entry points, SHALL ask
 
 #### Scenario: The rollback respects the named database
 - **WHEN** the rollback is run for one database
-- **THEN** ownership is reassigned in that database only, and objects of the migrator in another database are reported and left untouched
+- **THEN** ownership is reassigned in that database only, objects of the migrator in another database are reported and left untouched, and removing the roles stays refused while any remain

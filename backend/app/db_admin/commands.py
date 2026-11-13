@@ -70,7 +70,7 @@ def _dispatch(args: argparse.Namespace, out: Callable[[str], None]) -> int:
         if args.rollback and not args.apply:
             out(
                 "dry run: --rollback would REASSIGN OWNED BY the migrator to the administrator in "
-                "every database"
+                f"database {args.database} only"
                 + (" and then drop the four roles" if args.remove_roles else "")
                 + "; nothing was changed, add --apply to do it"
             )
