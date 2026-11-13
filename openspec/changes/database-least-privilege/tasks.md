@@ -95,9 +95,9 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 ## 10. CI gate (decision D5)
 
-- [ ] 10.1 Write the failing workflow test first (record the failing run in the group report), then add the privilege job to `.github/workflows/ci.yml` (bootstrap, migrate with grants, `db-verify`, privilege tests, role-bound suite) against the database service container
-- [ ] 10.2 Make a missing prerequisite fail the job, never skip; report the number of privilege tests executed
-- [ ] 10.3 Add the workflow test and prove that a table without a matrix decision fails the job
+- [x] 10.1 Write the failing workflow test first (record the failing run in the group report), then add the privilege job to `.github/workflows/ci.yml` (bootstrap, migrate with grants, `db-verify`, privilege tests, role-bound suite) against the database service container (commits d391f56, 72293f7; reports/group-10: red-workflow.txt, gate-happy.txt)
+- [x] 10.2 Make a missing prerequisite fail the job, never skip; report the number of privilege tests executed (check_results.py; gate-missing-prerequisite.txt, gate-skipped-test.txt, gate-too-few-tests.txt)
+- [x] 10.3 Add the workflow test and prove that a table without a matrix decision fails the job (test_ci_workflow.py, mutation-gate.txt 29 of 29; gate-new-table.txt)
 
 ## 11. Review and Update Existing Unit Tests (MANDATORY)
 

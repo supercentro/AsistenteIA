@@ -1,0 +1,12 @@
+$ pytest tests/unit/test_ci_workflow.py tests/unit/test_ci_gate_scripts.py   (task 10.1, before the workflow and the scripts exist)
+ERROR tests/unit/test_ci_gate_scripts.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.27s
+
+$ pytest tests/unit/test_ci_workflow.py   (the workflow alone)
+FAILED tests/unit/test_ci_workflow.py::test_the_token_has_read_only_rights_everywhere
+FAILED tests/unit/test_ci_workflow.py::test_no_repository_or_organisation_secret_is_used
+FAILED tests/unit/test_ci_workflow.py::test_the_disposable_flag_is_only_in_the_gate_job
+FAILED tests/unit/test_ci_workflow.py::test_the_backend_job_leaves_the_role_bound_tests_to_the_gate
+FAILED tests/unit/test_ci_workflow.py::test_the_gate_scripts_fail_on_any_error
+5 failed, 2 passed, 7 errors in 0.20s

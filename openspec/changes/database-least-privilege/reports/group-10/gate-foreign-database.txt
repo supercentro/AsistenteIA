@@ -1,0 +1,51 @@
+# CI gate local run 2026-11-13T15:48:37Z | scenario: foreign-database | free RAM before: 10.33 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow1289: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests1289: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::add-mask::9866ASXbRwoK-92Ryv8XBCUA-xAOWsLc
+::add-mask::y0D0hq_n1QSrobC3XSUl6O-kuRTqw5wU
+::add-mask::IWAggJT1dzT70MfoUMhjpfNhnh4rmsWd
+::add-mask::GMQXL8z0Ia-y-eH6VaH-T1nNOcPaKQf7
+prerequisites present; four ephemeral role credentials generated and masked
+::endgroup::
+STEP prerequisites exit code 0
+::group::clusters
+flow: pgflow:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['asistenteia', 'postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+::error::tests: the cluster holds the database asistenteia, it is not empty
+::endgroup::
+STEP clusters exit code 1
+::group::flow (skipped: an earlier step failed)
+::endgroup::
+::group::drift-selfcheck (skipped: an earlier step failed)
+::endgroup::
+::group::privilege-unit (skipped: an earlier step failed)
+::endgroup::
+::group::role-suites (skipped: an earlier step failed)
+::endgroup::
+::group::roles-mode (skipped: an earlier step failed)
+::endgroup::
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+
+Privilege tests executed in total: **0**
+
+Problems:
+- privilege unit tests: the report unit.xml is missing (the step did not run)
+- role-bound suites: the report role-suites.xml is missing (the step did not run)
+- roles mode: the report roles-mode.xml is missing (the step did not run)
+
+::error::privilege unit tests: the report unit.xml is missing (the step did not run)
+::error::role-bound suites: the report role-suites.xml is missing (the step did not run)
+::error::roles mode: the report roles-mode.xml is missing (the step did not run)
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step clusters
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)

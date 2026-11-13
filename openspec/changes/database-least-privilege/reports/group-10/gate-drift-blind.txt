@@ -1,0 +1,88 @@
+# CI gate local run 2026-11-13T15:50:32Z | scenario: drift-blind | free RAM before: 10.3 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow1865: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests1865: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::add-mask::UjC0Mu0mXlgKonehSkmvBZBpHnE9qTsF
+::add-mask::4tlgDdtPpYAADvPhS3MB7qDmlyYzsqG3
+::add-mask::nlNra1rEw4YWIYIYXPcIm-yuXtbtQ7_8
+::add-mask::q4X2NtZsRDYnAxRAPQLpt8VpQ46zVLpE
+prerequisites present; four ephemeral role credentials generated and masked
+::endgroup::
+STEP prerequisites exit code 0
+::group::clusters
+flow: pgflow:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+the two clusters are different servers
+::endgroup::
+STEP clusters exit code 0
+::group::flow
+roles created: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+roles updated: none
+databases closed to PUBLIC: 3
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+revision in the database: 0006; head of the migrations: 0006
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+alembic check: no drift between the models and the migrations
+second pass: bootstrap, migrate and verify are idempotent
+roles created: none
+roles updated: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+databases closed to PUBLIC: 4
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+::endgroup::
+STEP flow exit code 0
+::group::drift-selfcheck
+::error::db-verify did not detect a privilege outside the matrix: the gate cannot see drift
+::endgroup::
+STEP drift-selfcheck exit code 1
+::group::privilege-unit (skipped: an earlier step failed)
+::endgroup::
+::group::role-suites (skipped: an earlier step failed)
+::endgroup::
+::group::roles-mode (skipped: an earlier step failed)
+::endgroup::
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+
+Privilege tests executed in total: **0**
+
+Problems:
+- privilege unit tests: the report unit.xml is missing (the step did not run)
+- role-bound suites: the report role-suites.xml is missing (the step did not run)
+- roles mode: the report roles-mode.xml is missing (the step did not run)
+
+::error::privilege unit tests: the report unit.xml is missing (the step did not run)
+::error::role-bound suites: the report role-suites.xml is missing (the step did not run)
+::error::roles mode: the report roles-mode.xml is missing (the step did not run)
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step drift-selfcheck
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)

@@ -359,6 +359,45 @@ _(planned)_ `npm run test:e2e` will start the backend with `LLM_PROVIDER=fake` a
 
 GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: backend lint, format check, `mypy --strict`, unit and integration tests (PostgreSQL service with pgvector, database `asistenteia_test` created in the job); frontend lint, format check, type check, unit tests and build; `pip-audit` and `npm audit` as non-blocking steps. Gemini is never called in CI. Playwright Test is not run in CI yet.
 
+### The privilege gate (job `privileges`)
+
+Change `database-least-privilege`, decision D5. The job `privileges` of the workflow is **mandatory**: it is what makes a backend change valid with respect to PostgreSQL privileges. It runs on every push and Pull Request against two PostgreSQL 15 + pgvector 0.8.7 service containers that exist only for that run (`flow` on port 5433 and `tests` on 5434; the throwaway administrator password in the workflow belongs to containers that live for the job on the runner and protects nothing). All logic lives in `.github/scripts/privilege_gate.sh`, one step per subcommand, so the same steps can be run locally (see below):
+
+| Step | What it proves |
+|---|---|
+| `prerequisites` | every variable is present, otherwise the job fails naming it; four ephemeral role credentials are generated, masked in the log and kept in a private file of the runner temp directory (never an artifact) |
+| `clusters` | each cluster is local, PostgreSQL 15 with pgvector 0.8.7, a superuser session, holds only the default databases (and, for `tests`, its own `tstdb_*_test`) and no `asistente*` role; the two are different servers. Nothing destructive happens before this passes, and it is checked again right before the flag `TEST_CLUSTER_IS_DISPOSABLE=true` is exported |
+| `flow` | the real commands: `db-bootstrap`, `db-migrate` (Alembic to 0006 and the grants), `db-verify` without findings, `alembic check`, then a second idempotent pass |
+| `drift-selfcheck` | a privilege outside the matrix is granted on purpose: `db-verify` must fail, and `db-grants` must heal it. A verifier that cannot see drift fails the job |
+| `privilege-unit` | matrix, inventory (a table without a decision fails and is named), generated SQL, `FetchedValue` columns, and the workflow and script tests |
+| `role-suites` | the role-bound integration suites (marker `role_bound`): bootstrap, adoption, grants, verify, lifecycle, denied operations, paths, teacher and CLI, ORM SQL inspection, consent and TD-039 persistence, API routes, effective privileges, coverage guards |
+| `roles-mode` | the existing API and ingestion tests with the code under test as its production role (`--least-privilege -m least_privilege`), in a separate process so the fixtures of the previous step cannot interfere |
+| `summary` | runs even after a failure: every report must exist, have no failure, no error, **no skipped test** and at least the expected number of tests (`MIN_UNIT`, `MIN_ROLE_SUITES`, `MIN_ROLES_MODE`); it prints the number of privilege tests executed and appends it to the job summary |
+
+Rules the gate keeps (and `tests/unit/test_ci_workflow.py` enforces): `permissions: contents: read` for the whole workflow, no `secrets.*`, only `push` and `pull_request` triggers (never `pull_request_target`), GitHub-hosted runner with a time limit, checkout without keeping the token, no `continue-on-error`, `|| true`, `set +e` or `exit 0` in the job, `TEST_CLUSTER_IS_DISPOSABLE` set only by the gate script, and no administrator or role credential in the job-wide environment. The ordinary `backend` job runs the integration tests with `-m "not role_bound"`; the role-bound ones need the clusters of this job and are never skipped silently.
+
+**Branch protection (to be applied by the repository owner; this change does not modify GitHub settings).** Require these status checks on `main` before merging, with "Require branches to be up to date" and no bypass for administrators if the owner wants the gate to bind everyone:
+
+```bash
+# Proposal only: nothing in this repository runs it. Replace OWNER/REPO and review before use.
+gh api -X PUT repos/OWNER/REPO/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": { "strict": true, "contexts": ["backend", "privileges", "frontend"] },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null
+}
+JSON
+```
+
+The proposal is written for a repository with a single owner: with `enforce_admins: true` and a required review the owner could not merge their own Pull Request, so both are left off here; a team should turn them on. The `contexts` field is the classic form; a ruleset with the same three checks is equivalent.
+
+What the gate does not prove, so nobody over-reads it: it has been validated step by step against disposable clusters with `run_gate_local.sh` (the semantics of Actions, a prebuilt local runner image and internal host names), not by a real GitHub Actions run; the first run of the job on GitHub is the proof of `uv run`, the service ports, the check name `privileges` on a real Pull Request and the behaviour for forks (which get a read-only token and no secret). The minimums of executed tests (`MIN_UNIT` 60, `MIN_ROLE_SUITES` 400, `MIN_ROLES_MODE` 480, set below the 133, 410 and 484 tests of the first run) are floors: raise them in `.github/scripts/privilege_gate.sh` when the suites grow, otherwise a deleted group of tests could go unnoticed. Actions are pinned to major tags; pin them to commit SHAs if the supply chain of the actions is a concern.
+
+The job names `backend`, `privileges` and `frontend` are the check names; renaming a job removes it from the required checks without any warning, which is why the workflow test pins the job and its steps.
+
+**Running the gate locally** needs Docker and at least 6 GB of free memory: `openspec/changes/database-least-privilege/reports/group-10/run_gate_local.sh <output> <scenario>` creates two disposable clusters on an internal network (no published port), runs the eight steps with the semantics of Actions (the first failing step stops the job, the summary always runs) and removes everything; the scenarios `missing-prerequisite`, `foreign-database`, `same-server`, `failing-test`, `new-table`, `skipped-test`, `too-few-tests` and `drift-blind` show that the job fails and why.
+
 ## 7. Troubleshooting
 
 - A document stays `pending`: the worker is not running or cannot reach the database (`docker compose ps worker`, `docker compose logs worker`); after `INGESTION_JOB_MAX_AGE_HOURS` an unprocessed job ends `failed` with `JOB_EXPIRED`. A document `failed` with `PROCESSING_INTERRUPTED` lost its worker `INGESTION_MAX_ATTEMPTS` times.

@@ -1,0 +1,43 @@
+# CI gate local run 2026-11-13T15:49:00Z | scenario: same-server | free RAM before: 10.33 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow1436: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests1436: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::error::the two clusters need different ports
+::endgroup::
+STEP prerequisites exit code 1
+::group::clusters (skipped: an earlier step failed)
+::endgroup::
+::group::flow (skipped: an earlier step failed)
+::endgroup::
+::group::drift-selfcheck (skipped: an earlier step failed)
+::endgroup::
+::group::privilege-unit (skipped: an earlier step failed)
+::endgroup::
+::group::role-suites (skipped: an earlier step failed)
+::endgroup::
+::group::roles-mode (skipped: an earlier step failed)
+::endgroup::
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+
+Privilege tests executed in total: **0**
+
+Problems:
+- privilege unit tests: the report unit.xml is missing (the step did not run)
+- role-bound suites: the report role-suites.xml is missing (the step did not run)
+- roles mode: the report roles-mode.xml is missing (the step did not run)
+
+::error::privilege unit tests: the report unit.xml is missing (the step did not run)
+::error::role-bound suites: the report role-suites.xml is missing (the step did not run)
+::error::roles mode: the report roles-mode.xml is missing (the step did not run)
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step prerequisites
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)

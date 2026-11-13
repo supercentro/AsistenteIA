@@ -1,0 +1,123 @@
+# CI gate local run 2026-11-13T15:49:23Z | scenario: failing-test | free RAM before: 10.3 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow1579: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests1579: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::add-mask::oD2o4sQPuUAFo_z1WNHfxLuxkW2mSyGp
+::add-mask::UdeD1Z7JErAB8CL2KjNsCikaI_1iOlFI
+::add-mask::lFR5nePih16dRYFECVpUSgcIu86ZJPYT
+::add-mask::mrcKEFgfpp3SotmDO2IKynf7ntUqUKGR
+prerequisites present; four ephemeral role credentials generated and masked
+::endgroup::
+STEP prerequisites exit code 0
+::group::clusters
+flow: pgflow:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+the two clusters are different servers
+::endgroup::
+STEP clusters exit code 0
+::group::flow
+roles created: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+roles updated: none
+databases closed to PUBLIC: 3
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+revision in the database: 0006; head of the migrations: 0006
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+alembic check: no drift between the models and the migrations
+second pass: bootstrap, migrate and verify are idempotent
+roles created: none
+roles updated: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+databases closed to PUBLIC: 4
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+::endgroup::
+STEP flow exit code 0
+::group::drift-selfcheck
+[privileges] asistente_app has UPDATE (role) on users that the matrix does not grant
+drift detected as expected; healing it with db-grants
+applied 52 grant statement(s) in one transaction
+no findings: the database matches the design
+::endgroup::
+STEP drift-selfcheck exit code 0
+::group::privilege-unit
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /repo/backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collected 149 items
+
+tests/unit/test_db_privileges_matrix.py F..................              [ 12%]
+tests/unit/test_db_privileges_inventory.py .............                 [ 21%]
+tests/unit/test_db_admin_sql.py ........................................ [ 48%]
+................                                                         [ 59%]
+tests/unit/test_fetched_value_columns.py ..........                      [ 65%]
+tests/unit/test_ci_workflow.py .....................                     [ 79%]
+tests/unit/test_ci_gate_scripts.py ..............................        [100%]
+
+=================================== FAILURES ===================================
+____________________ test_matrix_equals_what_the_code_needs ____________________
+
+inventory = Inventory(needs=[Need(actor='api', table='subjects', kind='SELECT', columns=frozenset({'id'}), source='backend/app/rep..._validation:validate_user_id'}}, unreached=['app.repositories.document_repository:DocumentRepository.get_for_teacher'])
+
+    def test_matrix_equals_what_the_code_needs(inventory: Inventory) -> None:
+>       assert compare(MATRIX, inventory) == []
+E       AssertionError: assert ['app needs I...but lacks it'] == []
+E         
+E         Left contains one more item: 'app needs INSERT (teacher_id) on subjects but lacks it'
+E         Use -v to get more diff
+
+tests/unit/test_db_privileges_matrix.py:26: AssertionError
+------------- generated xml file: /tmp/privilege-reports/unit.xml --------------
+======================== 1 failed, 148 passed in 3.56s =========================
+::endgroup::
+STEP privilege-unit exit code 1
+::group::role-suites (skipped: an earlier step failed)
+::endgroup::
+::group::roles-mode (skipped: an earlier step failed)
+::endgroup::
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+| privilege unit tests | 149 | 1 | 0 | 0 |
+
+Privilege tests executed in total: **149**
+
+Problems:
+- privilege unit tests: 1 test(s) failed
+- role-bound suites: the report role-suites.xml is missing (the step did not run)
+- roles mode: the report roles-mode.xml is missing (the step did not run)
+
+::error::privilege unit tests: 1 test(s) failed
+::error::role-bound suites: the report role-suites.xml is missing (the step did not run)
+::error::roles mode: the report roles-mode.xml is missing (the step did not run)
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step privilege-unit
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)
