@@ -1,4 +1,4 @@
-# group 15.2 test run 2026-11-13T19:36:57Z | free RAM before: 9.75 GB
+# group 15.2 test run 2026-11-13T20:01:57Z | free RAM before: 9.53 GB
 # postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: -m not role_bound and not realmodel tests/integration
 # env files in the copy: 0
 [notice] A new release of pip is available: 25.0.1 -> 26.3
@@ -25,6 +25,6 @@ tests/integration/test_users_me.py::test_me_rejects_every_kind_of_invalid_token_
     return self._jws.encode(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-864 passed, 438 deselected, 1 warning in 241.22s (0:04:01)
+864 passed, 439 deselected, 1 warning in 243.23s (0:04:03)
 # pytest exit code: 0
 # containers left by this run: 1 (the PostgreSQL one is removed on exit)

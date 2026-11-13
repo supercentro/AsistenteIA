@@ -28,6 +28,7 @@ from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
 from tests.db_admin_support import scratch_database as scratch_database  # noqa: F401  (fixture)
 from tests.db_roles_support import own_database as own_database
 from tests.role_support import make_test_role_name
+from tests.server_support import free_port
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -213,4 +214,36 @@ def test_the_worker_process_refuses_to_start_as_the_administrator(
     result = run_entry_point("import sys; from app.worker import main; sys.exit(main())", env)
 
     assert result.returncode == 2
+    assert "superuser" in (result.stdout + result.stderr).lower()
+
+
+def test_uvicorn_with_the_production_arguments_does_not_serve_as_the_administrator(
+    cluster: Cluster, own_database: str
+) -> None:
+    """The factory exception stops the real server: it exits instead of listening (R3)."""
+    env = api_env(cluster.admin(own_database))
+    command = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "app.main:app_factory",
+        "--factory",
+        "--no-proxy-headers",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(free_port()),
+    ]
+    result = subprocess.run(  # noqa: S603 - fixed arguments, test-only
+        command,
+        capture_output=True,
+        text=True,
+        cwd=BACKEND_DIR,
+        env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(BACKEND_DIR), **env},
+        timeout=90,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Uvicorn running" not in result.stdout + result.stderr
     assert "superuser" in (result.stdout + result.stderr).lower()

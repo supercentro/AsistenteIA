@@ -1,6 +1,4 @@
-SKIPPED [1] tests\unit\test_pdf_wrapper.py:526: the PDF child runs on Linux only (resource limits)
-SKIPPED [1] tests\unit\test_pdf_wrapper.py:533: the PDF child runs on Linux only (resource limits)
 FAILED tests/unit/test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval
 FAILED tests/unit/test_worker_settings.py::test_a_fresh_worker_process_loads_its_settings_without_any_api_variable
 FAILED tests/unit/test_worker_settings.py::test_importing_the_worker_does_not_pull_in_the_api
-3 failed, 1275 passed, 110 skipped, 23 deselected, 1 warning in 17.92s
+3 failed, 1276 passed, 110 skipped, 23 deselected, 1 warning in 17.81s

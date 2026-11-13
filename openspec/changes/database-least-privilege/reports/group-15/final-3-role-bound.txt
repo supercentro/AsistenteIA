@@ -1,4 +1,4 @@
-# group 15.2 test run 2026-11-13T19:41:25Z | free RAM before: 9.7 GB
+# group 15.2 test run 2026-11-13T20:06:28Z | free RAM before: 9.03 GB
 # postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: -m role_bound tests/integration
 # env files in the copy: 0
 [notice] A new release of pip is available: 25.0.1 -> 26.3
@@ -13,7 +13,7 @@
 ........................................................................ [ 65%]
 ........................................................................ [ 82%]
 ........................................................................ [ 98%]
-......                                                                   [100%]
-438 passed, 864 deselected in 68.15s (0:01:08)
+.......                                                                  [100%]
+439 passed, 864 deselected in 69.26s (0:01:09)
 # pytest exit code: 0
 # containers left by this run: 1 (the PostgreSQL one is removed on exit)

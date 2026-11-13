@@ -307,10 +307,13 @@ def test_removing_the_roles_is_refused_while_another_database_is_still_owned(
 ) -> None:
     first, second, _, second_counts = adopted_pair(cluster, scratch_database)
 
-    with pytest.raises(AdoptRefusedError, match="owns"):
+    with pytest.raises(AdoptRefusedError, match="owns") as refused:
         rollback_adoption(
             cluster.admin("postgres"), database=first, names=cluster.names, remove_roles=True
         )
+
+    assert second in str(refused.value)  # it names the database that still has to be rolled back
+    assert set(owners(cluster, first).values()) == {cluster.names.migrator}  # nothing was changed
 
     with cluster.admin_connection() as conn:
         left = conn.execute(

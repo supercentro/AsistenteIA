@@ -299,3 +299,30 @@ def test_run_worker_in_process_does_not_enforce_by_default() -> None:
 
     default = inspect.signature(worker_module.run_worker).parameters["enforce_database_identity"]
     assert default.default is False
+
+
+def test_the_worker_refuses_a_superuser_before_it_loads_the_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """A restart loop under a restart policy must not load the embedding model each time (R1)."""
+    built: list[str] = []
+    _prepare_worker(monkeypatch)
+    monkeypatch.setattr(worker_module, "build_embedder", lambda settings: built.append("model"))
+
+    def refuse(engine: object) -> None:
+        raise SuperuserConnectionError
+
+    monkeypatch.setattr(worker_module, "assert_restricted_database_role", refuse)
+    stop = threading.Event()
+    stop.set()
+
+    code = worker_module.run_worker(
+        worker_settings(),
+        platform="linux",
+        stop=stop,
+        health_file=tmp_path / "health",
+        enforce_database_identity=True,
+    )
+
+    assert code == worker_module.EXIT_REFUSED
+    assert built == []

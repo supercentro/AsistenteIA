@@ -1,0 +1,9 @@
+# group 15.2 mutation run 2026-11-13T19:59:36Z | free RAM before: 9.86 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+22 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[19] CAUGHT | removing the roles is not refused before the first change | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_removing_the_roles_is_refused_while_another_database_is_
+[20] CAUGHT | the worker checks the identity after it loads the model | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_superuser_refusal.py::test_the_worker_refuses_a_superuser_before_it_loads_the_model
+[21] CAUGHT | the rollback accepts a database that does not exist | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_refuses_a_database_that_does_not_exist
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)

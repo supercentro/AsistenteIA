@@ -56,17 +56,45 @@ The administrator, a superuser with a service-like name, `SET ROLE` to an unpriv
 | Gate | Result |
 |---|---|
 | `ruff check --no-cache`, `ruff format --check`, `mypy --strict` (233 files) | clean |
-| Unit, Linux (disposable) | **1376 passed**, 12 skipped, 0 failed |
-| Unit, Windows host | 3 failed, 1275 passed, 110 skipped: the same three ids as the baseline of group 3 |
+| Unit, Linux (disposable) | **1377 passed**, 12 skipped, 0 failed |
+| Unit, Windows host | 3 failed, 1276 passed, 110 skipped: the same three ids as the baseline of group 3 |
 | Integration, ordinary job selection | 864 passed |
-| Integration, role-bound suites (`-m role_bound`) | 438 passed (410 before this task; +28 new) |
+| Integration, role-bound suites (`-m role_bound`) | 439 passed (410 before this task; +29 new) |
 | Existing tests under the production roles (`--least-privilege -m least_privilege`) | 484 passed |
 | Migrations, administrative commands | included in the stages above |
 | Frontend: lint, format, typecheck, `check:api-types`, `test:coverage` | all exit 0 (statements 97.68 %) |
 | `openspec validate --all --strict` | 18 of 18 |
 
-Mutations of the critical controls (`group-15/mutations-result.txt`, copies in a scratch directory, a fresh cluster per run, each baseline proved green): **20 of 20 caught** (superuser check removed or weakened or failing open, entry points not checking, the exception outside `APP_ENV=test`, the identity checks of the three commands, the bare `commit()`, the missing rollback, 503 and 500 swapped, the three system-database guards, the rollback in the wrong database, the unreported databases, the missing-database check). Limits: the runner stops at the first failing test of each mutant, so the integration twin of a unit target is not shown for the mutants that a unit test catches first; the contract text is not mutated (the harness copies `backend/` only).
+Mutations of the critical controls (`group-15/mutations-result.txt` for the first 20 and `mutations-result-second-review.txt` for the three added after the second review, copies in a scratch directory, a fresh cluster per run, each baseline proved green): **22 distinct mutations, all caught** (superuser check removed or weakened or failing open, entry points not checking, the exception outside `APP_ENV=test`, the identity checks of the three commands, the bare `commit()`, the missing rollback, 503 and 500 swapped, the three system-database guards, the rollback in the wrong database, the unreported databases, the missing-database check). Limits: the runner stops at the first failing test of each mutant, so the integration twin of a unit target is not shown for the mutants that a unit test catches first; the contract text is not mutated (the harness copies `backend/` only).
 
 ## Behaviour change to know
 
 On this machine the development API and worker still use the administrator (TD-040). With this code, restarting or rebuilding either with the current URL is refused with a clear message until group 17 gives them the restricted roles. Nothing was changed in the real files, and the test-only variable must not be used as a workaround.
+
+## Second independent review (sub-task 15.2.7): PASS WITH GAPS, no critical or high finding
+
+A second clean-context, read-only reviewer (told not to read any real `.env` file) proved from the code that the effective identity decides, that both production entry points enforce the check, that the exception is not reachable in production, that the migrator identity is checked before any statement, that the seven committing operations carry the 500 and 503 in the contract and the generated types, that the matrix and the tests were not weakened (the only removed assertions are the two replaced ones), and that the counts match the committed evidence. Its findings and what was done:
+
+| ID | Severity | Handling |
+|---|---|---|
+| R1 a refused worker loads the model on every restart (`restart: unless-stopped`) | Medium | **Fixed**: the identity check runs before the embedder is built; unit test (RED then GREEN) and mutation |
+| R2 the dev backend mounts `backend/app` with `--reload`: an edit could reload it with the administrator URL | Medium | **Verified and documented**: the dev `backend` container was `Exited (0)` since before this task, so no reload happened; the guide now names auto-reload and the worker restart loop |
+| R3 no test starts the real `uvicorn app.main:app_factory --factory` as a superuser | Low | **Fixed**: real-process test that it exits and never listens |
+| R4 only superusers are refused; the CLI engine is not checked | Low | **Open, TD-048** |
+| R5 the API refuses to start when the database is down at boot | Low | **Documented** (guide); `depends_on` with the `db` health check covers Compose |
+| R6 the identity session and Alembic's engine are built differently from the same URL | Low | **Open, TD-048** |
+| R7 rollback with `--remove-roles` did `REASSIGN` and then failed without naming the databases | Medium/Low | **Fixed**: refused before the first change, naming the databases; test strengthened; mutation |
+| R8 dry run does not call the system-database guard; a missing database is refused even with `--remove-roles` | Low | Accepted (the dry run prints text only) |
+| R9 every `OperationalError` is a 503 whose text speaks of a lost connection (timeouts, deadlocks, serialization failures too); the AST test checks presence, not order | Low | **Open, TD-048** (the 500/503 mapping tests use a toy app; only the document deletion is proved on real PostgreSQL) |
+| R10 the guide still told to copy the administrator URL into `.env.worker` | Low/Medium | **Fixed** (marked historical, points to the note on the state of the machine) |
+| R11 evidence quality: the PG-01 real-PostgreSQL tests and the F-1 integration test were written after the code | Low | Acknowledged above (deviation, compensated by unit RED and mutations) |
+
+After these fixes the final gates were run again on the final code: unit 1377 (Linux), ordinary integration 864, role-bound 439, roles mode 484, ruff, format, mypy strict and `openspec validate` clean, `check:api-types` up to date (the contract and the types were not touched by the fixes).
+
+## Risks that remain for group 16
+
+1. TD-040: the development API and worker use the administrator and cannot restart before group 17 (see the guide); nothing was changed on the real stack.
+2. The administrator password sits in a local subagent transcript and is not rotated (incident report).
+3. GitHub Actions has never run the gate; branch protection is not applied (TD-045).
+4. The rollback is per database: with several adopted databases it must be run for each, and the last one carries `--remove-roles`.
+5. Open debt TD-042 to TD-048 and the widened TD-039 (planned erase and chat endpoints).

@@ -185,6 +185,44 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         [f"{ADOPT}::test_the_rollback_acts_only_on_the_named_database_and_reports_the_other"],
     ),
     (
+        "removing the roles is not refused before the first change",
+        "app/db_admin/adopt.py",
+        "    if remove_roles and owned_elsewhere:\n",
+        "    if False:\n",
+        [f"{ADOPT}::test_removing_the_roles_is_refused_while_another_database_is_still_owned"],
+    ),
+    (
+        "the worker checks the identity after it loads the model",
+        "app/worker.py",
+        "    if enforce_database_identity and not settings.allow_superuser_database_role:\n"
+        "        try:\n"
+        "            assert_restricted_database_role(engine)\n"
+        "        except SuperuserConnectionError as error:\n"
+        '            logger.error("worker refused to start: %s", error)\n'
+        "            engine.dispose()\n"
+        "            return EXIT_REFUSED\n"
+        "    try:\n"
+        "        ensure_supported_platform(platform)\n"
+        "        embedder = build_embedder(settings)\n"
+        "        startup_check(embedder)\n",
+        "    try:\n"
+        "        ensure_supported_platform(platform)\n"
+        "        embedder = build_embedder(settings)\n"
+        "        startup_check(embedder)\n"
+        "    except (UnsupportedPlatformError, EmbedderConfigurationError, EmbedderStartupError):\n"
+        "        return EXIT_REFUSED\n"
+        "    if enforce_database_identity and not settings.allow_superuser_database_role:\n"
+        "        try:\n"
+        "            assert_restricted_database_role(engine)\n"
+        "        except SuperuserConnectionError as error:\n"
+        '            logger.error("worker refused to start: %s", error)\n'
+        "            engine.dispose()\n"
+        "            return EXIT_REFUSED\n"
+        "    try:\n"
+        "        pass\n",
+        [f"{STARTUP_UNIT}::test_the_worker_refuses_a_superuser_before_it_loads_the_model"],
+    ),
+    (
         "the rollback accepts a database that does not exist",
         "app/db_admin/adopt.py",
         "    if database not in databases:\n",

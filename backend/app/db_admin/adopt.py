@@ -416,6 +416,13 @@ def rollback_adoption(
         )
     if sessions:
         raise AdoptRefusedError(f"{sessions} session(s) of the roles exist; stop them first")
+    if remove_roles and owned_elsewhere:
+        # Refuse BEFORE the first change: removing the roles cannot succeed, so do not half-do it.
+        raise AdoptRefusedError(
+            f"role {names.migrator} still owns objects in: {', '.join(owned_elsewhere)}; "
+            "run db-adopt --rollback --database <name> for each of them first, "
+            "then remove the roles with the last one (nothing was changed)"
+        )
     if exists is not None:
         target = quote_catalog_name(admin)
         with connect(admin_url, database=database) as scoped:
