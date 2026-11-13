@@ -37,6 +37,9 @@ class User(Base):
             values_callable=lambda enum_cls: [member.value for member in enum_cls],
         ),
         nullable=False,
+        # Registration does not name the role: the application database role cannot insert it, and
+        # only the administrative command (its own role) sets `teacher` (migration 0006).
+        server_default=text("'student'"),
     )
     consent_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     consent_accepted_at: Mapped[datetime | None] = mapped_column(

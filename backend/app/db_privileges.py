@@ -106,10 +106,9 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
     APP: {
         "users": TableGrant(
             select=_all("users"),
-            # `role` is NOT granted: the registration code still inserts it, so registering a
-            # user under this role fails until task 8.4 (decision DD-9, option A). The database
-            # switch of group 17 must not happen before 8.4. The consent columns are
-            # in the list because the ORM sends every column without a server default, as NULL.
+            # `role` is NOT granted (decision DD-9, option A): registration omits it and the server
+            # default `student` of migration 0006 supplies it. The consent columns are in the list
+            # because the ORM sends every column without a server default, as NULL.
             insert=_cols(
                 "name", "email", "password_hash", "consent_version", "consent_accepted_at"
             ),

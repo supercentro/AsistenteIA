@@ -3,7 +3,7 @@ import logging
 from app.core.config import Settings
 from app.core.errors import InvalidCredentialsError
 from app.core.security import PasswordService, encode_access_token
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import TokenResponse
 
@@ -27,8 +27,7 @@ class AuthService:
             name=name,
             email=email,
             password_hash=self._passwords.hash(password),
-            role=UserRole.STUDENT,
-        )
+        )  # the role is the server default `student`: the API role cannot insert it
         created = self._users.add(user)
         logger.info("user registered id=%s role=%s", created.id, created.role.value)
         return created
