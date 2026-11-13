@@ -78,3 +78,23 @@ def run_steps(conn: "psycopg.Connection[Any]", steps: Iterable[Step]) -> int:
             ) from None
         count += 1
     return count
+
+
+def check_identity(conn: "psycopg.Connection[Any]", expected: str, command: str) -> None:
+    """Stop unless the session AND the current role are `expected` (finding PG-02, DD-16).
+
+    Run it on the first connection of a command, before any statement that changes something: an
+    administrator URL pasted by mistake would otherwise create objects it owns.
+    """
+    row = conn.execute(raw("SELECT current_user, session_user")).fetchone()
+    if row is None or row[0] != expected or row[1] != expected:
+        raise DbAdminError(
+            f"{command} must connect as the migrator role {expected}; "
+            "check the URL (nothing was changed)"
+        )
+
+
+def require_identity(url: str, expected: str, command: str) -> None:
+    """Open a short read-only session, check the identity and close it."""
+    with connect(url, read_only=True) as conn:
+        check_identity(conn, expected, command)

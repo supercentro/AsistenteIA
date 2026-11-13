@@ -110,7 +110,7 @@ def test_a_downgrade_and_upgrade_round_trip_leaves_the_database_verified(
 ) -> None:
     assert findings(cluster, own_database) == []
 
-    downgrade(cluster.migrator_url(own_database), "0004")
+    downgrade(cluster.migrator_url(own_database), "0004", names=cluster.names)
     migrate(cluster.migrator_url(own_database), names=cluster.names)
 
     assert findings(cluster, own_database) == []
@@ -120,7 +120,7 @@ def test_downgrade_to_base_is_an_administrator_operation_and_changes_nothing_for
     cluster: Cluster, own_database: str
 ) -> None:
     with pytest.raises(Exception) as caught:
-        downgrade(cluster.migrator_url(own_database), "base")
+        downgrade(cluster.migrator_url(own_database), "base", names=cluster.names)
     assert (
         "42501" in repr(getattr(caught.value, "orig", caught.value))
         or "permission" in str(caught.value).lower()

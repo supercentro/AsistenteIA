@@ -10,6 +10,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+from app.db_admin.connection import require_identity
 from app.db_admin.grants import apply_grants
 from app.db_admin.names import DEFAULT_NAMES, RoleNames
 
@@ -24,11 +25,16 @@ def alembic_config(migrator_url: str) -> Config:
 
 
 def migrate(migrator_url: str, *, names: RoleNames = DEFAULT_NAMES, revision: str = "head") -> None:
-    """Upgrade to `revision` and apply the privilege matrix."""
+    """Upgrade to `revision` and apply the privilege matrix.
+
+    The identity is checked first: Alembic runs no statement as anyone but the migrator (PG-02).
+    """
+    require_identity(migrator_url, names.migrator, "db-migrate")
     command.upgrade(alembic_config(migrator_url), revision)
     apply_grants(migrator_url, names=names)
 
 
-def downgrade(migrator_url: str, revision: str) -> None:
+def downgrade(migrator_url: str, revision: str, *, names: RoleNames = DEFAULT_NAMES) -> None:
     """Downgrade as the migrator. No grants are applied: the tables that remain keep theirs."""
+    require_identity(migrator_url, names.migrator, "db-migrate --downgrade")
     command.downgrade(alembic_config(migrator_url), revision)

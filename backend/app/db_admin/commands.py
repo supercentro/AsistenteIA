@@ -94,7 +94,7 @@ def _dispatch(args: argparse.Namespace, out: Callable[[str], None]) -> int:
     if command == "db-migrate":
         url = load_migration_settings().migration_database_url.get_secret_value()
         if args.downgrade:
-            downgrade(url, str(args.downgrade))
+            downgrade(url, str(args.downgrade), names=DEFAULT_NAMES)
             out(f"downgraded to {args.downgrade} (no grants applied)")
         else:
             migrate(url, names=DEFAULT_NAMES)

@@ -13,7 +13,7 @@ from typing import Any
 import psycopg
 from sqlalchemy.engine import make_url
 
-from app.db_admin.connection import connect, tls_parameters
+from app.db_admin.connection import check_identity, connect, tls_parameters
 from app.db_admin.names import (
     CONNECTION_LIMITS,
     DEFAULT_NAMES,
@@ -470,6 +470,7 @@ def verify(
     """Return every difference between the live database and the design (empty = identical)."""
     findings: list[Finding] = []
     with connect(migrator_url, read_only=True) as conn:
+        check_identity(conn, names.migrator, "db-verify")
         for check in (
             _role_checks,
             _database_checks,
