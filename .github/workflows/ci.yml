@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# The workflow token can only read the repository; no job asks for more and none uses a secret.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -48,11 +52,81 @@ jobs:
         run: uv run mypy --strict app tests
       - name: Unit tests
         run: uv run pytest tests/unit
+      # The role-bound tests need a cluster of their own and run in the `privileges` job.
       - name: Integration tests
-        run: uv run pytest tests/integration --cov=app --cov-report=term-missing
+        run: uv run pytest tests/integration -m "not role_bound and not realmodel" --cov=app --cov-report=term-missing
       - name: Dependency audit (non-blocking)
         run: uv run pip-audit
         continue-on-error: true
+
+  # Mandatory gate of change `database-least-privilege` (decision D5): the real bootstrap, the
+  # migrations up to 0006 with grants, db-verify, the privilege tests and the role-bound suites run
+  # against two clusters that exist only for this run. A failing step, a missing prerequisite, a
+  # skipped test or too few tests fails the job; nothing is ignored. Add the job `privileges` to the
+  # required status checks of the protected branch (docs/development_guide.md, section 6).
+  privileges:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      # The throwaway administrator password below belongs to containers that live for this job on
+      # the runner only; it protects nothing and is not a secret.
+      flow:
+        image: pgvector/pgvector:0.8.7-pg15
+        env:
+          POSTGRES_USER: ci_admin
+          POSTGRES_PASSWORD: ci_cluster_password_not_a_secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_admin -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      tests:
+        image: pgvector/pgvector:0.8.7-pg15
+        env:
+          POSTGRES_USER: ci_admin
+          POSTGRES_PASSWORD: ci_cluster_password_not_a_secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_admin -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      FLOW_PORT: "5433"
+      TESTS_PORT: "5434"
+      PG_ADMIN_USER: ci_admin
+      PG_ADMIN_PASSWORD: ci_cluster_password_not_a_secret
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.9"
+      - name: Install dependencies
+        run: uv sync --frozen --extra ingestion
+      - name: Prerequisites and ephemeral credentials
+        run: bash ../.github/scripts/privilege_gate.sh prerequisites
+      - name: The clusters are exclusive, empty and local
+        run: bash ../.github/scripts/privilege_gate.sh clusters
+      - name: Bootstrap, migrations to 0006 with grants, db-verify, alembic check
+        run: bash ../.github/scripts/privilege_gate.sh flow
+      - name: db-verify detects a deliberate drift and db-grants heals it
+        run: bash ../.github/scripts/privilege_gate.sh drift-selfcheck
+      - name: Matrix, inventory and workflow unit tests
+        run: bash ../.github/scripts/privilege_gate.sh privilege-unit
+      - name: Role-bound integration suites
+        run: bash ../.github/scripts/privilege_gate.sh role-suites
+      - name: Existing API and ingestion tests under the production roles
+        run: bash ../.github/scripts/privilege_gate.sh roles-mode
+      - name: Every report is clean, complete and not skipped
+        if: always()
+        run: bash ../.github/scripts/privilege_gate.sh summary
 
   frontend:
     runs-on: ubuntu-latest
