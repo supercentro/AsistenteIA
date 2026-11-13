@@ -125,6 +125,13 @@ Read `openspec/config.yaml` and `docs/openspec-tasks-mandatory-steps.md` first. 
 
 - [x] 15.1 Run the `adversarial-review` skill with a separate read-only subagent on the implemented code, tests, Compose changes and procedures; classify the findings in a report (reports/2026-11-13-step-15-adversarial-review.md: three read-only clean-context reviewers, verdict PASS WITH GAPS, 0 critical, 0 high, 10 medium; 15.2 is not authorised and stays open)
 - [ ] 15.2 Fix every blocking or major finding with tests first, re-run the affected gates and ask for a focused second review when the fix touches security; record accepted residual risks in `docs/technical-debt.md` with the owner's agreement
+  - [ ] 15.2.1 (PG-01) Tests first, then code: the API and the worker refuse to start as a superuser (effective identity, fail closed, test-only exception); examples and their tests use the restricted identities; stale guide lines corrected
+  - [ ] 15.2.2 (PG-02) Tests first, then code: `db-migrate`, `db-downgrade` and `db-verify` check the migrator identity before any change; errors of identity, connection and permission
+  - [ ] 15.2.3 (F-1, B-1, F-2) Tests first, then code: `DELETE` of a document commits with the shared helper; refused commit keeps the data (another session); a lost connection at commit is 503; contract and generated types updated; frontend gates
+  - [ ] 15.2.4 (PG-07, PG-08) Tests first, then code: system databases refused; the rollback respects `--database`; the rest recorded as accepted limits
+  - [ ] 15.2.5 (D-1, D-2, F-3, other findings) Technical debt (TD-039 widened and new entries), the safety box of the dangerous operations, a classification of every other finding, corrected documentary inconsistencies
+  - [ ] 15.2.6 Incident of the exposed credential: record without the value, affected service and credential, copies checked, coordinated rotation procedure prepared, nothing rotated
+  - [ ] 15.2.7 Gates on the final code (ruff, format, mypy strict, unit, role-bound and roles-mode integration, migrations, administrative commands, mutations of the critical controls, frontend gates, `openspec validate`) and the focused second adversarial review
 
 ## 16. Rehearsal on a restored copy of the real backup (separate authorisation)
 

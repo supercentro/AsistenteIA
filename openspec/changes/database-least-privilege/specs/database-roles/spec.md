@@ -224,7 +224,7 @@ The model SHALL mark columns that the code never sets on insert (`ingestion_jobs
 - **THEN** PostgreSQL refuses with insufficient privilege
 
 ### Requirement: An endpoint that promises persistence commits before it answers
-`POST /auth/register`, `POST` and `DELETE /subjects` and the enrollment `POST` and `DELETE` SHALL commit their transaction explicitly before the success response is built, and roll back and answer with the standard error when the database refuses the write, so a 2xx never exists without stored data.
+Registration, consent, subjects, enrollments and the deletion of a document SHALL commit explicitly with the shared helper before the success response is built, and roll back and answer with the standard error when the database refuses the write, so a 2xx never exists without stored data. The `500` and the `503` of each operation are documented in the API contract.
 
 #### Scenario: Success is visible from another session
 - **WHEN** any of these operations answers with a success status
@@ -233,3 +233,56 @@ The model SHALL mark columns that the code never sets on insert (`ingestion_jobs
 #### Scenario: A refused write is an error
 - **WHEN** the database refuses the write at commit
 - **THEN** the answer is the standard 500 body, nothing is stored, and the next request on the same service succeeds
+
+#### Scenario: A refused deletion of a document keeps the document
+- **WHEN** the database refuses the commit of `DELETE /subjects/{subject_id}/documents/{document_id}`
+- **THEN** the answer is the standard 500 body, the document, its chunks and its job are still stored when read from another session, and the next request succeeds
+
+#### Scenario: A lost connection at commit is not reported as a refusal
+- **WHEN** the commit fails with a connection error, so its outcome is uncertain
+- **THEN** the answer is `503 SERVICE_UNAVAILABLE` with the fixed body, no SQL, parameter or address appears in it, the contract does not claim that nothing was stored, and it tells the client to read the state before it retries
+
+### Requirement: The application and the worker refuse to start as a superuser
+The API and the worker, started through their production entry points, SHALL ask the server for the effective identity of their connection and SHALL refuse to start, without naming a password or a URL, when it is a superuser or cannot be checked. The only exception is a test-only setting that is rejected unless `APP_ENV=test`. The environment examples MUST NOT give them the administrator identity.
+
+#### Scenario: A superuser connection is refused
+- **WHEN** the API or the worker starts with a URL whose role is a superuser
+- **THEN** the process refuses to start and no request is served
+
+#### Scenario: The effective identity decides, not the name
+- **WHEN** the server reports a superuser for the session user, the current role or the `is_superuser` setting, whatever name the URL carries
+- **THEN** the process refuses to start
+
+#### Scenario: The exception is limited to tests
+- **WHEN** the test-only setting is given with an `APP_ENV` other than `test`
+- **THEN** the settings are rejected
+
+#### Scenario: Unverifiable identity fails closed
+- **WHEN** the database cannot be reached at start
+- **THEN** the process refuses to start instead of serving without the check
+
+#### Scenario: The examples carry the restricted identities
+- **WHEN** `.env.example` and `.env.worker.example` are read
+- **THEN** their `DATABASE_URL` users are `asistente_app` and `asistente_worker`, not the value of `POSTGRES_USER`
+
+### Requirement: Administrative commands check the identity before any change
+`db-migrate`, `db-downgrade` and `db-verify` SHALL check, on a first connection and before Alembic or any other statement, that the session is the migrator role, and SHALL stop with a message that names no secret when it is not (including an administrator URL), when the connection cannot be opened, or when PostgreSQL refuses it. Nothing is created, owned or granted by a refused command.
+
+#### Scenario: An administrator URL is refused before any DDL
+- **WHEN** `db-migrate` is given a URL that connects as the administrator
+- **THEN** it exits non-zero, no table, owner or privilege changes, and no object owned by the administrator appears
+
+#### Scenario: Downgrade and verify have the same guard
+- **WHEN** `db-migrate --downgrade` or `db-verify` is given a URL of another role
+- **THEN** each stops with the identity error and changes nothing
+
+### Requirement: Cluster-wide commands cannot be pointed at a system database
+`db-bootstrap` and `db-adopt` SHALL refuse `postgres`, `template0` and `template1` as the target database before any connection, and the adoption rollback SHALL act only on the named database, refusing (and naming the databases) when the migrator still owns objects elsewhere instead of reassigning them silently.
+
+#### Scenario: A system database is refused
+- **WHEN** `--database` is `postgres`, `template0` or `template1`
+- **THEN** the command stops before any connection and changes nothing
+
+#### Scenario: The rollback respects the named database
+- **WHEN** the rollback is run for one database
+- **THEN** ownership is reassigned in that database only, and objects of the migrator in another database are reported and left untouched
