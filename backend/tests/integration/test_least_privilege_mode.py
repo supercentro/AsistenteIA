@@ -2,7 +2,7 @@
 
 Without `--least-privilege` the code under test connects with the guarded test URL (a superuser of
 the disposable cluster). With it, the API connects as the application role and the ingestion
-service as the worker role, neither of which is a superuser: the 483 existing tests that carry the
+service as the worker role, neither of which is a superuser: the existing tests that carry the
 marker `least_privilege` therefore prove something only because this test passes.
 """
 

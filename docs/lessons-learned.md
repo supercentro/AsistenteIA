@@ -43,7 +43,11 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 | L25 | A late edit after the last green gate broke CI | document-ingestion (group 9) | implemented (rule in base-standards 9.9) |
 | L26 | Files that a change modifies but no test reads, and test seams in production code | document-ingestion (groups 10 and 11) | implemented (tests) |
 | L27 | A verification task must not depend on writing to the development database | document-ingestion (group 13) | implemented (tasks.md, development guide) |
+| L28 | A test probe must look at the system under test, not at the whole shared resource | document-ingestion | implemented (tests) |
+| L29 | A container keeps the environment it was created with, and removing a variable is not rotating it | document-ingestion | implemented (development guide) |
 | L30 | A contract edit must regenerate the files derived from it in the same change | database-least-privilege (groups 7 and 14) | implemented (backend standards, development guide) |
+| L31 | A reviewer must never print the value of a real secret file | database-least-privilege (task 15.1) | implemented (review instructions) |
+| L32 | An example file is a default: it must carry the safest identity, and a test must pin that | database-least-privilege (task 15.2) | implemented (tests) |
 
 ## Lessons
 
@@ -319,3 +323,21 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Solution applied:** the contract documents the `500` of all six endpoints that commit before answering (shared `InternalError` response), the types were regenerated with `npm run generate:api` (only the contract's additions changed), and a deliberate contract change without regeneration was shown to fail `check:api-types`.
 - **Preventive measure:** whenever `docs/api-spec.yml` changes, run `npm run generate:api` and `npm run check:api-types` in the same change and commit the result; a task that edits the contract lists the derived files; a "no frontend change" statement is verified with `check:api-types`, not only with `git diff -- frontend`.
 - **Evidence:** `openspec/changes/database-least-privilege/reports/2026-11-13-step-14-e2e-applicability.md`, `.../2026-11-13-step-14-closure.md`, `.../group-14/stale-types-detection.txt`.
+
+### L31. A reviewer must never print the value of a real secret file
+- **Origin:** database-least-privilege (task 15.1, independent PostgreSQL review).
+- **Problem:** to find out which database user the real `backend/.env` files use, a read-only reviewer ran a search whose output included the value of `POSTGRES_PASSWORD`. The value ended in the reviewer's transcript and was reported by the reviewer itself.
+- **Root cause:** the review instructions said "read-only" but did not forbid reading the values of real secret files, and the question (which user?) could be answered without them.
+- **Impact / repetition risk:** a credential in a transcript that is not under the repository's control; any review or audit of configuration can repeat it. Medium.
+- **Solution applied:** incident recorded without the value; the places where the value could be found were searched by pattern and only counts were printed; the review instructions of task 15.2 forbid reading real `.env` values; rotation is prepared (see the incident report).
+- **Preventive measure:** to inspect configuration use the examples, `cut -d= -f1` for names, or `sed` that masks values; give every review prompt the line "do not read or print values from real `.env*` files"; search for leaks with `grep -c` or `-l`, never with output.
+- **Evidence:** `openspec/changes/database-least-privilege/reports/2026-11-13-credential-exposure-incident.md`.
+
+### L32. An example file is a default: it must carry the safest identity, and a test must pin that
+- **Origin:** database-least-privilege (task 15.2, finding PG-01).
+- **Problem:** after the design said the API and the worker must not be the database administrator, `.env.example` and `.env.worker.example` still carried the administrator user and a unit test asserted that they were equal to `POSTGRES_USER`, so copying the examples bypassed the whole model.
+- **Root cause:** the tests that pin the example files were written for the previous design and were not revisited when the design changed.
+- **Impact / repetition risk:** a new environment silently gets a superuser. High if copied to a real deployment.
+- **Solution applied:** the examples carry `asistente_app` and `asistente_worker`, the tests assert the opposite of the old equality, and both services ask the server for their effective identity at start and refuse a superuser.
+- **Preventive measure:** when a design changes who may do what, search the tests for assertions of the old arrangement; add a runtime check where a configuration mistake is not recoverable.
+- **Evidence:** `backend/tests/unit/test_deployment_files.py`, `backend/tests/unit/test_superuser_refusal.py`, `backend/tests/integration/test_db_roles_startup.py`.
