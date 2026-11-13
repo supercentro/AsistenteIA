@@ -465,3 +465,24 @@ def test_a_chunk_of_a_document_that_does_not_exist_is_rejected(
                 ],
             )
         session.rollback()
+
+
+def test_the_worker_erases_a_payload_and_clears_the_lease_under_its_role(
+    cluster: Cluster, own_database: str
+) -> None:
+    document = pending_document(cluster, own_database, "erase.txt")
+    with session_for(cluster, "worker", own_database) as session:
+        repo = IngestionJobRepository(session)
+        job = repo.claim(lease_seconds=120, max_attempts=3)
+        session.commit()
+        assert job is not None and job.document_id == document
+        assert repo.erase_payload(job.job_id, job.token) is True
+        session.commit()
+        assert repo.erase_payload(job.job_id, "another-token") is False  # fenced
+        session.rollback()
+
+    with cluster.admin_connection(own_database) as conn:
+        assert conn.execute(
+            "SELECT payload IS NULL, locked_by IS NULL, locked_until IS NULL FROM ingestion_jobs "
+            f"WHERE document_id = '{document}'"
+        ).fetchone() == (True, True, True)

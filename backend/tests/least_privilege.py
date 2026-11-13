@@ -62,9 +62,9 @@ def activate(test_db_url: str) -> Cluster:
     assert_cluster_is_disposable(cluster)
     database = make_url(test_db_url).database
     assert database is not None
+    drop_everything(test_db_url)  # first: the objects an earlier run left to its roles
     with cluster.admin_connection() as conn:
-        sweep_test_roles(conn)  # leftovers of an earlier run of this mode
-    drop_everything(test_db_url)
+        sweep_test_roles(conn)  # then the leftover roles of that run
     bootstrap(cluster.admin("postgres"), cluster.passwords, database=database, names=cluster.names)
     migrate(cluster.migrator_url(database), names=cluster.names)
     _cluster, _database = cluster, database
