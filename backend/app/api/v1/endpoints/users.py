@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, get_consent_service
+from app.api.transaction import commit_or_rollback
 from app.schemas.consent import ConsentRequest
 from app.schemas.user import UserResponse
 from app.services.consent_service import ConsentService
@@ -28,9 +29,5 @@ def record_consent(
     missing privilege) becomes an error response and never a 200 without stored evidence.
     """
     updated = service.record(user, body.consent_version)
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
+    commit_or_rollback(db)
     return UserResponse.model_validate(updated)

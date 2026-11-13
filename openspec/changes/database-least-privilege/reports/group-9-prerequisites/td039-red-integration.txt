@@ -1,0 +1,228 @@
+# group 5 test run 2026-11-13T12:49:24Z | free RAM before: 11.24 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: tests/integration/test_endpoint_commit_persistence.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+F.FFFF                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_registration_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+world = <tests.integration.test_endpoint_commit_persistence.World object at 0x77dbae778290>
+
+    def test_registration_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused(
+        cluster: Cluster, world: World
+    ) -> None:
+        where = "email = 'ana.new@example.com'"
+        refuse_commit(cluster, world.database, "users", "INSERT")
+        with api_client(cluster, world.database) as client:
+            refused = client.post("/api/v1/auth/register", json=REGISTRATION)
+>           assert_standard_500(refused, "ana.new@example.com", DEFAULT_PASSWORD)
+
+tests/integration/test_endpoint_commit_persistence.py:109: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+response = <Response [201 Created]>
+forbidden = ('ana.new@example.com', 'a-very-long-password')
+
+    def assert_standard_500(response: Any, *forbidden: str) -> None:
+>       assert response.status_code == 500
+E       assert 201 == 500
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/integration/test_endpoint_commit_persistence.py:93: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/auth/register
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=POST path=/api/v1/auth/register
+_ test_a_subject_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+world = <tests.integration.test_endpoint_commit_persistence.World object at 0x77dbae3bf3e0>
+
+    def test_a_subject_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused(
+        cluster: Cluster, world: World
+    ) -> None:
+        refuse_commit(cluster, world.database, "subjects", "INSERT")
+        with api_client(cluster, world.database) as client:
+            headers = world.teacher_headers(client)
+            refused = client.post("/api/v1/subjects", json={"name": "Geometry"}, headers=headers)
+>           assert_standard_500(refused, "Geometry")
+
+tests/integration/test_endpoint_commit_persistence.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+response = <Response [201 Created]>, forbidden = ('Geometry',)
+
+    def assert_standard_500(response: Any, *forbidden: str) -> None:
+>       assert response.status_code == 500
+E       assert 201 == 500
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/integration/test_endpoint_commit_persistence.py:93: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects
+_ test_a_subject_deletion_is_stored_when_it_answers_204_and_keeps_the_row_when_refused _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+world = <tests.integration.test_endpoint_commit_persistence.World object at 0x77dbadb497c0>
+
+    def test_a_subject_deletion_is_stored_when_it_answers_204_and_keeps_the_row_when_refused(
+        cluster: Cluster, world: World
+    ) -> None:
+        subject = world.subject()
+        refuse_commit(cluster, world.database, "subjects", "DELETE")
+        with api_client(cluster, world.database) as client:
+            headers = world.teacher_headers(client)
+            refused = client.delete(f"/api/v1/subjects/{subject}", headers=headers)
+>           assert_standard_500(refused)
+
+tests/integration/test_endpoint_commit_persistence.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+response = <Response [204 No Content]>, forbidden = ()
+
+    def assert_standard_500(response: Any, *forbidden: str) -> None:
+>       assert response.status_code == 500
+E       assert 204 == 500
+E        +  where 204 = <Response [204 No Content]>.status_code
+
+tests/integration/test_endpoint_commit_persistence.py:93: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subjects/86ea1960-4889-4a87-821e-0d38612f3b3e
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subjects/86ea1960-4889-4a87-821e-0d38612f3b3e
+_ test_an_enrollment_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+world = <tests.integration.test_endpoint_commit_persistence.World object at 0x77dbadbe9130>
+
+    def test_an_enrollment_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused(
+        cluster: Cluster, world: World
+    ) -> None:
+        subject = world.subject()
+        url = f"/api/v1/subjects/{subject}/enrollments"
+        body = {"student_email": world.student.email}
+        refuse_commit(cluster, world.database, "enrollments", "INSERT")
+        with api_client(cluster, world.database) as client:
+            headers = world.teacher_headers(client)
+            refused = client.post(url, json=body, headers=headers)
+>           assert_standard_500(refused, world.student.email)
+
+tests/integration/test_endpoint_commit_persistence.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+response = <Response [201 Created]>, forbidden = ('pupil.student@example.com',)
+
+    def assert_standard_500(response: Any, *forbidden: str) -> None:
+>       assert response.status_code == 500
+E       assert 201 == 500
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/integration/test_endpoint_commit_persistence.py:93: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects/ee62a53c-2640-4de3-9631-30b76440f566/enrollments
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=POST path=/api/v1/subjects/ee62a53c-2640-4de3-9631-30b76440f566/enrollments
+_ test_an_enrollment_removal_is_stored_when_it_answers_204_and_keeps_the_row_when_refused _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+world = <tests.integration.test_endpoint_commit_persistence.World object at 0x77dbad76a990>
+
+    def test_an_enrollment_removal_is_stored_when_it_answers_204_and_keeps_the_row_when_refused(
+        cluster: Cluster, world: World
+    ) -> None:
+        subject = world.subject()
+        with cluster.admin_connection(world.database) as conn:
+            conn.execute(
+                "INSERT INTO enrollments (subject_id, student_id) "
+                f"VALUES ('{subject}', '{world.student.id}')"
+            )
+        url = f"/api/v1/subjects/{subject}/enrollments/{world.student.id}"
+        refuse_commit(cluster, world.database, "enrollments", "DELETE")
+        with api_client(cluster, world.database) as client:
+            headers = world.teacher_headers(client)
+            refused = client.delete(url, headers=headers)
+>           assert_standard_500(refused)
+
+tests/integration/test_endpoint_commit_persistence.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+response = <Response [204 No Content]>, forbidden = ()
+
+    def assert_standard_500(response: Any, *forbidden: str) -> None:
+>       assert response.status_code == 500
+E       assert 204 == 500
+E        +  where 204 = <Response [204 No Content]>.status_code
+
+tests/integration/test_endpoint_commit_persistence.py:93: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.error_middleware] unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subjects/62ca61c1-11a1-4a89-90af-a06dbe213ee4/enrollments/88f26f6f-5cee-48b9-a12d-71eab2719000
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.error_middleware:error_middleware.py:38 unhandled exception type=ProgrammingError method=DELETE path=/api/v1/subjects/62ca61c1-11a1-4a89-90af-a06dbe213ee4/enrollments/88f26f6f-5cee-48b9-a12d-71eab2719000
+=============================== warnings summary ===============================
+../../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_endpoint_commit_persistence.py::test_registration_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused
+FAILED tests/integration/test_endpoint_commit_persistence.py::test_a_subject_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused
+FAILED tests/integration/test_endpoint_commit_persistence.py::test_a_subject_deletion_is_stored_when_it_answers_204_and_keeps_the_row_when_refused
+FAILED tests/integration/test_endpoint_commit_persistence.py::test_an_enrollment_is_stored_when_it_answers_201_and_is_an_error_when_the_commit_is_refused
+FAILED tests/integration/test_endpoint_commit_persistence.py::test_an_enrollment_removal_is_stored_when_it_answers_204_and_keeps_the_row_when_refused
+5 failed, 1 passed, 1 warning in 3.68s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)
