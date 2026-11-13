@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, String, Text, func, text
+from sqlalchemy import CheckConstraint, DateTime, Enum, FetchedValue, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,9 +41,14 @@ class User(Base):
         # only the administrative command (its own role) sets `teacher` (migration 0006).
         server_default=text("'student'"),
     )
-    consent_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Never set on insert: the consent is recorded later with an UPDATE. `FetchedValue()` keeps both
+    # columns out of the INSERT, so the runtime roles need no INSERT on them (DD-14 of change
+    # `database-least-privilege`); the default RETURNING reads them and both roles can SELECT them.
+    consent_version: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, server_default=FetchedValue()
+    )
     consent_accepted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, server_default=FetchedValue()
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

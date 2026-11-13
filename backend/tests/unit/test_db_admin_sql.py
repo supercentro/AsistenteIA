@@ -183,7 +183,7 @@ def test_full_column_sets_become_table_level_and_partial_ones_stay_column_level(
 
     assert f'GRANT SELECT ON TABLE "public"."users" TO {app}' in sql
     assert (
-        f'GRANT INSERT ("consent_accepted_at", "consent_version", "email", "name", "password_hash") ON TABLE "public"."users" TO {app}'  # noqa: E501
+        f'GRANT INSERT ("email", "name", "password_hash") ON TABLE "public"."users" TO {app}'  # noqa: E501
         in sql
     )
     assert (
@@ -210,7 +210,7 @@ def test_nothing_is_granted_beyond_the_matrix() -> None:
     cli = f'"{DEFAULT_NAMES.cli}"'
     assert [s for s in sql if s.startswith("GRANT") and s.endswith(f"TO {cli}")] == [
         f'GRANT SELECT ON TABLE "public"."users" TO {cli}',
-        f'GRANT INSERT ("consent_accepted_at", "consent_version", "email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
+        f'GRANT INSERT ("email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
     ]
 
 

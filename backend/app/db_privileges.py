@@ -107,11 +107,9 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         "users": TableGrant(
             select=_all("users"),
             # `role` is NOT granted (decision DD-9, option A): registration omits it and the server
-            # default `student` of migration 0006 supplies it. The consent columns are in the list
-            # because the ORM sends every column without a server default, as NULL.
-            insert=_cols(
-                "name", "email", "password_hash", "consent_version", "consent_accepted_at"
-            ),
+            # default `student` of migration 0006 supplies it. The consent columns are fetched
+            # server values, so the ORM does not insert them either; the consent endpoint UPDATEs.
+            insert=_cols("name", "email", "password_hash"),
             update=_cols("consent_version", "consent_accepted_at"),
         ),
         "subjects": TableGrant(
@@ -183,9 +181,7 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
     CLI: {
         "users": TableGrant(
             select=_all("users"),
-            insert=_cols(
-                "name", "email", "password_hash", "role", "consent_version", "consent_accepted_at"
-            ),
+            insert=_cols("name", "email", "password_hash", "role"),
         ),
         "subjects": TableGrant(),
         "enrollments": TableGrant(),

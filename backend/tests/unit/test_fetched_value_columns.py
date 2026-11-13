@@ -6,15 +6,17 @@ import pytest
 from sqlalchemy import FetchedValue, inspect
 
 from app.core.database import Base
-from app.db_privileges import APP, MATRIX
+from app.db_privileges import APP, CLI, MATRIX
 from app.models.document import Document
 from app.models.ingestion import IngestionJob
+from app.models.user import User
 from tests.privilege_inventory import Inventory, build_inventory
 from tests.privilege_matrix_check import ANTICIPATED_ROOTS
 
 FETCHED = {
     "ingestion_jobs": ("locked_by", "locked_until"),
     "documents": ("error_message", "error_code"),
+    "users": ("consent_version", "consent_accepted_at"),
 }
 
 
@@ -56,3 +58,16 @@ def test_the_matrix_grants_the_application_role_only_what_the_document_insert_se
     assert MATRIX[APP]["documents"].insert == frozenset(
         {"subject_id", "filename", "content_type", "size_bytes", "status"}
     )
+
+
+def test_users_keep_the_default_returning_because_both_roles_read_them() -> None:
+    assert inspect(User).eager_defaults == "auto"
+    for role in (APP, CLI):
+        assert {"consent_version", "consent_accepted_at"} <= MATRIX[role]["users"].select
+
+
+def test_the_matrix_grants_the_runtime_roles_only_what_the_user_insert_sets() -> None:
+    assert MATRIX[APP]["users"].insert == frozenset({"name", "email", "password_hash"})
+    assert MATRIX[CLI]["users"].insert == frozenset({"name", "email", "password_hash", "role"})
+    assert "consent_version" not in MATRIX[APP]["users"].update - {"consent_version"}
+    assert MATRIX[APP]["users"].update == frozenset({"consent_version", "consent_accepted_at"})

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.database import create_db_engine
 from app.models.document import Document, DocumentStatus
 from app.models.ingestion import IngestionJob
+from app.models.user import User, UserRole
 from tests.db_admin_support import Cluster
 from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
 from tests.db_admin_support import scratch_database as scratch_database  # noqa: F401  (fixture)
@@ -28,6 +29,7 @@ from tests.db_roles_support import SUBJECT
 from tests.db_roles_support import own_database as own_database
 
 JOB_COLUMNS = {"document_id", "payload"}
+USER_COLUMNS = {"name", "email", "password_hash"}
 DOCUMENT_COLUMNS = {"subject_id", "filename", "content_type", "size_bytes", "status"}
 
 
@@ -189,3 +191,79 @@ def test_a_batch_of_documents_keeps_the_same_columns_and_stores_every_row(
         f"SELECT error_message, error_code, chunks_count FROM documents WHERE id IN ({listed})",
     )
     assert rows == [(None, None, 0)] * 3
+
+
+# ---- pair 3: users.consent_version and consent_accepted_at ------------------------------------
+
+
+def new_user(number: int) -> User:
+    return User(name=f"U{number}", email=f"u{number}@example.com", password_hash="hash")
+
+
+def test_a_registration_insert_omits_the_consent_and_the_role(
+    cluster: Cluster, own_database: str
+) -> None:
+    with app_session(cluster, own_database) as (session, statements):
+        user = new_user(0)
+        session.add(user)
+        session.flush()
+        session.commit()
+        assert user.consent_version is None and user.consent_accepted_at is None
+        assert user.role is UserRole.STUDENT
+
+    (statement,) = statements
+    assert inserted_columns(statement) == USER_COLUMNS  # no consent columns, no role
+    assert stored(
+        cluster,
+        own_database,
+        "SELECT consent_version, consent_accepted_at, role::text FROM users "
+        "WHERE email = 'u0@example.com'",
+    ) == [(None, None, "student")]
+
+
+def test_a_batch_of_users_keeps_the_same_columns_and_stores_every_row(
+    cluster: Cluster, own_database: str
+) -> None:
+    with app_session(cluster, own_database) as (session, statements):
+        session.add_all([new_user(number) for number in range(3)])
+        session.flush()
+        session.commit()
+
+    assert statements
+    for statement in statements:
+        assert inserted_columns(statement) == USER_COLUMNS
+    rows = stored(
+        cluster,
+        own_database,
+        "SELECT consent_version, consent_accepted_at, role::text FROM users "
+        "WHERE email LIKE 'u_@example.com'",
+    )
+    assert rows == [(None, None, "student")] * 3
+
+
+def test_the_cli_role_inserts_a_teacher_without_the_consent_columns(
+    cluster: Cluster, own_database: str
+) -> None:
+    engine: Engine = create_db_engine(cluster.role_url("cli", own_database))
+    statements: list[str] = []
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def capture(_conn: Any, _cursor: Any, statement: str, *_rest: Any) -> None:
+        if statement.lstrip().upper().startswith("INSERT"):
+            statements.append(statement)
+
+    try:
+        with Session(engine) as session:
+            session.add(
+                User(name="T", email="cli.t@example.com", password_hash="h", role=UserRole.TEACHER)
+            )
+            session.flush()
+            session.commit()
+    finally:
+        engine.dispose()
+
+    (statement,) = statements
+    assert inserted_columns(statement) == USER_COLUMNS | {"role"}
+    assert stored(
+        cluster, own_database, "SELECT role::text FROM users WHERE email = 'cli.t@example.com'"
+    ) == [("teacher",)]

@@ -181,6 +181,21 @@ UNGRANTED = [
     ("app", "SELECT attempts FROM ingestion_jobs"),
     (
         "app",
+        "INSERT INTO users (name, email, password_hash, consent_version) "
+        "VALUES ('c', 'c@example.com', 'h', '2026-10-v1')",
+    ),
+    (
+        "app",
+        "INSERT INTO users (name, email, password_hash, consent_accepted_at) "
+        "VALUES ('c', 'c2@example.com', 'h', now())",
+    ),
+    (
+        "cli",
+        "INSERT INTO users (name, email, password_hash, role, consent_version) "
+        "VALUES ('c', 'c3@example.com', 'h', 'teacher', '2026-10-v1')",
+    ),
+    (
+        "app",
         "INSERT INTO documents "
         "(subject_id, filename, content_type, size_bytes, status, error_code) "
         f"VALUES ('{SUBJECT}', 'f', 'text/plain', 1, 'pending', 'PROCESSING_FAILED')",
