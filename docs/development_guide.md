@@ -21,7 +21,7 @@ cp backend/.env.db.example backend/.env.db
 cp frontend/.env.example frontend/.env
 ```
 
-**Files introduced by change `database-least-privilege` (group 3).** Their examples exist, but the Compose stack does not read them yet (group 6 wires them) and your existing `backend/.env*` keep working unchanged: `backend/.env.migrate` (`MIGRATION_DATABASE_URL`, the migrator role; read by Alembic), `backend/.env.roles` (administrator URL and the four role passwords; read only by the role bootstrap that group 4 implements) and `backend/.env.test` (`TEST_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`; host-only, read by pytest, never by a container). Create the first one when you run Alembic by hand (see §3); create the other two only when you use the features that need them. A `TEST_DATABASE_URL` left in `backend/.env` is still honoured by the tests while you move it, with `.env.test` taking precedence.
+**Files introduced by change `database-least-privilege` (group 3).** Their examples exist and `docker-compose.yml` now has the `bootstrap` and `migrate` services that read two of them (group 6, see the Compose flow in section 3), but your existing `backend/.env*` keep working unchanged and **nothing moves your running stack**: `backend/.env.migrate` (`MIGRATION_DATABASE_URL`, the migrator role; read by Alembic), `backend/.env.roles` (administrator URL and the four role passwords; read only by the role bootstrap that group 4 implements) and `backend/.env.test` (`TEST_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`; host-only, read by pytest, never by a container). Create the first one when you run Alembic by hand (see §3); create the other two only when you use the features that need them. A `TEST_DATABASE_URL` left in `backend/.env` is still honoured by the tests while you move it, with `.env.test` taking precedence.
 
 Each Compose service reads **only its own file**, so a process never receives a variable it does not use: `backend/.env` (API), `backend/.env.worker` (ingestion worker, no `JWT_SECRET`, no CORS or HTTP setting) and `backend/.env.db` (PostgreSQL, only `POSTGRES_*`). The example files document every variable with **placeholder** values. Replace every `CHANGE_ME` locally and never commit the real files (`.env`, `.env.worker`, `.env.db` are git-ignored; the `*.example` files are tracked):
 
@@ -79,6 +79,8 @@ The variables above are read only through `core/config.py`: `WorkerSettings` (wh
 
 ## 2. Run the full stack
 
+> **Warning (database roles).** `docker-compose.yml` now starts `bootstrap` and `migrate` before `backend` and `worker`. On a checkout that has the old files only, `docker compose up` runs `bootstrap` without `backend/.env.roles`, which fails at once and leaves `backend` and `worker` created but **not started**, and `up` may recreate them. Until the real `backend/.env.roles` and `backend/.env.migrate` exist and `db-adopt` has been authorised (task 3.3b and group 16 of the change), keep using the containers that are running and do not run `docker compose up`. `ps`, `logs`, `exec` and `down` keep working. Needs Docker Compose 2.24 or newer (`env_file` with `required`); env-file values are interpolated, so a password containing `$` is altered: avoid it.
+
 ```bash
 docker compose up --build
 ```
@@ -99,6 +101,14 @@ The first build of the `worker` image downloads the embedding model once, at a p
 docker compose exec backend alembic upgrade head      # apply migrations (manual, not run on startup)
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
+
+**Compose flow of the database roles** (change `database-least-privilege`, group 6). `docker-compose.yml` now starts `db` (healthy) -> `bootstrap` (completed) -> `migrate` (completed) -> `backend` and `worker`. `bootstrap` runs `db-bootstrap` with `backend/.env.roles` (administrator URL and the four role passwords); `migrate` runs `db-migrate` with `backend/.env.migrate` (the migrator URL only). Rules that matter:
+
+- Both are one-shots that exit (`restart: "no"`); each **runs on every `up`** (a plain `up` starts finished containers again), so both are idempotent. They are in the default profile on purpose.
+- They run the code of the **image**, not your working tree: after `app/` or `alembic/` change, use `docker compose up -d --build`.
+- If either fails, `backend` and `worker` are created but never started. Read why with `docker compose logs bootstrap migrate`; after fixing the cause, `docker compose up -d` repeats the flow.
+- `docker compose restart <service>` keeps the environment the container was created with: **`restart` does not apply a changed environment**. A changed `.env*` file or credential needs `docker compose up -d`, which recreates the services whose environment changed (this is also how a rotated password reaches a service).
+- The stack of this machine has not been moved to this flow: `docker compose up` needs the real `backend/.env.roles` and `backend/.env.migrate`, which do not exist yet (task 3.3b), and the first run must adopt the existing database (`db-adopt`, group 16). Until then keep using the containers that are running and do not run `docker compose up`.
 
 **Migrations go through `python -m app.cli db-migrate`** (change `database-least-privilege`, groups 3 and 4). `alembic/env.py` reads `MIGRATION_DATABASE_URL` (never `DATABASE_URL`) and refuses an online run without an explicit URL, because the privileges of a recreated table vanish unless the grants run afterwards. The two commands above therefore stop working once the image contains this change; they keep working in the containers that exist today, which were built before it. The commands of the new tooling (all of them read only their own file, none needs `JWT_SECRET`):
 
