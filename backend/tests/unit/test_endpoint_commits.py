@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -158,3 +159,19 @@ def test_an_error_of_the_service_commits_nothing(name: str) -> None:
         OPERATIONS[name](recorder)
 
     assert recorder.calls == ["service"]  # no commit and no explicit rollback: get_db rolls back
+
+
+def test_a_failure_after_the_commit_is_an_error_but_the_data_stays_committed() -> None:
+    """Inherent to commit-then-respond (review L2): the 500 does not undo a committed write."""
+
+    class BrokenResponse(Recorder):
+        def register_student(self, name: str, email: str, password: str) -> User:
+            self._run("service")
+            return User(name=name, email=email, password_hash="h")  # no id: the schema rejects it
+
+    recorder = BrokenResponse()
+
+    with pytest.raises(ValidationError):
+        register(recorder)
+
+    assert recorder.calls == ["service", "commit"]  # committed; no rollback after the commit
