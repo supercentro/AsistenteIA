@@ -44,6 +44,8 @@ Why this order: the roles must exist before the services receive their URLs; the
 
 ## 4. Rotation of the administrator password (TD-038 and the incident of 2026-11-13)
 
+**Superseded in its commands by `../group-17b/rotation/README-17b6.md`** (tested tools: nothing is edited by hand, the password never travels in an argument). The text below stays as the rationale and the original rehearsal.
+
 Rehearsed on the replica (the services kept running; the whole step took about 8 s including the recreation of the database container; the API reconnected by itself).
 
 1. Generate the new value outside the repository (password manager) into a file only your user can read, `<NEWFILE>` (letters, digits, `-` and `_` only, so that it needs no quoting). Never on a command line.

@@ -1,0 +1,85 @@
+PASS plan succeeds (exit 0)
+PASS plan prints no password (old, new, or quoted old)
+PASS plan names the variables it would update
+PASS plan writes nothing
+PASS apply succeeds (exit 0)
+PASS apply output holds no password
+PASS no temporary file left
+PASS .env.db carries the new value, the comment and the other lines
+PASS .env.roles: URL carries the new value, other variables and the comment are identical
+PASS .env.test: both administrator URLs updated, the segregated user's URL untouched
+PASS the old value (raw and quoted) is in no live env file
+PASS the pre-17b copies were not touched by apply
+PASS backups are byte-identical to the originals
+PASS verify OK after apply
+PASS verify reports the pre-17b copies still present
+PASS a second apply is refused (new equals current)
+PASS verify fails if another env file still holds the old value
+PASS rollback restores the originals byte for byte
+PASS rollback without backups is refused
+PASS failure at temp: exit 1 and every file identical to before
+PASS failure at temp: no temp file, no secret in the output
+PASS failure at replace1: exit 1 and every file identical to before
+PASS failure at replace1: no temp file, no secret in the output
+PASS failure at replace2: exit 1 and every file identical to before
+PASS failure at replace2: no temp file, no secret in the output
+PASS failure at replace3: exit 1 and every file identical to before
+PASS failure at replace3: no temp file, no secret in the output
+PASS failure at verify: exit 1 and every file identical to before
+PASS failure at verify: no temp file, no secret in the output
+PASS refused: new password too short
+PASS refused: new password bad characters
+PASS refused: new password placeholder
+PASS refused: new password two lines
+PASS refused: new password equals the old one
+PASS refused: new-password file inside a Git repository
+PASS refused: backup folder inside the env folder
+PASS refused: backup folder not empty
+PASS refused: plan with a missing new-password file
+PASS refused: a quoted administrator URL
+PASS refused: an administrator URL with a different password
+PASS refused: missing .env.roles
+PASS a missing folder is exit 2
+PASS the old value left in an unrelated variable is refused before anything is written
+PASS another env file holding the old value (lower-case percent-encoding) is refused BEFORE any write
+PASS plan refuses when the old value would remain in a variable that is not rotated
+PASS a leftover temporary file of an interrupted run blocks apply
+PASS rollback also removes the orphan temporary files
+PASS an interruption (KeyboardInterrupt) between replacements restores every file (exit 130)
+PASS new-password file UTF-16: refused without a traceback
+PASS new-password file empty: refused without a traceback
+PASS new-password file only a newline: refused without a traceback
+PASS verify with an empty new-password file: exit 1 without a traceback
+PASS a new-password file inside the env folder is refused
+PASS apply with the real owner-only ACL script succeeds
+PASS ALL THREE targets, including .env.db, carry the owner-only descriptor after the replacement
+PASS the backup copies carry the owner-only Read descriptor
+PASS no temporary file left
+PASS cleanup removes the Read-only backup copies and the pre-17b copies without a traceback
+PASS a file that cannot be deleted is reported, not a traceback; the others are still removed (exit 1)
+PASS the backup copies are kept so that the clean-up can run again
+PASS after fixing the permission the clean-up completes and removes the backups last
+PASS works without .env.test
+PASS CRLF and BOM are preserved
+PASS cleanup dry run lists the exact names and removes nothing
+PASS cleanup removes the five exact 17B names
+PASS cleanup keeps every decoy (no wildcard)
+PASS cleanup removes the backup copies and the backup folder
+PASS cleanup output holds no password
+PASS the live env files are untouched by cleanup
+PASS cleanup before the rotation is refused (exit 1) and removes nothing
+PASS a directory named like a target is refused, nothing removed
+PASS a pre-17b file that does not hold the old value is kept
+PASS the interface has no argument that could carry a password
+PASS mutation 'rollback does not restore' is detected (4 check(s) fail)
+PASS mutation 'the plan does not refuse a variable that would keep the old value' is detected (2 check(s) fail)
+PASS mutation 'quoted URL accepted' is detected (1 check(s) fail)
+PASS mutation 'different password accepted' is detected (1 check(s) fail)
+PASS mutation 'cleanup uses a wildcard' is detected (2 check(s) fail)
+PASS mutation 'output leaks the new value' is detected (2 check(s) fail)
+PASS mutation 'the owner-only descriptors are not applied' is detected (2 check(s) fail)
+PASS mutation 'an interruption does not restore' is detected (1 check(s) fail)
+PASS mutation 'other env files are not scanned for the old value' is detected (1 check(s) fail)
+PASS mutation 'cleanup does not tolerate an undeletable file' is detected (1 check(s) fail)
+PASS mutation 'temporary files are never removed' is detected (8 check(s) fail)
+0 failure(s)
