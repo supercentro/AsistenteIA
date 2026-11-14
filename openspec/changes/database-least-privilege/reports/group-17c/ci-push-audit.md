@@ -1,6 +1,6 @@
 # Pre-push audit and CI readiness (J2), 2026-11-14 — NOTHING WAS PUSHED
 
-Range audited: `origin/main..0f965d1` (the 70 commits that `git push -u origin feature/database-least-privilege` would publish; `origin/main` = `3b312e4` is an ancestor of HEAD, the branch does not exist on the remote). 449 files, +38 393 / -144 lines. Method: every added line of every commit (`git log -p`, 242 557 lines) scanned with pattern rules, plus the real secret values compared in memory (never printed). The scanner is kept outside the repository because it reads the real env files.
+Range audited: `origin/main..3152acb` (the 70 commits that `git push -u origin feature/database-least-privilege` would publish; `origin/main` = `3b312e4` is an ancestor of HEAD, the branch does not exist on the remote). 449 files, +38 393 / -144 lines. Method: every added line of every commit (`git log -p`, 242 557 lines) scanned with pattern rules, plus the real secret values compared in memory (never printed). The scanner is kept outside the repository because it reads the real env files.
 
 | Check | Result |
 |---|---|
@@ -36,3 +36,11 @@ gh run view <run-id> --log > <outside-the-repo>/ci.log   # read it before copyin
 ```
 
 Acceptance and failure handling: as in `ci-remote-proposal.md` (all three jobs green; the `privileges` summary shows every suite with at least its floor and none skipped; on failure no pull request, reproduce locally, fix test-first, push again). To undo the publication of the branch: `git push origin --delete feature/database-least-privilege` (the owner's decision; fetched copies and Actions logs cannot be recalled).
+
+## Addendum (owner's decisions after the audit): sanitization of the local history, still nothing pushed
+
+Decisions: do not publish the Windows user name or personal paths found in the two evidence files; keep the existing author e-mail of the commits.
+
+- **Method**: `git filter-branch --index-filter` over `origin/main..HEAD` only; for the two files (`reports/group-12/windows-unit-full.txt`, `reports/group-17a/g17a-replica-output-run1-superseded.txt`) the blob of every commit is rewritten byte for byte except: the repository path becomes `<repo>`, the profile path `C:/Users/<name>` becomes `<home>` and any remaining occurrence of the user name becomes `<user>`. Line counts are unchanged (218 and 231), the test results in those files are unchanged. `origin/main`, the other local branches and the seven untracked reference documents were not touched. Recovery references kept locally: `refs/backup/pre-j2-sanitize` and `refs/original/refs/heads/feature/database-least-privilege` (both point at the pre-rewrite head; they are not published by a branch push and can be deleted once the owner is satisfied).
+- **Effect**: 71 commits before and after (the audit commit included); the first 45 keep their SHA; the 26 from `1628bca` on were rewritten (author, e-mail, dates and subjects identical). The tree differs from the pre-rewrite tree only in those two files. References to the old short SHAs in 40 tracked documents (46 occurrences) were updated to the new ones in one follow-up commit.
+- **Scan of the rewritten range**: user name 0 (blobs of every commit and added lines), profile path with the user 0, repository/course path in the two files 0, credentials and sensitive file names 0 (same results as above). **Not in the authorised scope and still present**: the course folder path (`…/Trabajo/Cursos/Liders/…`, no user name) in `reports/group-15/red-pg01.txt`, `reports/group-9/red-coverage.txt` and `reports/group-17a/expected/README.txt`; the synthetic `C:/Users/someone` fixtures and the regexes of the leak tests.

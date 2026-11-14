@@ -1,6 +1,6 @@
 # TD-049: hardening and verification of the backup procedure (2026-11-14)
 
-Branch `feature/database-least-privilege`, start at `aba6041`. Scope: only the backup procedure related to TD-049. **No real backup was generated, no real backup folder or file was modified, 17B was not executed**; PostgreSQL development, roles, credentials, `.env` files and services were not touched (read-only inspection only).
+Branch `feature/database-least-privilege`, start at `85fd6ea`. Scope: only the backup procedure related to TD-049. **No real backup was generated, no real backup folder or file was modified, 17B was not executed**; PostgreSQL development, roles, credentials, `.env` files and services were not touched (read-only inspection only).
 
 ## 1. State of TD-049
 

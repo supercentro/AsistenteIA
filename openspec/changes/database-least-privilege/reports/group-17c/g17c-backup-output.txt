@@ -1,4 +1,4 @@
-=== 17 final preflight, new backup 2026-11-14T01:31:45Z; repo HEAD 951d282
+=== 17 final preflight, new backup 2026-11-14T01:31:45Z; repo HEAD 97f2161
 === 1 identity of the server, the database and the revision (read only)
   image: pgvector/pgvector:0.8.7-pg15
   state: running health=healthy

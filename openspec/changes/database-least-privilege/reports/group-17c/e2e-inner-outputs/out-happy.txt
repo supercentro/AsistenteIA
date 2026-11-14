@@ -1,4 +1,4 @@
-=== group 17 backup 2026-11-14T04:10:27Z; repo HEAD aba6041; source container g17esrc591
+=== group 17 backup 2026-11-14T04:10:27Z; repo HEAD 85fd6ea; source container g17esrc591
 === 1 identity of the server, the database and the revision (read only)
   image: pgvector/pgvector:0.8.7-pg15
   state: running health=none

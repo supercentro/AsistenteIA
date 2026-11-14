@@ -1,6 +1,6 @@
 # Group 17C: closing the blockers B and K of the final preflight (2026-11-14)
 
-Branch `feature/database-least-privilege`, start at `cb45726`. Authorised scope: resolve the checklist blockers B (restore proof of the new backup) and K (memory threshold) and correct the Windows ACL handling of the backup tool. **17B was not executed**; nothing was changed in the development PostgreSQL, the roles, the credentials, the real env files or the running services (no start, stop, restart or rebuild; no `docker compose up`). The only contacts with the real stack were read-only sessions for the dev snapshot and `docker inspect`.
+Branch `feature/database-least-privilege`, start at `5fe85d0`. Authorised scope: resolve the checklist blockers B (restore proof of the new backup) and K (memory threshold) and correct the Windows ACL handling of the backup tool. **17B was not executed**; nothing was changed in the development PostgreSQL, the roles, the credentials, the real env files or the running services (no start, stop, restart or rebuild; no `docker compose up`). The only contacts with the real stack were read-only sessions for the dev snapshot and `docker inspect`.
 
 ## 1. Why `icacls` did not apply the permissions
 

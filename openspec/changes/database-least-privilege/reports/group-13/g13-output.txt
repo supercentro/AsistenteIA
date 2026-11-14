@@ -1,5 +1,5 @@
 G13 manual endpoint testing 2026-11-13T17:49:51Z | free host RAM before: 10.49 GB
-repo HEAD: 1628bca; the REAL docker-compose.yml is read, not modified
+repo HEAD: a26d833; the REAL docker-compose.yml is read, not modified
 temporary API port: 127.0.0.1:58734 (never 8000, 5173 or 5442)
 image asistenteia-backend:g13-branch built from the working tree (target api)
 image asistenteia-worker:g13-branch = main's worker image with backend/app of this branch (uv.lock unchanged: same dependencies)

@@ -1,6 +1,6 @@
 === 0 preflight 2026-11-13T21:48:03Z
 free host RAM before: 11.14 GB (8 needed)
-repo HEAD: 43c0129
+repo HEAD: 502cdb9
   [1] PASS the base backup has the recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
 === images: OLD = the images of main that the development stack runs; NEW = built from this branch
 built asistenteia-backend:g17a-new and asistenteia-worker:g17a-new; tagged asistenteia-backend:g17a-old and asistenteia-worker:g17a-old from main-f455234

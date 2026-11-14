@@ -1,6 +1,6 @@
 # Step 13: manual endpoint testing with curl on a disposable instance (2026-11-13)
 
-Branch `feature/database-least-privilege`, code at `1628bca` (no functional code was changed in this step). Authorised scope: tasks 13.1 to 13.3. The development database `asistenteia`, its worker, volumes, `.env` files and images were not touched (the real `docker-compose.yml` was read, never modified, and `docker compose up` was never run on the real project); nothing was pushed; the new workflow has not run on GitHub Actions, so nothing here is remote validation. Evidence: `group-13/g13-output.txt` (the full log, secrets masked), `run_g13.sh` and `compose.g13.override.yml` (reproducible).
+Branch `feature/database-least-privilege`, code at `a26d833` (no functional code was changed in this step). Authorised scope: tasks 13.1 to 13.3. The development database `asistenteia`, its worker, volumes, `.env` files and images were not touched (the real `docker-compose.yml` was read, never modified, and `docker compose up` was never run on the real project); nothing was pushed; the new workflow has not run on GitHub Actions, so nothing here is remote validation. Evidence: `group-13/g13-output.txt` (the full log, secrets masked), `run_g13.sh` and `compose.g13.override.yml` (reproducible).
 
 ## 13.1 The disposable instance
 

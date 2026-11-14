@@ -1,4 +1,4 @@
-free RAM before Docker: 8.29 GB; HEAD c588f16
+free RAM before Docker: 8.29 GB; HEAD 62562d7
 env files in backend/ before (names only): .env .env.cli.example .env.db .env.db.example .env.example .env.migrate.example .env.roles.example .env.test.example .env.worker .env.worker.example 
 
 == 1. effects of S13 (read from run_17b.sh st_settings_load)

@@ -1,6 +1,6 @@
 # Step 14: E2E applicability decision (2026-11-13)
 
-Branch `feature/database-least-privilege`, code at `9a80d2f`. Scope: group 14 of `tasks.md`, whose only task is **14.1** "Record that no frontend change is made, and that the mocked Playwright suite in CI runs unchanged". No browser, API, frontend server or Docker service was started in this step, nothing was pushed, the new workflow has not run on GitHub Actions, and no functional code or frontend file was changed.
+Branch `feature/database-least-privilege`, code at `96b3897`. Scope: group 14 of `tasks.md`, whose only task is **14.1** "Record that no frontend change is made, and that the mocked Playwright suite in CI runs unchanged". No browser, API, frontend server or Docker service was started in this step, nothing was pushed, the new workflow has not run on GitHub Actions, and no functional code or frontend file was changed.
 
 ## Decision
 

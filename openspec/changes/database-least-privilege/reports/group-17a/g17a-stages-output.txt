@@ -1,5 +1,5 @@
 === rollback from each stage 2026-11-14T00:07:42Z
-free RAM 8.15 GB (8 needed); repo HEAD 15fc412
+free RAM 8.15 GB (8 needed); repo HEAD a75d9c5
   [1] PASS the backup has its recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
 cluster PostgreSQL 15.19 (Debian 15.19-1.pgdg12+, published ports [], mounts 0
 === stage after-bootstrap: forward up to step 1, then the full rollback

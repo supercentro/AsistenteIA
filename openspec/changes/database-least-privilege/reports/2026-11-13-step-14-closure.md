@@ -1,6 +1,6 @@
 # Step 14 closure: finding F-14-1 corrected (2026-11-13)
 
-Branch `feature/database-least-privilege`, starting from `c2eb837`. Authorised scope: correct F-14-1 with option A, complete the associated documentation and close group 14. Nothing was pushed, the new workflow has not run on GitHub Actions, no browser, API, frontend server or Docker service was started, the development database and worker were not touched, and no React component, frontend logic, dependency, `.env`, role or password was changed. The mocked Playwright suite was **not run** in this group (it runs in CI); no browser E2E was executed.
+Branch `feature/database-least-privilege`, starting from `5397cd7`. Authorised scope: correct F-14-1 with option A, complete the associated documentation and close group 14. Nothing was pushed, the new workflow has not run on GitHub Actions, no browser, API, frontend server or Docker service was started, the development database and worker were not touched, and no React component, frontend logic, dependency, `.env`, role or password was changed. The mocked Playwright suite was **not run** in this group (it runs in CI); no browser E2E was executed.
 
 ## What changed and why
 

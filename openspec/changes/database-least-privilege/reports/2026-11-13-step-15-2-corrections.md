@@ -1,6 +1,6 @@
 # Task 15.2: corrections of the independent review (2026-11-13)
 
-Branch `feature/database-least-privilege`, starting from `5a6496e`. Authorised scope: task 15.2 only (limited authorisation of 2026-11-13). Groups 16 to 19 and task 3.3b were not run. The development database, its worker, the real `.env` files, the roles and the passwords were not touched (the real files were not read; the real stack was not recreated; `docker compose up` was not run on it; every container used was a disposable one with a throwaway cluster, 1 CPU, 1 GB, no published port, and more than 6 GB of free RAM before each run). Nothing was pushed. GitHub Actions has not run the workflow. Evidence: `group-15/` (RED and GREEN runs, final gates, mutations, frontend gates), `2026-11-13-credential-exposure-incident.md`.
+Branch `feature/database-least-privilege`, starting from `d8cbda0`. Authorised scope: task 15.2 only (limited authorisation of 2026-11-13). Groups 16 to 19 and task 3.3b were not run. The development database, its worker, the real `.env` files, the roles and the passwords were not touched (the real files were not read; the real stack was not recreated; `docker compose up` was not run on it; every container used was a disposable one with a throwaway cluster, 1 CPU, 1 GB, no published port, and more than 6 GB of free RAM before each run). Nothing was pushed. GitHub Actions has not run the workflow. Evidence: `group-15/` (RED and GREEN runs, final gates, mutations, frontend gates), `2026-11-13-credential-exposure-incident.md`.
 
 ## Status of every finding
 

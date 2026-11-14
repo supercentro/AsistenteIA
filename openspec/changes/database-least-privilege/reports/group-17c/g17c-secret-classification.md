@@ -19,9 +19,9 @@
 | `backend/tests/integration/test_least_privilege_coverage.py` | URL password | synthetic test fixture (throw-away URL of a test) | `2ae972b` | 1 |
 | `backend/tests/unit/test_db_admin_commands.py` | URL password | synthetic test fixture | `c6f5f3a` | 1 |
 | `backend/tests/unit/test_db_admin_connection.py` | URL password | synthetic test fixture | `c6f5f3a` | 1 |
-| `backend/tests/unit/test_db_admin_target_guard.py` | URL password | synthetic: the value says so (`never-used-...`) | `e0aafd3` | 1 |
+| `backend/tests/unit/test_db_admin_target_guard.py` | URL password | synthetic: the value says so (`never-used-...`) | `b85d90d` | 1 |
 | `backend/tests/unit/test_migration_settings.py` | URL password | synthetic test fixture | `71a5be0` | 4 |
-| `backend/tests/unit/test_superuser_refusal.py` | URL password | synthetic: the value says so (`never-printed-...`) | `aa515b5` | 1 |
+| `backend/tests/unit/test_superuser_refusal.py` | URL password | synthetic: the value says so (`never-printed-...`) | `4798ed0` | 1 |
 | `backend/tests/unit/test_teacher_provisioning.py` | URL password | synthetic test fixture | `f75edad` | 2 |
 | `backend/tests/unit/test_test_database_environment.py` | URL password | synthetic test fixture | `a95b29e` | 3 |
 
@@ -36,7 +36,7 @@ Another 11 matches exist in older or other places; none equals a real value eith
 | `.github/workflows/ci.yml` | `KEY=value` and URL password (6) | synthetic, named as such (the CI throw-away database password) | `e0e115a` is **already on `origin/main`** (the CI password has been public to the remote since the beginning; it protects an ephemeral service container); `501a8f3` is local |
 | `docs/development_guide.md` | `KEY=value` (1) | synthetic, named as such (an example) | `d4ff154`, already on `origin/main` |
 | `openspec/.../group-11/mutate_regression.py` | URL password (2) | synthetic (made-up URLs of a mutation script) | `58f633c`, local |
-| `openspec/.../group-17a/tools/test_prepare_env_files.py` | `KEY=value` (2) | synthetic: made-up `not-a-real-secret-...` JWT value and a made-up administrator password of the self-test | `56ef0a7`, local |
+| `openspec/.../group-17a/tools/test_prepare_env_files.py` | `KEY=value` (2) | synthetic: made-up `not-a-real-secret-...` JWT value and a made-up administrator password of the self-test | `0355cc6`, local |
 
 ## Verdict for the push
 

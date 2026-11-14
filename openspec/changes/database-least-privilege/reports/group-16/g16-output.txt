@@ -1,6 +1,6 @@
 === 0 preflight 2026-11-13T21:15:13Z
 free host RAM before: 11.31 GB (the rehearsal needs 8)
-repo HEAD: a953b6f
+repo HEAD: 482e173
 === 16.1a the backup (read only)
   [1] PASS sha256 of the dump equals the recorded .sha256 file | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
   [2] PASS sha256 of the dump equals the manifest | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6

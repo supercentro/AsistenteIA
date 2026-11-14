@@ -1,6 +1,6 @@
 # Step 15: independent adversarial review of the accumulated change (2026-11-13)
 
-Branch `feature/database-least-privilege`, code at `4686ca1`, compared with `main` (`3b312e4`): 295 files, 107 outside `reports/`. Authorised scope: task **15.1** only. Task **15.2** (fixes) is **not authorised and was not executed**; no functional code, test, spec, skill or agent was changed, nothing was pushed, no Docker service or database was started or touched, and the new workflow has not run on GitHub Actions. Evidence: this report and the verbatim summaries below.
+Branch `feature/database-least-privilege`, code at `4d05fa4`, compared with `main` (`3b312e4`): 295 files, 107 outside `reports/`. Authorised scope: task **15.1** only. Task **15.2** (fixes) is **not authorised and was not executed**; no functional code, test, spec, skill or agent was changed, nothing was pushed, no Docker service or database was started or touched, and the new workflow has not run on GitHub Actions. Evidence: this report and the verbatim summaries below.
 
 ## Method and independence
 

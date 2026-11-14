@@ -1,4 +1,4 @@
-=== restore of the second copy 2026-11-14T03:22:20Z; repo HEAD cb45726
+=== restore of the second copy 2026-11-14T03:22:20Z; repo HEAD 5fe85d0
   [1] PASS the second copy has the recorded sha256 | expected d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9, obtained d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9
   free RAM 8.34 GB (8 needed)
   disposable cluster: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+, published ports [], mounts 0, network g17cnet360 only

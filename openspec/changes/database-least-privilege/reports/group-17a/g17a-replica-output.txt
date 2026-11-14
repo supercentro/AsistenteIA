@@ -1,6 +1,6 @@
 === 0 preflight 2026-11-13T23:54:57Z
 free host RAM before: 8.3 GB (8 needed)
-repo HEAD: 15fc412
+repo HEAD: a75d9c5
   [1] PASS the base backup has the recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
 === images: OLD = the images of main that the development stack runs; NEW = built from this branch
   [2] PASS the pre-17b tags (made like the runbook, from the OLD images) have the ids of the main-f455234 images | expected sha256:5647fb807a28ab7718888865ad4574450cb20f17213b453159b390da016d34e8|sha256:4a2f25143e2184f099b8d1b464e4bc6bd662ea4f0cfe8f79bcfe726b4ad7c92f, obtained sha256:5647fb807a28ab7718888865ad4574450cb20f17213b453159b390da016d34e8|sha256:4a2f25143e2184f099b8d1b464e4bc6bd662ea4f0cfe8f79bcfe726b4ad7c92f

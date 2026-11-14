@@ -1,4 +1,4 @@
-=== synthetic e2e 2026-11-14T04:11:53Z; repo HEAD aba6041
+=== synthetic e2e 2026-11-14T04:11:53Z; repo HEAD 85fd6ea
 === 0 the synthetic source and folders
 free RAM before: 8.39 GB
 [1] PASS the synthetic source holds the restored 0005 catalog | expected 0, obtained 0

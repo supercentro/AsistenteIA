@@ -1,4 +1,4 @@
-free RAM before Docker: 8.61 GB; HEAD c588f16
+free RAM before Docker: 8.61 GB; HEAD 62562d7
 == T1 correct run S10..S31 on a disposable stack, with the real new images
   PASS S10, S11 and S12 pass
   PASS state: done=S10,S11,S12
