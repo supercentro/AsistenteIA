@@ -1,0 +1,66 @@
+free RAM before Docker: 8.29 GB; HEAD c588f16
+env files in backend/ before (names only): .env .env.cli.example .env.db .env.db.example .env.example .env.migrate.example .env.roles.example .env.test.example .env.worker .env.worker.example 
+
+== 1. effects of S13 (read from run_17b.sh st_settings_load)
+   creates and removes two throw-away containers (docker run --rm) from asistenteia-backend:latest and asistenteia-worker:latest; --env-file reads the real .env and .env.worker into their environment; output discarded; no volume, no published port; python imports app.core.config only (no database connection); no write to any env file; no compose, no start/stop/recreate of a service.
+
+== 2. dry run of the transformation (names and verdicts only)
+files read: .env (9 names), .env.worker (21 names), .env.db (3 names)
+.env.db holds: ['POSTGRES_DB', 'POSTGRES_PASSWORD', 'POSTGRES_USER']
+.env: legacy names that --strip-legacy removes or moves: ['POSTGRES_DB', 'POSTGRES_PASSWORD', 'POSTGRES_USER', 'TEST_DATABASE_URL']
+.env: DATABASE_URL is the administrator of .env.db: True (the tool requires True); host=db; database=asistenteia
+.env: after the transformation no POSTGRES_* or TEST_* name remains: True
+.env.worker: legacy names that --strip-legacy removes or moves: none
+.env.worker: DATABASE_URL is the administrator of .env.db: True (the tool requires True); host=db; database=asistenteia
+.env.worker: after the transformation no POSTGRES_* or TEST_* name remains: True
+service api: required names ['DATABASE_URL', 'JWT_SECRET']; missing after the transformation: none
+service worker: required names ['DATABASE_URL']; missing after the transformation: none
+service migrator: required names ['MIGRATION_DATABASE_URL']; missing after the transformation: none
+service cli: required names ['CLI_DATABASE_URL']; missing after the transformation: none
+service roles: required names ['ADMIN_DATABASE_URL', 'DB_MIGRATOR_PASSWORD', 'DB_APP_PASSWORD', 'DB_WORKER_PASSWORD', 'DB_CLI_PASSWORD']; missing after the transformation: none
+identities per service: api=asistente_app, worker=asistente_worker, migrator=asistente_migrator, cli=asistente_cli; roles file holds the administrator (<administrator>)
+the five identities are distinct: True
+new files that already exist in the folder: none
+RESULT COMPATIBLE
+report exit=0
+
+-- prepare_env_files.py --dry-run --strip-legacy on the real folder (writes nothing)
+dry run: would strip {'.env': ['POSTGRES_DB', 'POSTGRES_PASSWORD', 'POSTGRES_USER', 'TEST_DATABASE_URL'], '.env.worker': []} (TEST_* to .env.test, created)
+dry run: nothing written; would create .env.roles, .env.migrate, .env.cli and rewrite DATABASE_URL in .env and .env.worker
+dry run exit=0
+
+-- variable names against the examples (check_env_names.py)
+.env: 9 names; lacking vs .env.example: ['DB_CONNECT_TIMEOUT_SECONDS', 'DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS', 'DB_STATEMENT_TIMEOUT_API_SECONDS', 'INGESTION_PENDING_BYTES_MAX_MB', 'INGESTION_QUEUE_MAX', 'JWT_AUDIENCE', 'JWT_EXPIRE_MINUTES', 'JWT_ISSUER', 'LOGIN_RATE_LIMIT', 'MAX_DOCUMENTS_PER_SUBJECT', 'MAX_UPLOAD_MB', 'PRIVACY_POLICY_VERSION', 'REGISTER_RATE_LIMIT', 'UPLOAD_BODY_IDLE_SECONDS', 'UPLOAD_BODY_TIMEOUT_SECONDS', 'UPLOAD_MAX_IN_FLIGHT', 'UPLOAD_RATE_LIMIT']; unknown to .env.example: ['POSTGRES_DB', 'POSTGRES_PASSWORD', 'POSTGRES_USER', 'TEST_DATABASE_URL']
+.env.worker: 21 names; lacking vs .env.worker.example: ['ALLOW_SUPERUSER_DATABASE_ROLE']; unknown to .env.worker.example: none
+names check exit=1
+
+== 3. the new images read the configuration (simulated environment on stdin, --network none)
+OK   api-asis     settings load; 9 variables received; legacy administrator/test variables present: 4
+OK   worker-asis  settings load; 21 variables received; legacy administrator/test variables present: 0
+OK   api          settings load; 5 variables received; legacy administrator/test variables present: 0
+OK   worker       settings load; 21 variables received; legacy administrator/test variables present: 0
+OK   migrator     settings load; 1 variables received; legacy administrator/test variables present: 0
+OK   cli          settings load; 1 variables received; legacy administrator/test variables present: 0
+OK   roles        settings load; 5 variables received; legacy administrator/test variables present: 0
+OK   verify       settings load; 6 variables received; legacy administrator/test variables present: 0
+-- the images carry no real env file (names under /app that start with .env):
+asistenteia-backend:latest: .env.example 
+asistenteia-worker:latest: .env.example 
+asistenteia-migrate:latest: .env.example 
+
+== 4. S13 of the orchestrator on the REAL files (read only)
+    | compose backend: 9 names resolved, 9 in .env; values equal: True; differing: none; only in compose: none
+    | compose worker: 21 names resolved, 21 in .env.worker; values equal: True; differing: none; only in compose: none
+    | OK   api-asis     settings load; 9 variables received; legacy administrator/test variables present: 4
+    | OK   worker-asis  settings load; 21 variables received; legacy administrator/test variables present: 0
+17:02:12 S13 ok: the API and worker settings of the CURRENT files load in the new images from the environment Compose resolves (the post-transformation files are covered by run_s13_validation.sh; nothing secret printed)
+17:02:13 finished: last completed stage S13
+S13 exit=0
+
+== 5. no writes, no side effects
+contents of .env, .env.worker and .env.db unchanged: yes
+env file names in backend/ unchanged: yes
+sizes and modification times of the env files unchanged: yes
+containers (ids, names, states, image ids) before and after identical: yes (no throw-away container left)
+git status of the tracked tree: 7 modified tracked file(s)
+RESULT: ALL CHECKS PASSED

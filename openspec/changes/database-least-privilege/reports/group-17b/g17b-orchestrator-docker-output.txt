@@ -1,4 +1,4 @@
-free RAM before Docker: 9.05 GB; HEAD 3288192
+free RAM before Docker: 8.61 GB; HEAD c588f16
 == T1 correct run S10..S31 on a disposable stack, with the real new images
   PASS S10, S11 and S12 pass
   PASS state: done=S10,S11,S12
@@ -76,6 +76,19 @@ free RAM before Docker: 9.05 GB; HEAD 3288192
   PASS S11 passes
   PASS skipping stages is refused (exit 6)
   PASS --through over finished stages does nothing harmful (exit 0)
+== T14 S13: the new images load the settings from the environment Compose resolves (inline comment in a value; broken file)
+  PASS S10..S12 pass
+  PASS S13 passes with an inline comment in .env (exit 0)
+  PASS Compose's resolved backend environment equals the parsed file
+  PASS Compose's resolved worker environment equals the parsed file
+  PASS the API settings load in the new image
+  PASS the worker settings load in the new image
+  PASS no secret value in the state folder (administrator password of .env.db, JWT secret of .env)
+  PASS no throw-away container left
+  PASS a .env without JWT_SECRET -> exit 13
+  PASS the failure names the variable
+  PASS failed=S13
+  PASS the failure message holds no secret value
 == T13 the real profile refuses stages that write, and the test hooks
   PASS all nine writing stages are refused in the real profile (exit 7)
   PASS test hooks are refused in the real profile (exit 7)
@@ -85,5 +98,5 @@ free RAM before Docker: 9.05 GB; HEAD 3288192
   PASS no other container appeared or disappeared
   PASS real services unchanged
   PASS the existing backup is unchanged
-PASS=73 FAIL=0
+PASS=85 FAIL=0
 exit=0

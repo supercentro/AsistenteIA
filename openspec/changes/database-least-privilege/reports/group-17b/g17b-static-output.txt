@@ -154,6 +154,10 @@
   PASS no cluster id pinned by S10, even with a consistent chain, is refused (exit 3)
   PASS a stale lock is refused (exit 5)
   PASS and the message says the lock is stale
+== S13 reads the real env files only with the owner's flag (refused before any docker call)
+  PASS real profile: S13 without --allow-real-settings is refused (exit 7)
+  PASS the message names the flag
+  PASS S13 is not marked done
 == RAM and disk gates
   PASS RAM below the threshold -> exit 4
   PASS disk below the threshold -> exit 4
@@ -185,7 +189,7 @@
   PASS --status works after a failure without any container
   PASS status prints failed=S10
   PASS status prints the rollback that applies
-== tests: PASS=174 FAIL=0
+== tests: PASS=177 FAIL=0
 == mutation testing (each mutation must make at least one check fail)
   PASS mutation 'authorisation gate removed' is detected (11 check(s) fail)
   PASS mutation 'token compared loosely' is detected (2 check(s) fail)
@@ -200,10 +204,11 @@
   PASS mutation 'next stage not refused after a failure' is detected (11 check(s) fail)
   PASS mutation 'test profile may name the real stack' is detected (4 check(s) fail)
   PASS mutation 'test profile may keep the real env folder' is detected (2 check(s) fail)
+  PASS mutation 'S13 flag not required in the real profile' is detected (2 check(s) fail)
   PASS mutation 'write stage rerun without confirmation' is detected (6 check(s) fail)
   PASS mutation 'hand-edited state accepted' is detected (4 check(s) fail)
   PASS mutation 'missing cluster pin accepted by the driver' is detected (1 check(s) fail)
   PASS mutation 'stale lock indistinguishable' is detected (1 check(s) fail)
 == mutations: 0 survived or not applicable
-== final: tests PASS=455 FAIL=0; mutation problems=0
+== final: tests PASS=459 FAIL=0; mutation problems=0
 exit=0

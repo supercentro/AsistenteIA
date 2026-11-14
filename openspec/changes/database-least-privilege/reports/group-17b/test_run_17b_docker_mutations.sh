@@ -24,5 +24,6 @@ mut "backup/real-state equivalence ignored" T4 'die 11 "the real database no lon
 mut "cluster identity pin ignored" T5 '"cluster identity changed since the first stage (system id differs): NO-GO"' '"x" || true #'
 mut "adoption dry run count not checked" T7 'grep -q "dry run (nothing changed; use --apply): 9 object" "$OUTD/$CURRENT-dry.txt" || die 23 "the dry run does not list exactly 9 objects"' 'true'
 mut "prepared transaction gate removed" T2 'die 3 "gate E: $f is not 0"' 'true'
+mut "S13 ignores a settings load failure" T14 'die 13 "the $svc settings do not load in the new image (variable names above, no value printed)"; }' 'true; }'
 echo "docker mutation problems: $BAD"
 [ "$BAD" = 0 ]

@@ -104,7 +104,7 @@ t_lock() {
   newstate
   G17B_TEST_SLEEP_AT=S10:12 bash -c 'G17B_PROFILE=test G17B_TEST_CONFIG="'"$TMP"'/cfg.sh" G17B_TEST_HOOKS="'"$TMP"'/hooks.sh" G17B_STATE_DIR="'"$TMP"'/state" bash "'"$ORCH"'" --stage S10 > "'"$TMP"'/bg.out" 2>&1' &
   BG=$!
-  for i in $(seq 1 40); do grep -q 'sleeping' "$TMP/bg.out" 2>/dev/null && break; sleep 0.5; done
+  for i in $(seq 1 160); do grep -q 'sleeping' "$TMP/bg.out" 2>/dev/null && break; sleep 0.5; done
   o --stage S10; check "a concurrent run is refused (exit 5)" 5 $RC
   wait $BG; check "the first run finishes (exit 0)" 0 $?
   check "the lock is gone afterwards" 0 "$([ -d "$TMP/state/lock" ] && echo 1 || echo 0)"
@@ -149,7 +149,7 @@ t_signal() {
     set -m   # job control: a background job otherwise ignores SIGINT from the start (as a Ctrl+C in a terminal does not)
     G17B_TEST_SLEEP_AT=S10:90 bash -c 'G17B_PROFILE=test G17B_TEST_CONFIG="'"$TMP"'/cfg.sh" G17B_TEST_HOOKS="'"$TMP"'/hooks.sh" G17B_STATE_DIR="'"$TMP"'/state" bash "'"$ORCH"'" --stage S10 > "'"$TMP"'/int.out" 2>&1' &
     BG=$!; set +m
-    for i in $(seq 1 40); do grep -q 'sleeping' "$TMP/int.out" 2>/dev/null && break; sleep 0.5; done
+    for i in $(seq 1 160); do grep -q 'sleeping' "$TMP/int.out" 2>/dev/null && break; sleep 0.5; done
     PID=$(cat "$TMP/state/lock/pid"); kill -$sig "$PID" 2>/dev/null
     wait $BG; RC=$?
     check "SIG$sig -> exit 40" 40 $RC
@@ -195,7 +195,7 @@ t_rerun() {
   newstate; upto S20; set -m
   G17B_TEST_SLEEP_AT=S20:90 bash -c 'G17B_PROFILE=test G17B_TEST_CONFIG="'"$TMP"'/cfg.sh" G17B_TEST_HOOKS="'"$TMP"'/hooks.sh" G17B_STATE_DIR="'"$TMP"'/state" bash "'"$ORCH"'" --stage S20 > "'"$TMP"'/int.out" 2>&1' &
   BG=$!; set +m
-  for i in $(seq 1 40); do grep -q 'sleeping' "$TMP/int.out" 2>/dev/null && break; sleep 0.5; done
+  for i in $(seq 1 160); do grep -q 'sleeping' "$TMP/int.out" 2>/dev/null && break; sleep 0.5; done
   kill -TERM "$(cat "$TMP/state/lock/pid")" 2>/dev/null; wait $BG; check "interrupted write stage -> exit 40" 40 $?
   check "state: uncertain=S20" S20 "$(sget uncertain)"
   grep -q 'UNKNOWN' "$TMP/int.out"; check "the log says the outcome is unknown" 0 $?
@@ -224,7 +224,16 @@ t_state() {
   rm -rf "$TMP/state/lock"
 }
 
-run_all() { t_syntax; t_gate; t_usage; t_guard; t_sequence; t_double; t_lock; t_codes; t_rerun; t_state; t_ram; t_leak; t_signal; }
+t_s13() {
+  echo "== S13 reads the real env files only with the owner's flag (refused before any docker call)"
+  newstate; upto S20    # S10..S12 on stubs: a valid state file with a pinned (stub) identity
+  G17B_STATE_DIR="$TMP/state" bash "$ORCH" --stage S13 > "$TMP/out.txt" 2>&1; RC=$?
+  check "real profile: S13 without --allow-real-settings is refused (exit 7)" 7 $RC
+  grep -q 'allow-real-settings' "$TMP/out.txt"; check "the message names the flag" 0 $?
+  check "S13 is not marked done" "" "$(case ",$(sget done)," in *",S13,"*) echo done;; esac)"
+}
+
+run_all() { t_syntax; t_gate; t_usage; t_guard; t_sequence; t_double; t_lock; t_codes; t_rerun; t_state; t_s13; t_ram; t_leak; t_signal; }
 run_all
 echo "== tests: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" = 0 ] || { echo "tests failed: mutation testing skipped"; exit 1; }
@@ -261,6 +270,7 @@ mutate "interruption not recorded" 'state_set interrupted "${CURRENT:-none}"; st
 mutate "next stage not refused after a failure" '    is_done "$s" || die 6 "stage $s must be done before $st"' '    :' t_codes
 mutate "test profile may name the real stack" 'echo "REFUSED: the test profile may not name any object of the real stack"; exit 7' ':' t_guard
 mutate "test profile may keep the real env folder" 'echo "REFUSED: the test profile must set its own ENV_DIR (it points at the real env folder)"; exit 7' ':' t_guard
+mutate "S13 flag not required in the real profile" 'if [ "$PROFILE" = real ] && [ "$ALLOW_REAL_SETTINGS" != 1 ]; then die 7 "loading the settings' 'if false; then die 7 "loading the settings' t_s13
 mutate "write stage rerun without confirmation" 'die 8 "$st started before' 'true "$st started before' t_rerun
 mutate "hand-edited state accepted" 'die 6 "the state file was edited by hand' 'true "the state file was edited by hand' t_state
 mutate "missing cluster pin accepted by the driver" 'die 3 "no cluster identity pinned by S10 in the state file: refused"; fi' 'true; fi' t_state

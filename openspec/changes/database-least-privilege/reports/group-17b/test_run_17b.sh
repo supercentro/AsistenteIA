@@ -48,19 +48,22 @@ services:
     build: !reset null
     pull_policy: never
     env_file: !override
-      - ${G17_DIR}/.env.roles
+      - path: ${G17_DIR}/.env.roles
+        required: false
   migrate:
     image: asistenteia-migrate:latest
     build: !reset null
     pull_policy: never
     env_file: !override
-      - ${G17_DIR}/.env.migrate
+      - path: ${G17_DIR}/.env.migrate
+        required: false
   cli:
     image: asistenteia-cli:latest
     build: !reset null
     pull_policy: never
     env_file: !override
-      - ${G17_DIR}/.env.cli
+      - path: ${G17_DIR}/.env.cli
+        required: false
   backend:
     image: asistenteia-backend:latest
     build: !reset null
@@ -290,6 +293,26 @@ if scen T11 "second accidental execution and stage order"; then
   runo --stage S11; check "S11 passes" 0 $RC
   runo --stage S21; check "skipping stages is refused (exit 6)" 6 $RC
   runo --through S11; check "--through over finished stages does nothing harmful (exit 0)" 0 $RC
+fi
+
+# ---------------------------------------------------------------- T14 S13 (settings load with the files Compose will deliver)
+if scen T14 "S13: the new images load the settings from the environment Compose resolves (inline comment in a value; broken file)"; then
+  # the real .env carries an inline comment after APP_ENV: `docker run --env-file` keeps it inside the value and the load fails, Compose strips it
+  sed -i 's/^APP_ENV=.*/APP_ENV=development # inline comment/' "$ROOT/backend/.env"
+  runo --through S12; check "S10..S12 pass" 0 $RC
+  runo --stage S13; check "S13 passes with an inline comment in .env (exit 0)" 0 $RC
+  grep -q 'compose backend: .*values equal: True' "$ROOT/last.out"; check "Compose's resolved backend environment equals the parsed file" 0 $?
+  grep -q 'compose worker: .*values equal: True' "$ROOT/last.out"; check "Compose's resolved worker environment equals the parsed file" 0 $?
+  grep -q 'OK   api-asis' "$ROOT/last.out"; check "the API settings load in the new image" 0 $?
+  grep -q 'OK   worker-asis' "$ROOT/last.out"; check "the worker settings load in the new image" 0 $?
+  check "no secret value in the state folder (administrator password of .env.db, JWT secret of .env)" 0 "$(grep -rlE 'Syn-Admin-pw|not-a-real-secret' "$ROOT/state" 2>/dev/null | wc -l)"
+  check "no throw-away container left" 0 "$(docker ps -a --filter ancestor=asistenteia-backend:latest --filter status=exited -q | wc -l | tr -d ' ')"
+  rm -rf "$ROOT/state"; mkdir -p "$ROOT/state"
+  sed -i '/^JWT_SECRET=/d' "$ROOT/backend/.env"
+  runo --through S12; runo --stage S13; check "a .env without JWT_SECRET -> exit 13" 13 $RC
+  grep -q 'JWT_SECRET' "$ROOT/last.out"; check "the failure names the variable" 0 $?
+  check "failed=S13" S13 "$(sget failed)"
+  check "the failure message holds no secret value" 0 "$(grep -rlE 'Syn-Admin-pw|not-a-real-secret' "$ROOT/state" 2>/dev/null | wc -l)"
 fi
 
 # ---------------------------------------------------------------- T13 authorisation gate of the REAL profile (read only: it stops before touching anything)

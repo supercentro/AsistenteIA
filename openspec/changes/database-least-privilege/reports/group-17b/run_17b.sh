@@ -312,15 +312,28 @@ st_images() {
 }
 
 st_settings_load() {
-  identity_check
   if [ "$PROFILE" = real ] && [ "$ALLOW_REAL_SETTINGS" != 1 ]; then die 7 "loading the settings reads the REAL env files: needs the owner's decision (third argument --allow-real-settings, on that command line only)"; fi
-  local img_api img_wk
+  identity_check
+  local img_api img_wk helper loader raw
   img_api=asistenteia-backend:latest; img_wk=asistenteia-worker:latest
   if [ "$PROFILE" = test ]; then img_api="${G17B_IMAGE_API:-$img_api}"; img_wk="${G17B_IMAGE_WORKER:-$img_wk}"; fi   # never from the environment in the real profile
-  docker run --rm --env-file "$(wps "$ENV_DIR/.env")" --entrypoint python "$img_api" -c "from app.core.config import load_settings; load_settings()" >/dev/null 2>&1 || die 13 "the API settings do not load with .env (no value printed)"
-  docker run --rm --env-file "$(wps "$ENV_DIR/.env.worker")" --entrypoint python "$img_wk" -c "from app.core.config import load_worker_settings; load_worker_settings()" >/dev/null 2>&1 || die 13 "the worker settings do not load with .env.worker (no value printed)"
+  helper="$(wps "$HERE/s13_env_dryrun.py")"; loader="$(cat "$HERE/s13_container_loader.py")"
+  # 1. docker run --env-file is NOT how the services get their variables (it keeps an inline comment inside the value; Compose strips it):
+  #    prove that what Compose resolves for backend and worker equals what the parser used below reads (booleans and names only)
+  raw="$(umask 077; mktemp)"; local cerr; cerr="$(umask 077; mktemp)"
+  dc config --format json 2> "$cerr" | "$PY" -I "$helper" compare "$(wps "$ENV_DIR")" > "$raw" 2>&1 || { san < "$cerr" | tail -3 | cut -c1-200 | sed 's/^/    | compose: /' | tee -a "$LOG"; san < "$raw" | tail -2 | tee -a "$LOG"; rm -f "$raw" "$cerr"; die 13 "Compose resolves the env files differently from the parser used for the check (or could not be read)"; }
+  san < "$raw" | sed 's/^/    | /' | tee -a "$LOG"; rm -f "$raw" "$cerr"
+  # 2. load the settings of the API and of the worker from exactly that environment, in a throw-away container without network;
+  #    the environment travels on stdin (never on a command line, never saved)
+  local svc img
+  for svc in api-asis worker-asis; do
+    img="$img_api"; [ "$svc" = worker-asis ] && img="$img_wk"
+    raw="$(umask 077; mktemp)"; local herr; herr="$(umask 077; mktemp)"
+    "$PY" -I "$helper" env "$(wps "$ENV_DIR")" "$svc" 2> "$herr" | docker run -i --rm --network none -m 512m --cpus 1 --entrypoint python "$img" -c "$loader" "$svc" > "$raw" 2>&1 || { san < "$herr" | tail -3 | cut -c1-200 | sed 's/^/    | helper: /' | tee -a "$LOG"; san < "$raw" | tail -2 | sed 's/^/    | /' | tee -a "$LOG"; rm -f "$raw" "$herr"; die 13 "the $svc settings do not load in the new image (variable names above, no value printed)"; }
+    san < "$raw" | tail -1 | sed 's/^/    | /' | tee -a "$LOG"; rm -f "$raw" "$herr"
+  done
   hook_fail; hook_sleep
-  log "S13 ok: both settings load (nothing printed)"
+  log "S13 ok: the API and worker settings of the CURRENT files load in the new images from the environment Compose resolves (the post-transformation files are covered by run_s13_validation.sh; nothing secret printed)"
 }
 
 st_stop_services() {
