@@ -111,7 +111,9 @@ until [ "$(docker inspect -f '{{.State.Health.Status}}' asistenteia-worker-1)" =
 
 (`--no-deps` on purpose: with dependencies compose would run `bootstrap` again and could recreate `db`.) Prove the roles: `SELECT usename, count(*) FROM pg_stat_activity WHERE datname='asistenteia' GROUP BY 1` shows `asistente_app` and `asistente_worker`, and not `asistente`.
 
-## 17B.5 Functional validation and cleanup of the synthetic data
+## 17B.5 Functional validation and removal of the synthetic data
+
+(No step of 17B.2 to 17B.5 deletes any file or any `*.pre-17b` copy: the removal in this step is of the SYNTHETIC ROWS only. The clean-up of the `*.pre-17b` copies is NO-GO, see `group-17b/recovery-matrix.md` and `group-17b/operational-decisions.md`.)
 
 Synthetic accounts and data only (`g17b-*@example.com`), through the real endpoints: registration, login, the teacher created by `docker compose run --rm -T --no-deps cli create-teacher ... --password-stdin`, a subject, an enrollment, a TXT upload that the worker takes to `ready`, the denied cases (student cannot create a subject; the API role cannot insert a teacher; the worker role cannot read `users`), `db-verify` again. The replica ran 15 checks plus the 101 of group 13 in group 16. Cleanup: delete the synthetic rows as the administrator (`DELETE ... WHERE email LIKE 'g17b-%'`, children first) and check that the row counts equal those of the preflight.
 

@@ -2,6 +2,8 @@
 
 Read together with `17b2-authorisation-checklist.md` (gates, order, token use, risks, stop conditions, recovery) and `rotation/README-17b6.md` (rotation). This sheet only says who decides what and gives the messages the owner can send. No password was generated, read or changed to prepare it. Gates **A, H2, L and M are PENDING**; none is inferred from any earlier message.
 
+The decisions in force (clean-up NO-GO, `JWT_SECRET` out of scope, TD-038) and the final informative table of the gates are in `operational-decisions.md`.
+
 ## 1. The four open gates
 
 | Gate | State | Who | What closes it |

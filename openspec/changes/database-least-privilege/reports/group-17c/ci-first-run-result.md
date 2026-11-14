@@ -32,3 +32,7 @@ Run 43633668921: `frontend` success in 96 s, `privileges` success in 281 s, `bac
 ## Sixth run (push of the authorisation package, `35a46fa`)
 
 Run 43634777191: `backend` success in 389 s, `privileges` success in 306 s, `frontend` success in 68 s. Six consecutive green runs.
+
+## Seventh run (push of the recovery matrix, `08c117f`)
+
+Run 43635985756: `backend` success in 393 s, `frontend` success in 76 s, `privileges` success in 288 s. Seven consecutive green runs. (The first `git push` of this commit failed with a connection error before sending anything; the same command succeeded on the retry.)
