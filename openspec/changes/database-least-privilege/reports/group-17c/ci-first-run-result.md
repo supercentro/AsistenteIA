@@ -20,3 +20,7 @@ Run 43623870536: `privileges` success in 227 s, `backend` success in 350 s, `fro
 ## Third run (push of `963bc02`, TD-045 wording)
 
 Run 43625416522: `frontend` success in 89 s, `privileges` success in 282 s, `backend` success in 413 s. Three consecutive green runs on GitHub Actions.
+
+## Fourth run (push of the checklist commit `135da27`)
+
+Run 43628556434: `frontend` success in 87 s, `privileges` success in 287 s, `backend` success in 356 s. Four consecutive green runs.
