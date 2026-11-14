@@ -12,3 +12,7 @@ Observations (none blocks the gate):
 - The one skipped test is `tests/unit/test_pdf_child.py:107` ("AES encryption needs the cryptography package") in the `backend` job; a privilege suite never skips and the `privileges` job would fail on any skip.
 - `pip-audit` (non-blocking) reports 2 known vulnerabilities in `backend/uv.lock`: `dnspython 2.9.0` (fix 2.9.2, GitHub rates it high) and `opentelemetry-api 1.45.1` (fix 1.45.2, medium). They are the same two alerts Dependabot already shows for `main`; they are not introduced by this branch. To be handled as a separate dependency update.
 - TD-045: the timing, runner networking and 40-minute limit are now measured (privileges 279 s). Branch protection is still unavailable on this plan, so the job is advisory.
+
+## Second run (push of the evidence commit `8931d67`)
+
+Run 43623870536: `privileges` success in 227 s, `backend` success in 350 s, `frontend` success in 106 s; same counts as the first run (1 072 privilege tests: 149, 439, 484; backend 1 388 unit with the same single skip and 864 integration).
