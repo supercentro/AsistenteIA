@@ -32,3 +32,18 @@
 ## 4. What is still open (not blockers of the request for authorisation, but they stay visible)
 
 `JWT_SECRET` and the administrative password are still the exposed values; the clean-up and its minimal corrections (`recovery-matrix.md` section 4) wait for a decision; the three branch-level items of TD-045 (protection unavailable, procedural rule of three green checks, pinned actions) stay open.
+
+## 5. Update at the close of the 2026-11-14 window (recorded afterwards; the sections above are the state before it)
+
+The owner approved gates A, H2, L and M for the development database in the window 18:30-20:00 of 2026-11-14 (head commit `c789ed0`) and authorised each stage S20 to S31 and 17B.5 in a message of its own. The intervention is operationally closed (`../2026-11-14-step-17b-window-closure.md`). The table of section 3 describes the state BEFORE the window; the approvals are not reusable for another window.
+
+Decisions in force after the close:
+
+| # | Decision | Effect |
+|---|---|---|
+| 1 | clean-up of the `*.pre-17b` copies stays **NO-GO** | unchanged from section 1 |
+| 2 | 17B.6 (administrator password, TD-038) and the `JWT_SECRET` rotation are **pending** and need their own authorisation | unchanged |
+| 3 | **SEC-17B-01** (password of `asistente_migrator` exposed in a traceback) is open; the password is treated as compromised until rotated | real rotation only with a new owner message, a new window and the procedure of the SEC-17B-01 report |
+| 4 | the three local documentation commits and the closure commit are **not published**; no push, PR or merge without the owner | unchanged |
+| 5 | no application role may delete users until change 11 delivers the erasure endpoints and a reviewed grant (TD-039); deleting synthetic users needs an exceptional authorisation | recorded in the 17B.5 report |
+| 6 | the session transcript that contains the exposed password is outside the repository and is not edited by the operator | the owner decides |

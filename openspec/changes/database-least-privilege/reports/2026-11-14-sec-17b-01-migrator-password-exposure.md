@@ -125,4 +125,33 @@ Verdict: **GO, no blocker and no major**, conditional on five runbook amendments
 
 ## 9. What was NOT done
 
-No `ALTER ROLE`, no change of any real `.env*`, no service restart, no commit, no push, no 17B.6, no rotation of the administrator password or `JWT_SECRET`, no clean-up of `*.pre-17b`, no deletion of backups or refs. The session transcript was not edited: it is outside the repository and its removal is the owner's decision.
+No `ALTER ROLE`, no change of any real `.env*`, no service restart, no push, no 17B.6, no rotation of the administrator password or `JWT_SECRET`, no clean-up of `*.pre-17b`, no deletion of backups or refs. The session transcript was not edited: it is outside the repository and its removal is the owner's decision.
+
+## 10. Preparation of the next window (NO window is set; the owner chooses it and confirms in a new message)
+
+Closing state of the 2026-11-14 window (read only, 19:56 local): revision 0006; counts 0/0/0/0/0/0; nine objects owned by `asistente_migrator`; PUBLIC without grants; `db-verify` with no findings; one session of `asistente_app` and one of `asistente_worker`; backend HTTP 200, worker healthy, database healthy; both dumps with the registered SHA-256; the three `*.pre-17b` copies byte-identical; orchestrator S10-S13, S20-S26, S30, S31 done, none failed; no `migrate`, `bootstrap` or disposable container present.
+
+**Exact scope of the rotation:** the password of the role `asistente_migrator` in the database, `DB_MIGRATOR_PASSWORD` in `backend/.env.roles` and the user-`asistente_migrator` URL variable(s) of `backend/.env.migrate`. Nothing else: not the administrator password, not `JWT_SECRET`, not the other three roles, not `*.pre-17b`, not the backups, not the orchestrator state.
+
+**Backend and worker are not modified, not restarted, not recreated.** Their URLs name `asistente_app` and `asistente_worker`; the compose services `bootstrap` and `migrate` are the only consumers and they are one-shot.
+
+**Order and stop points** (section 6 is the command table): 0 conditions -> 0a/0b pre-flight (stop on any failure; nothing changed) -> 1 `plan` (stop) -> 2 `check` (stop) -> 3 probe of the CURRENT password (stop) -> **4 `alter` = POINT OF NO RETURN** -> 5 `apply` -> 6 probes (new accepted, old rejected) -> 7 `db-verify` -> 8 `verify` -> owner accepts -> 9 `discard` -> 10 record. Stop and report at any failure; no rollback that writes without the owner's order.
+
+**Before the window (owner):**
+1. Create the new-password file OUTSIDE the repository with `python -c "import secrets; print(secrets.token_urlsafe(36))" > <NEWFILE>` written as ASCII/UTF-8 **without BOM** (PowerShell `>` writes UTF-16 and is refused), one line, 32 to 128 characters of letters, digits, `-` and `_`; the value is not displayed.
+2. Restrict it: `powershell -NoProfile -ExecutionPolicy Bypass -File group-17c/tools/secure_file_acl.ps1 -Path <NEWFILE> -Rights Modify`.
+3. Copy the value into the password manager and check the entry; keep the file until the rotation is complete, then delete it. The operator receives the path only and never opens the file.
+4. Choose an empty `<BACKUP>` folder outside the repository and outside `backend/`.
+5. Name who can be reached and decides any rollback that writes (H2).
+
+**Conditions the operator confirms at the start (read only):**
+- no other process uses the old password: `pg_stat_activity` shows 0 sessions of `asistente_migrator`; no `docker compose` command, orchestrator stage, `db-migrate`, `db-grants`, `db-verify` or CI job from this machine is running; no scheduled task or other terminal runs them; `docker ps -a` lists no `migrate` or `bootstrap` container (step 0b removes exited ones by exact name);
+- `ROT_TEST_NO_ACL`, `ROT_TEST_FAIL_AT`, `ROT_TEST_HOOKS`, `ROT_DOCKER_CMD` are unset;
+- free RAM at least 8 GB, free disk at least 15 GB, a window of at least 30 minutes, HEAD equal to the published commit named in the authorisation;
+- services healthy, `db-verify` with no findings, counts 0/0/0/0/0/0, dumps and `*.pre-17b` copies intact.
+
+**Forbidden during steps 4 and 5:** `db-bootstrap` in any form, any `docker compose up`, `run` or `start` (compose runs `bootstrap` as a dependency of `migrate`), and a host reboot. `bootstrap` re-sets the four role passwords from `.env.roles` and would revert the migrator to the old value; the probes of step 6 detect it and step 4 is then repeated.
+
+**Recovery by stage** (section 7): before step 4 nothing changed; step 4 exit 3 -> probe with the current password first; step 5 failed -> the tool restores the files, then recovery A (revert) or B (forward); the process was killed -> `rollback` then A or B; step 6 or 7 fails -> A; after a failed or rolled-back `apply` the `*.old` copies hold the still-live old value and are deleted by exact name by hand.
+
+**Authorisation message the owner can send** (a NEW message; this one authorises nothing): "I authorise the rotation of the password of the role `asistente_migrator` on the development database, from the head commit `<sha>`, in the window `<date and hours>`, with the procedure of section 6 of SEC-17B-01, new-password file prepared by me at a path I will give the operator privately; I can be reached at `<contact>` and I decide any rollback that writes. It does NOT authorise 17B.6, the administrator password, `JWT_SECRET`, any clean-up, a push, a PR, or any change of backend or worker."
