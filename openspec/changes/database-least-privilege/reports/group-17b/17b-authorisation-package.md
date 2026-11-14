@@ -17,7 +17,7 @@ Read together with `17b2-authorisation-checklist.md` (gates, order, token use, r
 |---|---|---|
 | the rotation tools have never run on the real database (rehearsed on a disposable PostgreSQL with synthetic credentials, two independent reviews) | A | 17B.6 is a separate step with a separate authorisation |
 | `.env.test` stays inside the rotation (decision record `rotation/env-test-decision.md`) | A | it holds the administrator credential until a separate test cluster exists; the tool rotates it with the other two files |
-| the clean-up (step 10 of the rotation) removes the `*.pre-17b` copies that `prepare_env_files.py --rollback` needs, and overwriting a file is best effort on an SSD | **S** if done early | run the clean-up only when the owner no longer wants the file-level rollback path of 17B; after it, the way back is the verified dump plus the `pre-17b` image tags |
+| the clean-up (step 10 of the rotation) removes the `*.pre-17b` copies that `prepare_env_files.py --rollback` needs; they are the only tested way to restore the configuration, and the current command cannot remove only the ones that are not needed | **S: NO-GO for the clean-up** | do not run it (see `recovery-matrix.md`: conditions and minimal corrections); the old password is already dead after the rotation, so keeping the copies costs little |
 | the old (exposed) value stays valid until the rotation, and the backup copies of the env files hold it until the clean-up | A | accepted in the checklist (TD-038); rotation is the closure |
 | the operator must never open the new-password file | A | the tools read it; the checks around it print booleans only |
 
@@ -38,7 +38,7 @@ Read together with `17b2-authorisation-checklist.md` (gates, order, token use, r
 
 **17B.2 to 17B.5 (after messages A and M):** the nine write stages in the order of checklist section 2, then the functional verification: through the real endpoints and with synthetic data only (`g17b-*@example.com`): registration, login, a teacher created through the CLI service (`--password-stdin`), a subject, an enrollment, a TXT upload that the worker takes to `ready`; the denied cases (a student cannot create a subject, the API role cannot insert a teacher, the worker role cannot read `users`); `db-verify` again with no findings; deletion of the synthetic rows and row counts equal to those of the preflight; only `asistente_app` and `asistente_worker` hold sessions. The owner accepts the result in writing (this acceptance is the condition for message R).
 
-**17B.6 (only after message R):** the table of `rotation/README-17b6.md`, steps 1 to 9; step 10 (clean-up) only if the owner asked for it, remembering section 2.
+**17B.6 (only after message R):** the table of `rotation/README-17b6.md`, steps 1 to 9. Step 10 (clean-up) is NO-GO until the corrections of `recovery-matrix.md` section 4 exist or the owner waives the file-level rollback in writing.
 
 ## 5. Recovery
 
@@ -50,7 +50,7 @@ Read together with `17b2-authorisation-checklist.md` (gates, order, token use, r
 | rotation, `ALTER ROLE` done and the files failed (step 5) | README recovery A (revert the database from the backup copy of `.env.db`) or B (fix and apply again with a new empty backup folder) |
 | rotation, the database container does not become healthy (step 6) | README recovery C (the volume is untouched; check `verify`; recreate) |
 | the tool process was killed in the middle | `rotate_admin_password.py rollback` with the backup folder (restores the files byte for byte and removes the orphan temporary files), then A or B depending on whether `ALTER ROLE` ran |
-| after the rotation the owner wants to undo 17B | `prepare_env_files.py --rollback` rebuilds `.env` and `.env.worker` with the administrator password of the CURRENT `.env.db` (never the exposed one) as long as the `*.pre-17b` copies still exist; after the clean-up only the dump and the `pre-17b` images remain |
+| after the rotation the owner wants to undo 17B | `prepare_env_files.py --rollback` rebuilds `.env` and `.env.worker` with the administrator password of the CURRENT `.env.db` (never the exposed one) as long as the `*.pre-17b` copies still exist; the full matrix, including the cases after a clean-up, is `recovery-matrix.md` |
 
 ## 6. What is NOT in this package
 

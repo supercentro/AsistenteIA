@@ -28,3 +28,7 @@ Run 43628556434: `frontend` success in 87 s, `privileges` success in 287 s, `bac
 ## Fifth run (push of the TD-038 tools, `a7d1bb7`)
 
 Run 43633668921: `frontend` success in 96 s, `privileges` success in 281 s, `backend` success in 393 s. Five consecutive green runs.
+
+## Sixth run (push of the authorisation package, `35a46fa`)
+
+Run 43634777191: `backend` success in 389 s, `privileges` success in 306 s, `frontend` success in 68 s. Six consecutive green runs.
