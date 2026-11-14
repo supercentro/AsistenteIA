@@ -1,6 +1,6 @@
 # SEC-17B-01: exposure of the `asistente_migrator` password in a tool traceback (2026-11-14)
 
-Sanitized report. No credential, URL, hash or token appears here. Status: **incident open; the real rotation is NOT authorised and was not run**.
+Sanitized report. No credential, URL, hash or token appears here. Status: **technically remediated on 2026-11-14 by a verified rotation; administrative closure recorded in section 11** (sections 1 to 10 are the record as it stood before the rotation).
 
 ## 1. What happened
 
@@ -123,7 +123,7 @@ Verdict: **GO, no blocker and no major**, conditional on five runbook amendments
 | minor 7: the reject probe matches "password authentication failed", which a missing role or an expired `VALID UNTIL` also gives | Accepted: the accept probe of the new password in step 6 covers it |
 | tests | The mutation set passes for the right reasons; the kill-between-replaces case is covered by hook injection plus the reviewer's real kill |
 
-## 9. What was NOT done
+## 9. What was NOT done (while the rotation was only prepared)
 
 No `ALTER ROLE`, no change of any real `.env*`, no service restart, no push, no 17B.6, no rotation of the administrator password or `JWT_SECRET`, no clean-up of `*.pre-17b`, no deletion of backups or refs. The session transcript was not edited: it is outside the repository and its removal is the owner's decision.
 
@@ -155,3 +155,33 @@ Closing state of the 2026-11-14 window (read only, 19:56 local): revision 0006; 
 **Recovery by stage** (section 7): before step 4 nothing changed; step 4 exit 3 -> probe with the current password first; step 5 failed -> the tool restores the files, then recovery A (revert) or B (forward); the process was killed -> `rollback` then A or B; step 6 or 7 fails -> A; after a failed or rolled-back `apply` the `*.old` copies hold the still-live old value and are deleted by exact name by hand.
 
 **Authorisation message the owner can send** (a NEW message; this one authorises nothing): "I authorise the rotation of the password of the role `asistente_migrator` on the development database, from the head commit `<sha>`, in the window `<date and hours>`, with the procedure of section 6 of SEC-17B-01, new-password file prepared by me at a path I will give the operator privately; I can be reached at `<contact>` and I decide any rollback that writes. It does NOT authorise 17B.6, the administrator password, `JWT_SECRET`, any clean-up, a push, a PR, or any change of backend or worker."
+
+## 11. Administrative closure (2026-11-14, owner-authorised)
+
+**Rotation.** The owner confirmed the window 20:10-22:00 (America/Argentina/Cordoba), created the new-password file outside the repository and stored the value in the password manager, and sent the explicit authorisation `GO SEC-17B-01` from head commit `14e6725`. The operator ran the procedure of section 6 in one gated script (any failed check stopped it before any write; a first attempt stopped at the immediate preflight because of a formatting error in the operator's own window check, with nothing written):
+
+| Time (local) | Step | Result |
+|---|---|---|
+| 20:30:32 | immediate preflight (25 checks) | all green |
+| 20:30:47 | `plan`, `check`, probe of the current password, probe of the new one | plan OK; scram-sha-256; current accepted; new rejected (as expected before the change) |
+| 20:30:47 | `alter` (point of no return) | `ALTER ROLE OK`; a client-side SCRAM verifier on standard input, the cleartext never reached the server |
+| 20:30:48 | probes | new password **accepted**; old password **rejected** |
+| 20:30:49 | `apply` | `APPLY OK`: `.env.roles` (`DB_MIGRATOR_PASSWORD`) and `.env.migrate` (`MIGRATION_DATABASE_URL`) updated atomically and re-read; originals kept as owner-only `*.old` copies |
+| 20:30:52 | probes with the files written; `db-verify` with the new files; tool `verify` | accepted / rejected; `no findings`; `VERIFY OK` |
+
+No step failed; the recovery paths A, B and `rollback` were not needed. The two files were the only environment files that changed; backend and worker were not touched, restarted or recreated, and `db-bootstrap`, `docker compose` and the orchestrator were not run.
+
+**Read-only verification afterwards (20:34).** Revision 0006; counts 0/0/0/0/0/0; nine objects owned by `asistente_migrator`; backend HTTP 200 and worker healthy with 0 restarts; `db-verify` with no findings; only sessions of `asistente_app` and `asistente_worker`; new password accepted and old rejected; 0 orphan temporary files, 0 `migrate`/`bootstrap` containers, 0 of 15 containers holding the old value; the other env files untouched (modification times before the rotation); both dumps with the registered SHA-256 and the three `*.pre-17b` copies byte-identical; the git recovery refs present. A value scan (paths and counts only) found the old password only in the two `*.old` copies and in one local session-transcript file, and the new one only in the two env files and in the owner's password file.
+
+**Discard (20:38).** After a preflight that repeated the checks, re-probed the old password as rejected (the last moment it could be proven with the copy that held it) and listed the folder as holding exactly the two copies, `discard --dry-run` identified exclusively `.env.roles.old` and `.env.migrate.old`; the real `discard`, with the exact authorised folder, exited 0, overwrote both with zeros and removed them and the empty folder. Afterwards there is no `*.old` file in the repository, the state folder or the backup folders; `.env.roles`, `.env.migrate`, the other env files and the owner's password file are byte-identical to before; the `*.pre-17b` copies, both PostgreSQL dumps and the git recovery refs were not touched; PostgreSQL was not changed beyond the one `ALTER ROLE`.
+
+**Residual risks.**
+1. The Claude Code session transcript (a local file outside the repository) still holds the old password. It is invalidated: the database rejects it and no file or container uses it. Whether to edit or delete that file is the owner's decision; the operator did not touch it.
+2. `migrator-new-password.txt` stays outside the repository, owner-only, until the owner deletes it; the same value is in `.env.roles` and `.env.migrate` (git-ignored, owner-only) and in the password manager.
+3. The recovery folder inherited the ACL of its parent while it existed (the files inside were owner-only); it no longer exists. The tool does not harden folders on Windows.
+4. There is no way back to the old password with the tools (intended); a further rotation would be the only change.
+5. The step-0b scan does not cover `docker logs` or image layers; nothing in the repository, the state folder, the backups, the orchestrator logs or the containers holds the old value.
+
+**Lessons for the next incident** (to add to `docs/lessons-learned.md` only if the owner asks): a one-off script that opens a database connection must catch the exception and print its type only, and its output must be redacted from the first run; the driver's connection-string parser echoes its input.
+
+**Final status of SEC-17B-01: remediated** (technical register entry TD-050, status `resolved`). Still open and unchanged: TD-038 (administrative password, 17B.6), the `JWT_SECRET` rotation, TD-039 (`DELETE /users/me` and the erasure endpoints), TD-045 (CI gate), the clean-up of `*.pre-17b` (NO-GO) and the publication of the local commits.
