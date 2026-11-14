@@ -16,3 +16,7 @@ Observations (none blocks the gate):
 ## Second run (push of the evidence commit `8931d67`)
 
 Run 43623870536: `privileges` success in 227 s, `backend` success in 350 s, `frontend` success in 106 s; same counts as the first run (1 072 privilege tests: 149, 439, 484; backend 1 388 unit with the same single skip and 864 integration).
+
+## Third run (push of `963bc02`, TD-045 wording)
+
+Run 43625416522: `frontend` success in 89 s, `privileges` success in 282 s, `backend` success in 413 s. Three consecutive green runs on GitHub Actions.
