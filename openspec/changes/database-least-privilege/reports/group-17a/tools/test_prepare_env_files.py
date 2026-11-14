@@ -24,12 +24,14 @@ def check(label: str, condition: bool) -> None:
         FAILURES.append(label)
 
 
-def make(folder: Path, newline: str = "\n", bom: bool = False, extra_api: str = "", admin: str = ADMIN) -> None:
+def make(folder: Path, newline: str = "\n", bom: bool = False, extra_api: str = "", admin: str = ADMIN, legacy: bool = False) -> None:
     encoded = quote(admin, safe="")
     prefix = "﻿" if bom else ""
     (folder / ".env.db").write_bytes((prefix + newline.join(["POSTGRES_USER=asistente", f"POSTGRES_PASSWORD={admin}", "POSTGRES_DB=asistenteia", ""])).encode("utf-8"))
     api = ["APP_ENV=development", "# a comment", f"DATABASE_URL=postgresql+psycopg://asistente:{encoded}@db:5432/asistenteia?sslmode=disable  # trailing", "JWT_SECRET=not-a-real-secret-0123456789abcdef", extra_api, ""]
     worker = ["LOG_LEVEL=INFO", f"DATABASE_URL=postgresql+psycopg://asistente:{encoded}@db:5432/asistenteia", ""]
+    if legacy:
+        api[-1:-1] = ["POSTGRES_USER=asistente", f"POSTGRES_PASSWORD={admin}", "POSTGRES_DB=asistenteia", f"TEST_DATABASE_URL=postgresql+psycopg://asistente:{encoded}@127.0.0.1:5442/asistenteia_test"]
     (folder / ".env").write_bytes((prefix + newline.join(api)).encode("utf-8"))
     (folder / ".env.worker").write_bytes((prefix + newline.join(worker)).encode("utf-8"))
 
@@ -142,6 +144,86 @@ def case_quoted_and_partial_copy() -> None:
         check("a failure in the middle of a copy leaves no truncated backup and no changed original", code == 1 and snapshot(folder) == before)
 
 
+def case_legacy() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder, legacy=True)
+        before = snapshot(folder)
+        code, output = run(folder)
+        check("legacy names in .env are refused without --strip-legacy, naming them and nothing else", code == 1 and snapshot(folder) == before and "POSTGRES_PASSWORD" in output and ADMIN not in output)
+        code, output = run(folder, "--dry-run", "--strip-legacy")
+        check("the dry run with --strip-legacy writes nothing and prints names only", code == 0 and snapshot(folder) == before and ADMIN not in output and "asistente:" not in output)
+        code, output = run(folder, "--strip-legacy")
+        check("--strip-legacy succeeds and prints no value", code == 0 and ADMIN not in output and "postgresql" not in output)
+        api = (folder / ".env").read_text(encoding="utf-8")
+        check(".env no longer carries POSTGRES_* or TEST_*", not re.search(r"^(POSTGRES_|TEST_)", api, re.M))
+        check("the TEST_ line was moved to a new .env.test, with its value intact", (folder / ".env.test").read_text(encoding="utf-8").startswith("TEST_DATABASE_URL=") and quote(ADMIN, safe="") in (folder / ".env.test").read_text(encoding="utf-8"))
+        check("the marker says .env.test did not exist before", (folder / ".env.test.absent-before-17b").exists())
+        check(".env.pre-17b keeps the original lines for a rollback", "POSTGRES_PASSWORD=" in (folder / ".env.pre-17b").read_text(encoding="utf-8"))
+        # rotate: the owner edits .env.test and .env.db; then roll back
+        rotated = "N3w-adm1n-Passw0rd"
+        for name in (".env.db", ".env.test"):
+            data = (folder / name).read_bytes().decode("utf-8").replace(ADMIN, rotated).replace(quote(ADMIN, safe=""), rotated)
+            (folder / name).write_bytes(data.encode("utf-8"))
+        code, output = run(folder, "--rollback")
+        restored = (folder / ".env").read_text(encoding="utf-8")
+        check("rollback succeeds", code == 0 and rotated not in output)
+        check("the restored .env has its TEST_ line again with the CURRENT (rotated) value, not the exposed one", rotated in restored and quote(ADMIN, safe="") not in restored and "TEST_DATABASE_URL=" in restored)
+        check("the created .env.test is set aside and the marker removed", (folder / ".env.test.rolled-back").exists() and not (folder / ".env.test").exists() and not (folder / ".env.test.absent-before-17b").exists())
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder, legacy=True)
+        (folder / ".env.test").write_text("TEST_ADMIN_DATABASE_URL=x\nTEST_DATABASE_URL=y\n", encoding="utf-8")
+        before = snapshot(folder)
+        code, output = run(folder, "--strip-legacy")
+        check("an existing .env.test that already holds the same names is refused", code == 1 and snapshot(folder) == before)
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder, legacy=True)
+        (folder / ".env.test").write_text("TEST_ADMIN_DATABASE_URL=x\n", encoding="utf-8")
+        before = snapshot(folder)
+        code, _ = run(folder, "--strip-legacy")
+        merged = (folder / ".env.test").read_text(encoding="utf-8")
+        check("an existing .env.test without those names receives them (appended) and is backed up", code == 0 and merged.startswith("TEST_ADMIN_DATABASE_URL=x\n") and "TEST_DATABASE_URL=" in merged and (folder / ".env.test.pre-17b").read_bytes() == before[".env.test"])
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder, legacy=True)
+        before = snapshot(folder)
+        original = tool.write_text
+        calls = {"n": 0}
+
+        def failing(path: Path, text: str) -> None:
+            calls["n"] += 1
+            if path.name == ".env.worker":
+                raise OSError("disk full")
+            original(path, text)
+
+        tool.write_text = failing  # type: ignore[assignment]
+        try:
+            code, _ = run(folder, "--strip-legacy")
+        finally:
+            tool.write_text = original  # type: ignore[assignment]
+        check("a failure while stripping is undone completely (including the created .env.test)", code == 1 and snapshot(folder) == before)
+
+
+def case_review_fixes() -> None:
+    # TEST_* lines of .env.worker are moved too (not lost with the .pre-17b copies)
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder, legacy=True)
+        worker = folder / ".env.worker"
+        worker.write_bytes(worker.read_bytes() + b"TEST_WORKER_ONLY=keep-me-1234" + chr(10).encode())
+        code, _ = run(folder, "--strip-legacy")
+        check("a TEST_ name found only in .env.worker is moved to .env.test with its value", code == 0 and "TEST_WORKER_ONLY=keep-me-1234" in (folder / ".env.test").read_text(encoding="utf-8") and "TEST_WORKER_ONLY" not in worker.read_text(encoding="utf-8"))
+        # rollback keeps what it replaces
+        (folder / ".env").write_bytes((folder / ".env").read_bytes() + b"EDITED_AFTER_17B=yes" + chr(10).encode())
+        code, _ = run(folder, "--rollback")
+        check("rollback keeps the replaced .env as .env.rolled-back (edits after 17B are not lost)", code == 0 and b"EDITED_AFTER_17B=yes" in (folder / ".env.rolled-back").read_bytes())
+        before = snapshot(folder)
+        code, _ = run(folder, "--rollback")
+        check("a second rollback is refused and changes nothing", code == 1 and snapshot(folder) == before)
+
+
 def case_failure_midway() -> None:
     with tempfile.TemporaryDirectory() as raw:
         folder = Path(raw)
@@ -169,5 +251,7 @@ for newline in ("\n", "\r\n"):
 case_refusals()
 case_failure_midway()
 case_quoted_and_partial_copy()
+case_legacy()
+case_review_fixes()
 print(f"{len(FAILURES)} failure(s)")
 sys.exit(1 if FAILURES else 0)

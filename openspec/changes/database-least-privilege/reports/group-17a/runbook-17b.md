@@ -1,6 +1,6 @@
 # Runbook 17B: real run on the development database (PLAN; nothing here was executed on the real stack)
 
-Prepared in group 17A. Every command below was rehearsed on a disposable replica of the development stack (`run_17a_replica.sh`) or on a disposable cluster (`run_17a_stages.sh`); the evidence is in `g17a-replica-output.txt` and `g17a-stages-output.txt`. Placeholders: `<REPO>` is the checkout, `<BACKUPS>` the backups folder outside the repository, `<TMP>` a folder outside the repository for evidence. Commands are for a POSIX shell (Git Bash); `docker compose` is run from `<REPO>` with the real project name `asistenteia`.
+Prepared in group 17A. Every command below was rehearsed on a disposable replica of the development stack (`run_17a_replica.sh`) or on a disposable cluster (`run_17a_stages.sh`); the evidence is in `g17a-replica-output.txt` and `g17a-stages-output.txt`. Placeholders: `<REPO>` is the checkout, `<BACKUPS>` the backups folder outside the repository, `<TMP>` a folder outside the repository for evidence. **The real checkout path contains a SPACE (`New folder`): every `<REPO>`, `$S`, `$O`, `<TMP>`, `<BACKUPS>` below must be written inside double quotes (`"<REPO>/backend"`, `"$S/tools/..."`, `-f "$O"`), or the shell splits the path.** Commands are for a POSIX shell (Git Bash); `docker compose` is run from `<REPO>` with the real project name `asistenteia`.
 
 **Shell.** Git Bash on Windows rewrites arguments that look like paths: start the session with `export MSYS_NO_PATHCONV=1`, otherwise `/tmp/...` arguments of `docker exec` and `docker cp` are mangled. Use the Windows form (`C:/...`) for paths handed to `docker cp`, `docker run -v` and `python` from Git Bash.
 
@@ -18,13 +18,13 @@ Known consequences: the API and the worker are **down** from step 17B.2 until st
 export MSYS_NO_PATHCONV=1
 cd <REPO>
 # 1. identity of the cluster and of the database: write the output in <TMP>/preflight-before
-bash <REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/preflight_readonly.sh asistenteia-db-1 asistenteia <TMP>/preflight-before
+bash "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/preflight_readonly.sh" asistenteia-db-1 asistenteia "<TMP>/preflight-before"
 # expected: container asistenteia-db-1 healthy, project asistenteia, volume asistenteia_db_data, revision 0005,
 #           0 open transactions / idle in transaction / prepared / ungranted locks, read-only session, free disk
 # 2. gate D: the catalog of the real database against the committed expected baseline of 0005 (rows = all 0, alembic_version = 1)
-S=<REPO>/openspec/changes/database-least-privilege/reports/group-17a
-bash $S/tools/compare_snapshots.sh $S/expected/snapshot-db-0005.txt <TMP>/preflight-before/snapshot-db.txt                       # must print IDENTICAL (about 120 lines)
-MIN_LINES=5 bash $S/tools/compare_snapshots.sh $S/expected/snapshot-cluster.txt <TMP>/preflight-before/snapshot-cluster.txt    # roles, databases, ACLs: IDENTICAL
+S="<REPO>/openspec/changes/database-least-privilege/reports/group-17a"
+bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-db-0005.txt <TMP>/preflight-before/snapshot-db.txt                       # must print IDENTICAL (about 120 lines)
+MIN_LINES=5 bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-cluster.txt <TMP>/preflight-before/snapshot-cluster.txt    # roles, databases, ACLs: IDENTICAL
 # 3. state of ALL the services and what they run: the backend (exited today) and the worker mount backend/app
 docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}'
 docker inspect asistenteia-backend-1 asistenteia-worker-1 --format '{{.Name}} image={{.Image}} status={{.State.Status}} restarts={{.RestartCount}} started={{.State.StartedAt}}'
@@ -39,7 +39,7 @@ docker compose build bootstrap migrate cli backend worker      # time it; a fail
 docker compose config --images                                  # the image names compose will use: record them
 # 6. the new settings load with the REAL files: see the note after this block (nothing is printed)
 # 7. variable NAMES of the real env files against their examples (names only; read the list before continuing)
-python $S/tools/check_env_names.py <REPO>/backend
+python "$S/tools/check_env_names.py" "<REPO>/backend"
 ```
 
 (Step 6 is only written down as a requirement: use the image name printed by `docker compose config --images` for the backend and the worker and run `python -c "from app.core.config import load_settings; load_settings()"` / `load_worker_settings()` with `--env-file backend/.env` and `backend/.env.worker`. It reads the real files into a container that prints nothing and is removed; do it with the new images built in step 5. It was not run on the real files in 17A.)
@@ -65,12 +65,16 @@ Stop condition: any hash differs, `pg_restore --list` fails, the restored copy d
 
 ```bash
 docker compose stop backend worker            # measured: about 1.4 s; the db container is NOT touched
-bash $S/tools/preflight_readonly.sh asistenteia-db-1 asistenteia <TMP>/after-stop     # snapshot again
-bash $S/tools/compare_snapshots.sh <TMP>/preflight-before/snapshot-db.txt <TMP>/after-stop/snapshot-db.txt   # IDENTICAL: nothing was written between the backup and the stop
-python <REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py <REPO>/backend --dry-run
-python <REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py <REPO>/backend
+bash "$S"/tools/preflight_readonly.sh asistenteia-db-1 asistenteia <TMP>/after-stop     # snapshot again
+bash "$S"/tools/compare_snapshots.sh <TMP>/preflight-before/snapshot-db.txt <TMP>/after-stop/snapshot-db.txt   # IDENTICAL: nothing was written between the backup and the stop
+python "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py" "<REPO>/backend" --dry-run --strip-legacy
+python "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py" "<REPO>/backend" --strip-legacy
 # creates backend/.env.roles .env.migrate .env.cli, rewrites DATABASE_URL (user and password) in .env and .env.worker,
-# copies .env, .env.worker and .env.db to *.pre-17b; prints names only, refuses to run twice
+# REMOVES POSTGRES_USER/PASSWORD/DB from .env and MOVES TEST_* to a new backend/.env.test (host tests read it first),
+# copies .env, .env.worker and .env.db to *.pre-17b; prints names only, refuses to run twice or on a quoted URL.
+# WHY --strip-legacy: the real backend/.env (checked in the final preflight, names only) still carries POSTGRES_DB, POSTGRES_PASSWORD,
+# POSTGRES_USER and TEST_DATABASE_URL besides DATABASE_URL: without stripping them the API container would keep receiving the
+# administrator credentials after 17B. The tool refuses to run without the flag when it finds them.
 ```
 
 Stop condition: the tool refuses (a file is missing, the current `DATABASE_URL` is not the administrator of `.env.db`, a target already exists). Fix the cause; do not edit by hand.
@@ -126,10 +130,10 @@ Stop the services first (`docker compose rm -sf backend worker`), then, **as far
 6. Start the previous stack from its own definition **plus the shipped override** (without it the `backend/app` bind mount of main's file is the new code and the services refuse the administrator URL and crash-loop):
    ```bash
    git show main:docker-compose.yml > <TMP>/compose.main.yml
-   O=<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/compose.rollback.override.yml
-   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O config | grep -cE 'backend[/\\]app'   # pre-GO check: must print 0 (Windows prints backslashes in bind sources)
-   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O config | grep -c 'image: asistenteia-.*:pre-17b'   # must print 2
-   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O up -d --no-deps backend worker
+   O="<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/compose.rollback.override.yml"
+   docker compose -p asistenteia --project-directory "<REPO>" -f "<TMP>/compose.main.yml" -f "$O" config | grep -cE 'backend[/\\]app'   # pre-GO check: must print 0 (Windows prints backslashes in bind sources)
+   docker compose -p asistenteia --project-directory "<REPO>" -f "<TMP>/compose.main.yml" -f "$O" config | grep -c 'image: asistenteia-.*:pre-17b'   # must print 2
+   docker compose -p asistenteia --project-directory "<REPO>" -f "<TMP>/compose.main.yml" -f "$O" up -d --no-deps backend worker
    ```
    The replica rehearsed exactly this file (`compose.rollback.override.yml`) on top of main's compose file, with only the isolation of ports and env files added.
 

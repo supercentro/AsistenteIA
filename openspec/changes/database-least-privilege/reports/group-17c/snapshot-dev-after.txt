@@ -1,0 +1,46 @@
+== snapshot: after-final-preflight (2026-11-14T02:15:28Z)
+container: healthy (db), healthy (worker)
+session read-only: on
+server: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+-- DATA-BEGIN
+alembic_version: 0005
+extensions: plpgsql 1.0, vector 0.8.7
+users.role default: (none)
+databases: asistenteia, asistenteia_test, postgres, template0, template1
+roles (without the built-in pg_*): asistente(superuser)
+new roles present (asistente_*, tstrole_*): 0
+databases of the tests (tstdb_*): 0
+tables and owners:
+  alembic_version owner=asistente acl=(default)
+  document_chunks owner=asistente acl=(default)
+  documents owner=asistente acl=(default)
+  enrollments owner=asistente acl=(default)
+  ingestion_jobs owner=asistente acl=(default)
+  subjects owner=asistente acl=(default)
+  users owner=asistente acl=(default)
+row counts:
+  users: 0
+  subjects: 0
+  enrollments: 0
+  documents: 0
+  document_chunks: 0
+  ingestion_jobs: 0
+documents by status: (none)
+users by role: (none)
+ingestion_jobs: total=0 with_payload=0 leased=0 max_attempts=0
+test database asistenteia_test (the one of the development cluster; the tests of this group use their own disposable clusters):
+  has alembic_version: f
+  public tables: 0
+  new roles with privileges on it (asistente_*, tstrole_*): 0
+-- DATA-END
+connections by role, database and state (volatile):
+  asistente db=asistenteia state=active n=1
+  asistente db=asistenteia state=idle n=1
+idle in transaction: 0  oldest open transaction: (none)
+prepared transactions: 0
+-- alembic (read-only, inside the existing worker container)
+alembic current (database): 0005
+alembic head (code in the worker image): 0005
+session read-only: on
+No new upgrade operations detected.
+alembic check: no new upgrade operations detected (no drift)

@@ -1,0 +1,35 @@
+=== 17 final preflight, new backup 2026-11-14T01:31:45Z; repo HEAD 951d282
+=== 1 identity of the server, the database and the revision (read only)
+  image: pgvector/pgvector:0.8.7-pg15
+  state: running health=healthy
+  compose_project: asistenteia
+  connected_database: asistenteia
+  connected_user: asistente
+  read_only_session: on
+  databases: asistenteia,asistenteia_test,postgres,template0,template1
+  free_disk_gb_where_the_output_goes: 679
+  free_ram_gb: 6.45
+    open_transactions_older_than_1_min|0
+    idle_in_transaction|0
+    prepared_transactions|0
+    ungranted_locks|0
+    revision|0005
+  [1] PASS connected to the development database as the original administrator, read only | expected asistenteia|asistente|on, obtained asistenteia|asistente|on
+  [2] PASS the container is the development one (compose project asistenteia) | expected asistenteia, obtained asistenteia
+  [3] PASS revision 0005 | expected revision|0005, obtained revision|0005
+  [4] PASS no open transaction, no idle in transaction, no prepared transaction, no ungranted lock | expected 0|0|0|0, obtained 0|0|0|0
+  [5] PASS GATE D: the catalog of the real database equals the expected baseline of 0005 | expected IDENTICAL, obtained IDENTICAL
+  [6] PASS GATE D: the cluster (roles, databases, ACLs) equals the expected baseline | expected IDENTICAL, obtained IDENTICAL
+  [7] FAIL asistenteia_test equals the expected baseline | expected IDENTICAL, obtained 
+  rows of the real database: alembic_version=1 document_chunks=0 documents=0 enrollments=0 ingestion_jobs=0 subjects=0 users=0 
+=== 2 the dump (a read) inside the container, hashes, copies
+  dump taken and copied in 1008 ms; size 17437 bytes; pg_restore --list lines: 57
+  [8] PASS sha256 outside equals sha256 inside the container | expected d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9, obtained d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9
+  [9] PASS the second, independent copy has the same sha256 | expected d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9, obtained d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9
+  permissions:  NT AUTHORITY\SYSTEM:(I)(F) ;                                                                              BUILTIN\Administrators:(I)(F) ;                                                              
+  [10] PASS the older backups are untouched (hashes equal their recorded ones) | expected OK, obtained OK
+  [11] PASS the source did not change while the dump was taken (snapshot after = snapshot before) | expected IDENTICAL, obtained IDENTICAL
+=== 3 restore of the SECOND copy into a disposable cluster (waits for 8 GB of free memory)
+  free RAM 7.3 GB (8 needed)
+RAM below 8 GB: stop (NO-GO for the restore)
+after cleanup: containers left=0 networks left=0

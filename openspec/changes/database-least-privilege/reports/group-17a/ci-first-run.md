@@ -40,7 +40,7 @@ Triggers: `push` (any branch) and `pull_request`. Permissions: `contents: read`.
 | `frontend` | green, including `check:api-types` | group 14 |
 | Time | `privileges` well below 40 min (the local steps took about 54 s + 124 s + 4 min) | group 10 |
 
-Acceptance: all three jobs green **and** the counts at or above the floors **and** no skipped test in `privileges`. Then, and only then, the owner decides about the pull request and the branch protection that makes `privileges` a required check (`docs/development_guide.md`, section on branch protection).
+Acceptance: all three jobs green **and** the counts at or above the floors **and** no skipped test in `privileges`. Then, and only then, the owner decides about the pull request. **Branch protection cannot be applied on the current plan**: the GitHub API answers 403 ("Upgrade to GitHub Pro or make this repository public to enable this feature") for this private repository, so `privileges` cannot be made a required check (see `../group-17c/ci-remote-proposal.md`); the rule is procedural until the plan changes.
 
 ## Risks (TD-045) and what to do when it fails
 

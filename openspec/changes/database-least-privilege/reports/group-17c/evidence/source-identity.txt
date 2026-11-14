@@ -1,0 +1,19 @@
+time_utc|2026-11-14T02:14:37Z
+container|asistenteia-db-1
+image|pgvector/pgvector:0.8.7-pg15
+image_id|sha256:47af0b65960b14f1c6945aa4ccae37836c632e9a6fe0eea9160936e616e5b2e9
+created|2026-11-12T04:35:37.245819359Z
+state|running health=healthy
+networks|asistenteia_default 
+published_ports|5432/tcp=127.0.0.1:5442 
+compose_project|asistenteia
+connected_database|asistenteia
+connected_user|asistente
+server_port|5432
+postmaster_start|2026-11-13 11:31:49.302112+00
+system_identifier|7701436764267716646
+server|PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+read_only_session|on
+databases|asistenteia,asistenteia_test,postgres,template0,template1
+free_disk_gb_where_the_output_goes|679
+free_ram_gb|7.52

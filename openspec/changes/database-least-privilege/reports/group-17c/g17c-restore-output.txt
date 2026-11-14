@@ -1,0 +1,5 @@
+=== restore of the second copy 2026-11-14T01:42:37Z; repo HEAD 951d282
+  [1] PASS the second copy has the recorded sha256 | expected d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9, obtained d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9
+  free RAM 7.61 GB (8 needed)
+RAM below 8 GB after 30 minutes: stop (NO-GO for the restore)
+after cleanup: containers left=0 networks left=0

@@ -52,7 +52,7 @@ Rehearsed on the replica (the services kept running; the whole step took about 8
    export MSYS_NO_PATHCONV=1
    printf "ALTER ROLE asistente PASSWORD '%s';\n" "$(cat <NEWFILE>)" | docker exec -i asistenteia-db-1 sh -c 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -q -f -'
    ```
-3. Replace the value in `.env.db` and `.env.roles` (and in `.env.test` if it holds `TEST_ADMIN_DATABASE_URL`). After 17B `.env` and `.env.worker` no longer contain it.
+3. Replace the value in `.env.db`, `.env.roles` and `.env.test` (after `--strip-legacy` the `TEST_DATABASE_URL` of the host tests lives there; before it, it lived in `.env`, which the final preflight found: the real `.env` carried `POSTGRES_*` and `TEST_DATABASE_URL`). After 17B `.env` and `.env.worker` no longer contain the administrator password, which `prepare_env_files.py --strip-legacy` guarantees by refusing to continue otherwise.
 4. Recreate only the database container so that its environment follows the file: `docker compose up -d --no-deps --force-recreate db` (a container keeps the environment it was created with, lesson L29). The data volume is untouched.
 5. Check: the old password is refused over TCP, the new one accepted, `bootstrap` again exits 0, the API answers.
 

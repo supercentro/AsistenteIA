@@ -43,10 +43,12 @@ echo "SELECT 'open_transactions_older_than_1_min', count(*) FROM pg_stat_activit
       SELECT 'prepared_transactions', count(*) FROM pg_prepared_xacts;
       SELECT 'ungranted_locks', count(*) FROM pg_locks WHERE NOT granted;
       SELECT 'sessions_by_user', coalesce(usename,'?')||' on '||coalesce(datname,'-')||' x'||count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid <> pg_backend_pid() GROUP BY usename, datname ORDER BY 2;
-      SELECT 'clients_by_address_and_application', coalesce(client_addr::text,'unix socket')||' / '||coalesce(nullif(application_name,''),'(no name)')||' x'||count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid <> pg_backend_pid() GROUP BY 1 ORDER BY 1;
+      SELECT 'clients_by_address_and_application', x FROM (SELECT coalesce(client_addr::text,'unix socket')||' / '||coalesce(nullif(application_name,''),'(no name)')||' x'||count(*) AS x FROM pg_stat_activity WHERE backend_type='client backend' AND pid <> pg_backend_pid() GROUP BY client_addr, application_name) s ORDER BY x;
       SELECT 'login_roles_other_than_the_administrator', coalesce(string_agg(rolname, ',' ORDER BY rolname), '(none)') FROM pg_roles WHERE rolcanlogin AND rolname !~ '^pg_' AND rolsuper = false;
       SELECT 'long_running_queries_over_30s', count(*) FROM pg_stat_activity WHERE state = 'active' AND query_start < now() - interval '30 seconds' AND pid <> pg_backend_pid();" | q postgres > "$OUT/activity.txt" 2>&1
 ( cd "$OUT" && sha256sum identity.txt snapshot-db.txt snapshot-cluster.txt activity.txt > SHA256SUMS )
+if grep -qE '^(psql:|ERROR:)' "$OUT"/*.txt; then echo "PREFLIGHT ERROR: a query failed:"; grep -hE '^(psql:|ERROR:)' "$OUT"/*.txt | head -3; exit 1; fi
+grep -q '^login_roles_other_than_the_administrator|' "$OUT/activity.txt" || { echo "PREFLIGHT ERROR: activity.txt is incomplete"; exit 1; }
 echo "written to $OUT: $(ls "$OUT" | tr '\n' ' ')"
 grep -hE "^(connected|read_only|open_transactions|idle_in|prepared|ungranted|long_running|revision|free_disk|clients_by|login_roles)" "$OUT/identity.txt" "$OUT/activity.txt" "$OUT/snapshot-db.txt" | sed 's/^/  /'
 [ -z "$EXPECTED" ] || echo "expected backup sha256 given: $EXPECTED"
