@@ -1,0 +1,25 @@
+free RAM before Docker: 8.88 GB
+PASS dry run accepts the synthetic folder
+PASS prepare_env_files.py --strip-legacy runs
+PASS no legacy name is left in .env and .env.worker
+PASS .env.roles: restricted (single rule, current user, Modify)
+PASS .env.roles: verify-only agrees
+PASS .env.roles: it is NOT the Read-only descriptor
+PASS .env.migrate: restricted (single rule, current user, Modify)
+PASS .env.migrate: verify-only agrees
+PASS .env.migrate: it is NOT the Read-only descriptor
+PASS .env.cli: restricted (single rule, current user, Modify)
+PASS .env.cli: verify-only agrees
+PASS .env.cli: it is NOT the Read-only descriptor
+PASS .env.test: restricted (single rule, current user, Modify)
+PASS .env.test: verify-only agrees
+PASS .env.test: it is NOT the Read-only descriptor
+PASS the current user can edit .env.roles after the restriction
+PASS the edit is there and the file is still readable
+PASS docker run --env-file reads the restricted .env.roles (5 variables seen)
+PASS compose env_file reads the restricted .env.migrate
+PASS prepare_env_files.py --rollback works with the restricted files
+PASS the three role files were renamed *.rolled-back
+PASS probe file restricted to Read
+PASS a Read-only descriptor blocks the rotation's edit (so Modify is used for env files)
+PASS=23 FAIL=0

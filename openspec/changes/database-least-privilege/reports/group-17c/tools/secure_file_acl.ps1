@@ -13,7 +13,10 @@
 # owner = current user. Known limit: a member of Administrators can still take ownership (that is the operating system).
 param(
     [Parameter(Mandatory = $true)][string]$Path,
-    [switch]$VerifyOnly
+    [switch]$VerifyOnly,
+    # Read (default): backups. Modify: the env files of 17B (.env.roles, .env.migrate, .env.cli, .env.test) that the rotation
+    # must still be able to edit; same single-rule, no-inheritance, owner = current user descriptor.
+    [ValidateSet("Read", "Modify")][string]$Rights = "Read"
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -27,7 +30,7 @@ if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) { Fail 2 "$
 $name = $item.Name
 $me = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 $mySid = $me.User
-$readRights = [System.Security.AccessControl.FileSystemRights]::Read
+$readRights = [System.Security.AccessControl.FileSystemRights]::$Rights
 # Windows stores every Allow rule with Synchronize added, so a Read grant reads back as Read|Synchronize (0x120089).
 $expectedRights = $readRights -bor [System.Security.AccessControl.FileSystemRights]::Synchronize
 
@@ -57,11 +60,11 @@ foreach ($rule in $rules) {
     if ($rule.IsInherited) { $problems += "an inherited rule is present" }
     if ($rule.IdentityReference -ne $mySid) { $problems += "a rule for another identity is present" }
     if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { $problems += "a deny rule is present" }
-    if ($rule.FileSystemRights -ne $expectedRights) { $problems += "rights are not exactly Read ($([int]$rule.FileSystemRights))" }
+    if ($rule.FileSystemRights -ne $expectedRights) { $problems += "rights are not exactly ${Rights} ($([int]$rule.FileSystemRights))" }
 }
 $owner = $check.GetOwner([System.Security.Principal.SecurityIdentifier])
 if ($owner -ne $mySid) { $problems += "the owner is not the current user" }
 if ($problems.Count -gt 0) { Fail 1 "${name}: $($problems -join '; ')" }
 $mode = if ($VerifyOnly) { "verified" } else { "applied and verified" }
-Write-Output "ACL OK ${name}: ${mode}; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user"
+Write-Output "ACL OK ${name}: ${mode}; inheritance disabled; 1 rule: current user, Allow, ${Rights}; owner: current user"
 exit 0

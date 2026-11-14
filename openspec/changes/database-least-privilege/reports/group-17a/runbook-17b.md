@@ -12,54 +12,63 @@ Changes: roles `asistente_migrator`, `asistente_app`, `asistente_worker`, `asist
 
 Known consequences: the API and the worker are **down** from step 17B.2 until step 17B.5 (measured on the replica: about 5 s of commands plus about 125 s until the worker is healthy because of its `start_period`); a restart of the old stack with the old images keeps working only if rolled back first; the new code **refuses** a superuser connection.
 
-## 17B.1 Preflight (read only) and backup
+## Orchestrator (`group-17b/run_17b.sh`): the way to run the stages
+
+The stages below are also implemented as an orchestrator that runs **one stage at a time**, fails closed and keeps a state file without secrets (`G17B_STATE_DIR`, a folder outside the repository). Read its header for the exit codes. Rules it enforces: `set -Eeuo pipefail`; a lock directory refuses a concurrent run (exit 5); a stage already done is refused (exit 6); a stage whose predecessor is not done is refused (exit 6); the cluster identity (compose project, container, database, PostgreSQL 15, `system_identifier`) is checked before every stage and must not change between stages (exit 3); free RAM and disk are gated (exit 4); the log is sanitized (no path, user name or URL); on any failure it stops at once, records the failed stage, prints the rollback column that applies and **never** runs a destructive command by itself; Ctrl+C or TERM records the interruption (exit 40). The stages from S20 on write and, in the real profile, refuse to run (exit 7) unless the owner has authorised `GO 17B.2` in a new message (the operator then sets `G17B_OWNER_GO=GO-17B.2` for that run only).
+
+| Stage | What | Writes? |
+|---|---|---|
+| S10 `preflight` | identity, RAM, disk, catalog = expected 0005 baseline (gate D), cluster = expected, activity (gate E), services seen | no |
+| S11 `backup_validate` | per-copy manifests, hashes, file and folder ACL, both copies equal, and the **backup equals the real state** (fresh read-only snapshot vs the one taken when the backup was made) | no |
+| S12 `images` | tag the images the containers use as `pre-17b`, `docker compose build bootstrap migrate cli backend worker`, check no container changed | no container, volume or network |
+| S13 `settings_load` | load both settings with the real env files in a throw-away container that prints nothing | reads the real env files: needs `G17B_ALLOW_REAL_SETTINGS=1` (owner's decision) |
+| S20 `stop_services` | `docker compose stop backend worker`; the snapshot must stay identical | yes |
+| S21 `prepare_env` | `prepare_env_files.py --dry-run --strip-legacy`, then for real; then the four new files get the owner-only descriptor (`secure_file_acl.ps1 -Rights Modify`: readable by Docker Desktop, still editable for the rotation) | yes |
+| S22 `bootstrap` | first bootstrap; exit 1 is EXPECTED and it must list the ownership drift | yes |
+| S23 `adopt_dry_run` | exactly 9 objects | no change |
+| S24 `adopt_apply` | `db-adopt --apply` | yes |
+| S25 `migrate` | Alembic 0005 → 0006 and the grants | yes |
+| S26 `db_verify` | "no findings" | no |
+| S30 `switch_services` | recreate backend and worker, wait until the worker is healthy | yes |
+| S31 `verify_sessions` | only the restricted roles hold sessions | no |
+
+`run_17b.sh --plan` lists them, `--status` prints the state, the rollback that applies and a read-only look at the database (revision, whether the four roles exist) and at the env files (names only). Tested only against a disposable stack (`group-17b/test_run_17b.sh`).
+
+## 17B.1 Preflight (read only), backup validation and images
+
+Run `S10`, `S11`, `S12` with the orchestrator (they are the only stages authorised before the owner's GO). By hand, the equivalent of S10 is:
 
 ```bash
 export MSYS_NO_PATHCONV=1
 cd <REPO>
-# 1. identity of the cluster and of the database: write the output in <TMP>/preflight-before
 bash "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/preflight_readonly.sh" asistenteia-db-1 asistenteia "<TMP>/preflight-before"
-# expected: container asistenteia-db-1 healthy, project asistenteia, volume asistenteia_db_data, revision 0005,
-#           0 open transactions / idle in transaction / prepared / ungranted locks, read-only session, free disk
-# 2. gate D: the catalog of the real database against the committed expected baseline of 0005 (rows = all 0, alembic_version = 1)
 S="<REPO>/openspec/changes/database-least-privilege/reports/group-17a"
-bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-db-0005.txt <TMP>/preflight-before/snapshot-db.txt                       # must print IDENTICAL (about 120 lines)
-MIN_LINES=5 bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-cluster.txt <TMP>/preflight-before/snapshot-cluster.txt    # roles, databases, ACLs: IDENTICAL
-# 3. state of ALL the services and what they run: the backend (exited today) and the worker mount backend/app
+bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-db-0005.txt <TMP>/preflight-before/snapshot-db.txt                       # IDENTICAL (about 120 lines)
+MIN_LINES=5 bash "$S"/tools/compare_snapshots.sh $S/expected/snapshot-cluster.txt <TMP>/preflight-before/snapshot-cluster.txt    # IDENTICAL
 docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}'
-docker inspect asistenteia-backend-1 asistenteia-worker-1 --format '{{.Name}} image={{.Image}} status={{.State.Status}} restarts={{.RestartCount}} started={{.State.StartedAt}}'
-docker logs --tail 5 asistenteia-worker-1 2>&1 | grep -ciE 'superuser|refus'          # 0 expected: the running worker must not be refusing anything
-# 4. keep the OLD images for the rollback, from the images the CONTAINERS use (this changes only image metadata)
-docker tag "$(docker inspect -f '{{.Image}}' asistenteia-backend-1)" asistenteia-backend:pre-17b
-docker tag "$(docker inspect -f '{{.Image}}' asistenteia-worker-1)"  asistenteia-worker:pre-17b
-docker images --no-trunc --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -E ':(latest|pre-17b) ' | grep asistenteia-   # record the ids in the report
-# 5. build the NEW images now, while the stack is still up (they are needed from step 17B.3 on; the worker image
-#    took 14 minutes and 3.2 GB when built from scratch on the workstation, see g17a-worker-build.txt)
-docker compose build bootstrap migrate cli backend worker      # time it; a failure here is a NO-GO before anything changed
-docker compose config --images                                  # the image names compose will use: record them
-# 6. the new settings load with the REAL files: see the note after this block (nothing is printed)
-# 7. variable NAMES of the real env files against their examples (names only; read the list before continuing)
-python "$S/tools/check_env_names.py" "<REPO>/backend"
+docker logs --tail 5 asistenteia-worker-1 2>&1 | grep -ciE 'superuser|refus'          # 0 expected
+python "$S/tools/check_env_names.py" "<REPO>/backend"                                  # names only
 ```
 
-(Step 6 is only written down as a requirement: use the image name printed by `docker compose config --images` for the backend and the worker and run `python -c "from app.core.config import load_settings; load_settings()"` / `load_worker_settings()` with `--env-file backend/.env` and `backend/.env.worker`. It reads the real files into a container that prints nothing and is removed; do it with the new images built in step 5. It was not run on the real files in 17A.)
+**Backup: reuse, do not take a new one unless a control fails.** The 17b backup of 2026-11-14 (dump `asistenteia_pre_17b_20261114T013150Z.dump`, revision 0005, SHA-256 `d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9`, 17 437 bytes) exists in two folders, each with its own `.sha256` and `<dump>.integrity.txt` (TD-049). It may be reused for 17B only if **all** of this holds (S11 checks it):
 
-Backup (the procedure rehearsed on the replica, 1.4 s on an empty database):
+1. each copy: SHA-256 and size equal the recorded ones; `backup_manifest.py verify <folder> <dump> --copy primary|second --manifest-suffix .integrity.txt` is OK; `sha256sum -c <dump>.sha256` is OK inside the folder; the two copies equal each other;
+2. the folder policy holds on both folders (`secure_folder_acl.ps1 -VerifyOnly`) and every file has the owner-only Read descriptor (`secure_file_acl.ps1 -VerifyOnly`);
+3. a **fresh** read-only `snapshot_db.sql` of the real database is `IDENTICAL` to the snapshot taken when the backup was made (`group-17c/evidence/source-snapshot-db.txt`): same schema, catalog, ownership, permissions, constraints, indexes, extensions, **row counts** and Alembic revision (0005);
+4. the restore of the second copy into a disposable cluster was proven `IDENTICAL` (17C, `g17c-restore-output.txt`).
+
+**Stop condition: any difference (schema, catalog, ownership, permissions, counts or revision) means the backup no longer describes the database. Do not move, delete or overwrite any existing backup; stop and ask the owner to authorise a new backup.** A new backup is taken only with `group-17c/run_17c_backup.sh`, which refuses to run while a `pre_17b` backup exists in either folder (the owner decides what happens to the old one).
 
 ```bash
-STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-docker exec asistenteia-db-1 sh -c 'pg_dump -U "$POSTGRES_USER" -d asistenteia -Fc -f /tmp/asistenteia_pre_17b.dump'
-docker exec asistenteia-db-1 sha256sum /tmp/asistenteia_pre_17b.dump                              # note the value
-docker exec asistenteia-db-1 sh -c 'pg_restore --list /tmp/asistenteia_pre_17b.dump | wc -l'      # about 57 lines at 0005
-docker cp asistenteia-db-1:/tmp/asistenteia_pre_17b.dump "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump"
-sha256sum "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump"                                            # equal to the one inside
-cp "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump" "<SECOND-LOCATION>/"                               # second copy, same hash
-# restore into a DISPOSABLE cluster and compare (see backup-and-recovery.md)
+# 4. keep the OLD images for the rollback (S12 does this; it only adds image tags), from the ids the CONTAINERS use
+docker tag "$(docker inspect -f '{{.Image}}' asistenteia-backend-1)" asistenteia-backend:pre-17b
+docker tag "$(docker inspect -f '{{.Image}}' asistenteia-worker-1)"  asistenteia-worker:pre-17b
+# 5. build the NEW images now, while the stack is still up (S12; the worker image from scratch: 14 minutes and 3.2 GB; cached: seconds)
+docker compose build bootstrap migrate cli backend worker      # a failure here is a NO-GO before anything changed; creates no container
+# 6. (S13, owner's decision) the new settings load with the REAL files: a throw-away container that prints nothing
 ```
 
-Backup first, then stop; between them the services can still write, so after the stop (17B.2) take `snapshot_db.sql` again and compare it with the one taken at the preflight: it must be `IDENTICAL` (the rehearsal does this), otherwise take a new backup.
-
-Stop condition: any hash differs, `pg_restore --list` fails, the restored copy differs from the source in `compare_snapshots.sh`, a transaction older than a minute is open, a prepared transaction exists, free RAM is below 8 GB, or the catalog of the real database differs from the reconstructed 0005. **NO-GO.**
+Stop condition: any hash differs, a manifest or ACL check fails, the backup no longer equals the real state, a transaction older than a minute is open, a prepared transaction exists, free RAM is below 8 GB, the catalog of the real database differs from the reconstructed 0005, or the build fails. **NO-GO.**
 
 ## 17B.2 Stop the services and prepare the files
 
@@ -69,7 +78,7 @@ bash "$S"/tools/preflight_readonly.sh asistenteia-db-1 asistenteia <TMP>/after-s
 bash "$S"/tools/compare_snapshots.sh <TMP>/preflight-before/snapshot-db.txt <TMP>/after-stop/snapshot-db.txt   # IDENTICAL: nothing was written between the backup and the stop
 python "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py" "<REPO>/backend" --dry-run --strip-legacy
 python "<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/prepare_env_files.py" "<REPO>/backend" --strip-legacy
-# creates backend/.env.roles .env.migrate .env.cli, rewrites DATABASE_URL (user and password) in .env and .env.worker,
+# creates backend/.env.roles .env.migrate .env.cli (the orchestrator then gives the four new files the owner-only descriptor, secure_file_acl.ps1 -Rights Modify; tested with Docker Desktop in group-17b/test_env_acl_docker.sh), rewrites DATABASE_URL (user and password) in .env and .env.worker,
 # REMOVES POSTGRES_USER/PASSWORD/DB from .env and MOVES TEST_* to a new backend/.env.test (host tests read it first),
 # copies .env, .env.worker and .env.db to *.pre-17b; prints names only, refuses to run twice or on a quoted URL.
 # WHY --strip-legacy: the real backend/.env (checked in the final preflight, names only) still carries POSTGRES_DB, POSTGRES_PASSWORD,
@@ -165,3 +174,8 @@ Any unexpected exit code, any `db-verify` finding, any open transaction at the s
 | full rollback | 134 s (about 9 s of commands, about 125 s of service start) |
 | recovery from the dump | 1.1 s |
 | rollback from each earlier stage (commands only, `g17a-stages-output.txt`) | after the bootstrap 2.2 s; after the adoption 2.5 s; after the migration 4.9 s (forward 1.6 s, 3.4 s, 7.2 s) |
+
+## Remote verification of the `privileges` workflow (GitHub Actions; NOT part of 17B, nothing is pushed without the owner's authorisation)
+
+TD-045 stays open until a green remote run exists. Procedure (details and commands in `group-17c/ci-remote-proposal.md`): (1) before any push: clean tree, `openspec validate --all --strict`, the secret classification (`g17c-secret-classification.md`) with no NO-GO; (2) the owner authorises `git push -u origin feature/database-least-privilege` (branch only, no pull request); (3) `gh run list --branch feature/database-least-privilege`, `gh run watch <id> --exit-status`, `gh run view <id> --log` kept outside the repository first; (4) acceptance: `backend`, `privileges` and `frontend` green, the `privileges` summary shows every report with at least the floors (unit 60, role suites 400, roles mode 480) and none skipped; (5) on failure: no pull request, reproduce locally, fix test-first, push again. Branch protection is not available on this plan (403 on a private repository), so the merge rule is procedural: no merge to `main` without a green `privileges` run linked in the pull request. A 17B run does not depend on this result; the risk stays accepted in gate L.
+
