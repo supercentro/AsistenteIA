@@ -20,7 +20,7 @@ q() { docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' "$C" sh 
 image|{{.Config.Image}}
 image_id|{{.Image}}
 created|{{.Created}}
-state|{{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}
+state|{{.State.Status}} health={{with index .State "Health"}}{{.Status}}{{else}}none{{end}}
 networks|{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}
 mounts_json|{{json .Mounts}}
 published_ports|{{range $p,$b := .NetworkSettings.Ports}}{{$p}}={{range $b}}{{.HostIp}}:{{.HostPort}} {{end}}{{end}}
@@ -47,6 +47,7 @@ echo "SELECT 'open_transactions_older_than_1_min', count(*) FROM pg_stat_activit
       SELECT 'login_roles_other_than_the_administrator', coalesce(string_agg(rolname, ',' ORDER BY rolname), '(none)') FROM pg_roles WHERE rolcanlogin AND rolname !~ '^pg_' AND rolsuper = false;
       SELECT 'long_running_queries_over_30s', count(*) FROM pg_stat_activity WHERE state = 'active' AND query_start < now() - interval '30 seconds' AND pid <> pg_backend_pid();" | q postgres > "$OUT/activity.txt" 2>&1
 ( cd "$OUT" && sha256sum identity.txt snapshot-db.txt snapshot-cluster.txt activity.txt > SHA256SUMS )
+if grep -qE '^(template parsing error|Error: No such|Error response)' "$OUT/identity.txt"; then echo "PREFLIGHT ERROR: docker inspect failed"; exit 1; fi
 if grep -qE '^(psql:|ERROR:)' "$OUT"/*.txt; then echo "PREFLIGHT ERROR: a query failed:"; grep -hE '^(psql:|ERROR:)' "$OUT"/*.txt | head -3; exit 1; fi
 grep -q '^login_roles_other_than_the_administrator|' "$OUT/activity.txt" || { echo "PREFLIGHT ERROR: activity.txt is incomplete"; exit 1; }
 echo "written to $OUT: $(ls "$OUT" | tr '\n' ' ')"

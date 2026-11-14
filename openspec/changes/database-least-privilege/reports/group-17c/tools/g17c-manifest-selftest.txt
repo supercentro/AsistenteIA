@@ -1,0 +1,38 @@
+PASS write succeeds and reports OK with size and sha256
+PASS the output names the file only (no folder, no user name)
+PASS .sha256 holds two sha256sum lines naming the dump and the manifest by file name only
+PASS the manifest has no absolute path and no user name
+PASS the manifest carries the copy label, the file name and the metadata
+PASS verify passes on an intact copy
+PASS sha256sum -c accepts the .sha256 inside its folder (standard format)
+PASS a second write is refused: the integrity files are never overwritten
+PASS the second copy gets its own manifest and .sha256
+PASS the second copy verifies against its own files
+PASS the second copy is refused when checked as the primary (label mismatch)
+PASS a manifest copied from the other folder is refused (its hash is not in this folder's .sha256)
+PASS mutation rejected (exit 1, reason named): one byte of the dump flipped
+PASS mutation rejected (exit 1, reason named): the dump truncated by one byte
+PASS mutation rejected (exit 1, reason named): .sha256 names another file
+PASS mutation rejected (exit 1, reason named): .sha256 carries an absolute path (the old ` *path` format)
+PASS mutation rejected (exit 1, reason named): .sha256 lost its manifest line
+PASS mutation rejected (exit 1, reason named): manifest size edited
+PASS mutation rejected (exit 1, reason named): manifest names another file
+PASS mutation rejected (exit 1, reason named): manifest relabelled with its hash re-computed: caught by the copy label
+PASS mutation rejected (exit 1, reason named): manifest value with an absolute path
+PASS mutation rejected (exit 1, reason named): manifest missing
+PASS mutation rejected (exit 1, reason named): .sha256 missing
+PASS a missing dump is exit 2
+PASS write refuses a missing dump (exit 2)
+PASS write refuses a metadata value with a path or the user name, without echoing it
+PASS nothing was written after the refusal
+PASS write refuses a reserved metadata key
+PASS a missing folder is exit 2
+0 failure(s)
+
+# mutation checks (one guard disabled at a time, the tool restored, the suite re-run):
+# 1 dump-hash check disabled -> 1 failing test(s)
+# 2 copy-label check disabled -> 2 failing test(s)
+# 3 path-separator guard disabled -> 1 failing test(s)
+# 4 size check disabled -> 2 failing test(s)
+# 5 manifest-hash check disabled -> 1 failing test(s)
+# restored -> 0 failure(s)
