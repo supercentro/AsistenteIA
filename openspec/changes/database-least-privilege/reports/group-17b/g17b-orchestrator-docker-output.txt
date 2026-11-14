@@ -1,0 +1,89 @@
+free RAM before Docker: 9.05 GB; HEAD 3288192
+== T1 correct run S10..S31 on a disposable stack, with the real new images
+  PASS S10, S11 and S12 pass
+  PASS state: done=S10,S11,S12
+  PASS S20..S26 pass (stop, env files, bootstrap exit 1, dry run 9, adopt, migrate, db-verify)
+  PASS revision is 0006
+  PASS the four restricted roles exist
+  PASS S30 and S31 pass (services recreated, restricted roles hold the sessions)
+  PASS last completed stage is S31
+  PASS the log holds no user name or Users path
+  PASS no connection URL appears in the log
+  PASS status works
+  PASS status shows the last completed stage
+== T2 preflight fails: a query has been running for more than 30 s (gate E)
+  PASS exit 3
+  PASS the message names gate E
+  PASS S10 is not marked done; failed=S10
+  PASS rollback guidance printed
+  PASS next stage not started
+== T3 insufficient RAM
+  PASS exit 4
+  PASS the message names the RAM
+  PASS nothing marked done
+== T4 invalid backup copy / backup no longer equal to the real state
+  PASS S10 passes
+  PASS corrupted primary copy -> exit 10
+  PASS reason: sha256 differs
+  PASS database changed after the preflight (new table) -> exit 11
+  PASS message asks for the owner's authorisation for a new backup
+  PASS the backup files were not moved or deleted
+== T5 wrong cluster identity
+  PASS S10 passes on the right cluster
+  PASS another cluster (different system id) -> exit 3
+  PASS message names the identity
+  PASS container of another compose project -> exit 3
+  PASS the test profile pointing at the REAL stack is refused (exit 7)
+  PASS the real database was only inspected: real container fingerprint unchanged
+== T6 error during bootstrap (wrong administrator password in .env.roles)
+  PASS S20 and S21 pass
+  PASS bootstrap failure -> exit 22
+  PASS failed=S22
+  PASS rollback guidance for the stage reached
+  PASS the next stage is refused (exit 6): the sequence cannot continue
+  PASS revision still 0005 (the database was not touched)
+== T7 adoption: dry run lists a different number of objects / apply fails
+  PASS S22 passes (exit 1 expected from bootstrap)
+  PASS dry run lists 8 objects instead of 9 -> exit 23
+  PASS re-running a stage that stopped needs the owner's confirmation (exit 8)
+  PASS after restoring the owner and confirming, the dry run passes
+  PASS adoption apply failure (test hook) -> exit 24
+  PASS failed=S24 and the sequence stops
+== T8 migration failure (wrong migrator password) and the recovery state
+  PASS S20..S24 pass
+  PASS migration failure -> exit 25
+  PASS rollback guidance includes the downgrade (steps 2 to 6)
+  PASS status: failed=S25
+  PASS status: revision_now=0005 (read only check)
+  PASS status: the four roles exist (so the adoption rollback applies)
+  PASS status prints the rollback that applies
+== T9 grants failure (the application role is missing when the grants run)
+  PASS S20..S24 pass
+  PASS grants failure -> exit 25
+  PASS failed=S25
+== T10 interruption of the process
+  PASS the run holds the lock while it works
+  PASS a concurrent run is refused (exit 5)
+  PASS state: interrupted=S10
+  PASS the lock was released
+  PASS the log says INTERRUPTED
+  PASS rollback guidance printed
+  PASS status shows the interruption
+  PASS after an interruption the stage can be run again (it never completed): exit 0
+== T11 second accidental execution and stage order
+  PASS S10 passes
+  PASS the same stage twice is refused (exit 6)
+  PASS S11 passes
+  PASS skipping stages is refused (exit 6)
+  PASS --through over finished stages does nothing harmful (exit 0)
+== T13 the real profile refuses stages that write, and the test hooks
+  PASS all nine writing stages are refused in the real profile (exit 7)
+  PASS test hooks are refused in the real profile (exit 7)
+  PASS a wrong GO token is refused (exit 7)
+  PASS the real services were not touched (fingerprint unchanged)
+== end: containers left 0, networks left 0, volumes left 0
+  PASS no other container appeared or disappeared
+  PASS real services unchanged
+  PASS the existing backup is unchanged
+PASS=73 FAIL=0
+exit=0

@@ -1,0 +1,209 @@
+== syntax
+  PASS bash -n run_17b.sh
+  PASS bash -n test_run_17b.sh
+  PASS bash -n test_run_17b_static.sh
+  PASS bash -n test_env_acl_docker.sh
+== authorisation gate (real profile; every refusal happens before any command)
+  PASS real profile refuses S20 without the owner's GO (exit 7)
+  PASS real profile refuses S21 without the owner's GO (exit 7)
+  PASS real profile refuses S22 without the owner's GO (exit 7)
+  PASS real profile refuses S23 without the owner's GO (exit 7)
+  PASS real profile refuses S24 without the owner's GO (exit 7)
+  PASS real profile refuses S25 without the owner's GO (exit 7)
+  PASS real profile refuses S26 without the owner's GO (exit 7)
+  PASS real profile refuses S30 without the owner's GO (exit 7)
+  PASS real profile refuses S31 without the owner's GO (exit 7)
+  PASS a wrong token is refused (exit 7)
+  PASS a token with other case is refused (exit 7)
+  PASS the right token does not skip the order: S10 must be done first (exit 6, no command reached)
+  PASS the message names the missing predecessor
+  PASS nothing was marked done
+  PASS G17B_TEST_FAIL_AT is refused in the real profile (exit 7)
+  PASS G17B_TEST_SLEEP_AT is refused in the real profile (exit 7)
+  PASS G17B_TEST_CONFIG is refused in the real profile (exit 7)
+  PASS G17B_TEST_HOOKS is refused in the real profile (exit 7)
+== usage and state-dir rules
+  PASS unknown profile (exit 2)
+  PASS a state dir inside the repository is refused (exit 2)
+  PASS and it holds no state
+  PASS no argument (usage, exit 2)
+  PASS unknown stage (exit 2)
+  PASS --plan works
+  PASS plan lists 13 stages
+  PASS nine of them are marked as writing
+== test profile cannot name the real stack
+  PASS test profile naming the real object (DBC=asistenteia-db-1) is refused (exit 7)
+  PASS test profile naming the real object (PROJECT=asistenteia) is refused (exit 7)
+  PASS test profile naming the real object (API_C=asistenteia-backend-1) is refused (exit 7)
+  PASS test profile naming the real object (WORKER_C=asistenteia-worker-1) is refused (exit 7)
+  PASS test profile keeping a real path or compose file is refused (exit 7): ENV_DIR
+  PASS test profile keeping a real path or compose file is refused (exit 7): ENV_DIR
+  PASS test profile keeping a real path or compose file is refused (exit 7): BACKUPS
+  PASS test profile keeping a real path or compose file is refused (exit 7): SECOND
+  PASS test profile keeping a real path or compose file is refused (exit 7): DC_FILES
+  PASS a config with only disposable names works (exit 0)
+== complete sequence on stubs, state file
+  PASS S10..S31 on stubs (exit 0)
+  PASS done lists the twelve stages (S13 is optional)
+  PASS last_completed=S31
+  PASS the optional S13 can run afterwards
+  PASS the state file holds only known keys and no secret
+  PASS --through over finished stages changes nothing (exit 0)
+== accidental second run and order
+  PASS S10 (exit 0)
+  PASS S10 again is refused (exit 6)
+  PASS skipping to S21 is refused (exit 6)
+  PASS S11 (exit 0)
+== concurrent run
+  PASS a concurrent run is refused (exit 5)
+  PASS the first run finishes (exit 0)
+  PASS the lock is gone afterwards
+  PASS and S10 is done exactly once
+== exit codes, failed stage, rollback guidance, and the sequence stops
+  PASS S10 failure -> exit 3
+  PASS S10: failed=S10
+  PASS S10: rollback guidance mentions 'nothing to roll back'
+  PASS S10: says the next stage was not started
+  PASS S10: the next stage S11 is refused (exit 6)
+  PASS S10: not marked done
+  PASS S11 failure -> exit 10
+  PASS S11: failed=S11
+  PASS S11: rollback guidance mentions 'nothing to roll back'
+  PASS S11: says the next stage was not started
+  PASS S11: the next stage S12 is refused (exit 6)
+  PASS S11: not marked done
+  PASS S12 failure -> exit 12
+  PASS S12: failed=S12
+  PASS S12: rollback guidance mentions 'nothing to roll back'
+  PASS S12: says the next stage was not started
+  PASS S12: the next stage S20 is refused (exit 6)
+  PASS S12: not marked done
+  PASS S20 failure -> exit 20
+  PASS S20: failed=S20
+  PASS S20: rollback guidance mentions 'shipped override'
+  PASS S20: says the next stage was not started
+  PASS S20: the next stage S21 is refused (exit 6)
+  PASS S20: not marked done
+  PASS S21 failure -> exit 21
+  PASS S21: failed=S21
+  PASS S21: rollback guidance mentions 'steps 5, 6'
+  PASS S21: says the next stage was not started
+  PASS S21: the next stage S22 is refused (exit 6)
+  PASS S21: not marked done
+  PASS S22 failure -> exit 22
+  PASS S22: failed=S22
+  PASS S22: rollback guidance mentions 'steps 3, 4, 5, 6'
+  PASS S22: says the next stage was not started
+  PASS S22: the next stage S23 is refused (exit 6)
+  PASS S22: not marked done
+  PASS S23 failure -> exit 23
+  PASS S23: failed=S23
+  PASS S23: rollback guidance mentions 'steps 3, 4, 5, 6'
+  PASS S23: says the next stage was not started
+  PASS S23: the next stage S24 is refused (exit 6)
+  PASS S23: not marked done
+  PASS S24 failure -> exit 24
+  PASS S24: failed=S24
+  PASS S24: rollback guidance mentions 'steps 3, 4, 5, 6'
+  PASS S24: says the next stage was not started
+  PASS S24: the next stage S25 is refused (exit 6)
+  PASS S24: not marked done
+  PASS S25 failure -> exit 25
+  PASS S25: failed=S25
+  PASS S25: rollback guidance mentions 'steps 2, 3, 4, 5, 6'
+  PASS S25: says the next stage was not started
+  PASS S25: the next stage S26 is refused (exit 6)
+  PASS S25: not marked done
+  PASS S26 failure -> exit 26
+  PASS S26: failed=S26
+  PASS S26: rollback guidance mentions 'steps 2, 3, 4, 5, 6'
+  PASS S26: says the next stage was not started
+  PASS S26: the next stage S30 is refused (exit 6)
+  PASS S26: not marked done
+  PASS S30 failure -> exit 30
+  PASS S30: failed=S30
+  PASS S30: rollback guidance mentions 'steps 2, 3, 4, 5, 6'
+  PASS S30: says the next stage was not started
+  PASS S30: the next stage S31 is refused (exit 6)
+  PASS S30: not marked done
+  PASS S31 failure -> exit 31
+  PASS S31: failed=S31
+  PASS S31: rollback guidance mentions 'steps 2, 3, 4, 5, 6'
+  PASS S31: says the next stage was not started
+  PASS S31: not marked done
+  PASS an unexpected command failure -> exit 99
+  PASS state: failed=S10 and status=failed:S10
+  PASS the lock was released after an unexpected failure
+== a write stage that did not finish cleanly needs the owner's confirmation to run again
+  PASS S20 fails (exit 20)
+  PASS rerun of the failed write stage is refused (exit 8)
+  PASS a confirmation for another stage does not help (exit 8)
+  PASS with G17B_CONFIRM_RERUN=S20 the rerun is accepted (exit 0)
+  PASS interrupted write stage -> exit 40
+  PASS state: uncertain=S20
+  PASS the log says the outcome is unknown
+  PASS rerun after the interruption is refused (exit 8)
+  PASS status shows uncertain=S20
+  PASS confirmed rerun works
+  PASS uncertain is cleared once the stage completes
+== state integrity and pinned identity
+  PASS a hand-edited done list is refused (exit 6)
+  PASS the message says the state was edited
+  PASS status reports the edit
+  PASS removing the cluster id also breaks the chain: refused (exit 6)
+  PASS no cluster id pinned by S10, even with a consistent chain, is refused (exit 3)
+  PASS a stale lock is refused (exit 5)
+  PASS and the message says the lock is stale
+== RAM and disk gates
+  PASS RAM below the threshold -> exit 4
+  PASS disk below the threshold -> exit 4
+  PASS enough RAM and disk -> exit 0 (default 8 GB / 15 GB)
+== sanitized log
+  PASS stage with a path, user and URL runs
+  PASS the log has no user name
+  PASS the log has no profile path
+  PASS the log has no URL credentials
+  PASS the URL is replaced by a marker
+  PASS console output is sanitized too
+== SIGTERM and SIGINT
+  PASS SIGTERM -> exit 40
+  PASS SIGTERM: interrupted=S10
+  PASS SIGTERM: lock released
+  PASS SIGTERM: the log says INTERRUPTED
+  PASS SIGTERM: rollback guidance printed
+  PASS SIGTERM: no 'sleep 90' left running
+  PASS SIGTERM: S10 not marked done
+  PASS SIGTERM: after the interruption the stage can run again
+  PASS SIGINT -> exit 40
+  PASS SIGINT: interrupted=S10
+  PASS SIGINT: lock released
+  PASS SIGINT: the log says INTERRUPTED
+  PASS SIGINT: rollback guidance printed
+  PASS SIGINT: no 'sleep 90' left running
+  PASS SIGINT: S10 not marked done
+  PASS SIGINT: after the interruption the stage can run again
+  PASS --status works after a failure without any container
+  PASS status prints failed=S10
+  PASS status prints the rollback that applies
+== tests: PASS=174 FAIL=0
+== mutation testing (each mutation must make at least one check fail)
+  PASS mutation 'authorisation gate removed' is detected (11 check(s) fail)
+  PASS mutation 'token compared loosely' is detected (2 check(s) fail)
+  PASS mutation 'lock not exclusive' is detected (2 check(s) fail)
+  PASS mutation 'done stage not refused' is detected (1 check(s) fail)
+  PASS mutation 'stage order not enforced' is detected (1 check(s) fail)
+  PASS mutation 'rollback guidance of the adoption lost' is detected (3 check(s) fail)
+  PASS mutation 'failed stage not recorded' is detected (13 check(s) fail)
+  PASS mutation 'log not sanitized' is detected (4 check(s) fail)
+  PASS mutation 'RAM gate does not stop' is detected (1 check(s) fail)
+  PASS mutation 'interruption not recorded' is detected (2 check(s) fail)
+  PASS mutation 'next stage not refused after a failure' is detected (11 check(s) fail)
+  PASS mutation 'test profile may name the real stack' is detected (4 check(s) fail)
+  PASS mutation 'test profile may keep the real env folder' is detected (2 check(s) fail)
+  PASS mutation 'write stage rerun without confirmation' is detected (6 check(s) fail)
+  PASS mutation 'hand-edited state accepted' is detected (4 check(s) fail)
+  PASS mutation 'missing cluster pin accepted by the driver' is detected (1 check(s) fail)
+  PASS mutation 'stale lock indistinguishable' is detected (1 check(s) fail)
+== mutations: 0 survived or not applicable
+== final: tests PASS=455 FAIL=0; mutation problems=0
+exit=0

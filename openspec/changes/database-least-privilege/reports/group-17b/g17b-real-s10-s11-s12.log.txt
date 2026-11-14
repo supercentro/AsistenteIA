@@ -1,23 +1,16 @@
-13:16:15 STOP [6] stage S10 must be done before S20
-13:16:15 === S10 preflight (profile real)
-13:16:16 free RAM 9.31 GB (need 8), free disk 677 GB (need 15)
-13:16:17 cluster identity recorded (container, project, database, PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), system id 7701436764267716646)
+15:17:07 === S10 preflight (profile real)
+15:17:07 free RAM 8.86 GB (need 8), free disk 675 GB (need 15)
+15:17:09 cluster identity recorded (container, project, database, PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), system id 7701436764267716646)
     |   clients_by_address_and_application|172.24.0.2/32 / (no name) x1
     |   login_roles_other_than_the_administrator|(none)
     |   long_running_queries_over_30s|0
     |   revision|0005
     | IDENTICAL (118 lines compared)
     | IDENTICAL (9 lines compared)
-13:16:22 services seen: db=running api=exited worker=running/healthy/restarts=0
-13:16:22 S10 ok: nothing was written
-13:16:22 === S11 backup_validate (profile real)
-13:16:23 cluster identity unchanged since S10 (system id 7701436764267716646)
-13:16:23 STOP [10] primary copy: sha256 differs from the recorded one
-13:16:23 unexpected command failure at line 418 (exit 10)
-13:16:37 STOP [7] S20 writes: it needs the owner's explicit 'GO 17B.2' (G17B_OWNER_GO); NOT authorised
-13:16:37 STOP [6] stage S10 is already done: refused (accidental second run)
-13:16:38 === S11 backup_validate (profile real)
-13:16:39 cluster identity unchanged since S10 (system id 7701436764267716646)
+15:17:13 services seen: db=running api=exited worker=running/healthy/restarts=0
+15:17:13 S10 ok: nothing was written
+15:17:14 === S11 backup_validate (profile real)
+15:17:15 cluster identity unchanged since S10 (system id 7701436764267716646)
     | MANIFEST OK asistenteia_pre_17b_20261114T013150Z.dump (copy primary): size 17437; sha256 d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9; .sha256 and manifest consistent
     | FOLDER ACL OK AsistenteIA: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
     | ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
@@ -28,29 +21,28 @@
     | ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
     | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.sha256: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
     | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.integrity.txt: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
-13:16:44 backup: both copies verified (hash, size, independent manifests, ACLs)
+15:17:21 backup: both copies verified (hash, size, independent manifests, ACLs)
     | IDENTICAL (118 lines compared)
-13:16:45 S11 ok: the existing backup is valid and equals the real state; it can be reused
-13:16:45 finished: last completed stage S11
-13:16:54 === S12 images (profile real)
-13:16:54 free RAM 9.21 GB (need 8), free disk 677 GB (need 15)
-13:16:56 cluster identity unchanged since S10 (system id 7701436764267716646)
-13:16:56 rollback reference asistenteia-backend:pre-17b -> sha256:5647fb807a28
-13:16:57 rollback reference asistenteia-worker:pre-17b -> sha256:4a2f25143e21
-13:16:57 building the five images (the stack stays up; nothing is started)
-    |  Image asistenteia-worker Built 
+15:17:22 S11 ok: the existing backup is valid and equals the real state; it can be reused
+15:17:23 === S12 images (profile real)
+15:17:24 free RAM 8.69 GB (need 8), free disk 675 GB (need 15)
+15:17:25 cluster identity unchanged since S10 (system id 7701436764267716646)
+15:17:31 rollback reference asistenteia-backend:pre-17b -> sha256:5647fb807a28
+15:17:31 rollback reference asistenteia-worker:pre-17b -> sha256:4a2f25143e21
+15:17:31 building the five images (the stack stays up; nothing is started)
     |  Image asistenteia-bootstrap Built 
     |  Image asistenteia-migrate Built 
     |  Image asistenteia-cli Built 
-13:17:16 STOP [12] the list of containers changed during the build
-13:17:17 last completed stage: S11
-13:17:17 stopped in: S12 (images), exit code 12
-13:17:17 rollback that applies: no change was made to the database, the services or the files: nothing to roll back (S12 only added image tags and images; the pre-17b tags are the references)
-13:17:17 NOTHING was rolled back automatically and the next stage was NOT started; decide with the owner (runbook, stop conditions)
-13:18:18 === S12 images (profile real)
-13:18:19 free RAM 6.96 GB (need 8), free disk 674 GB (need 15)
-13:18:19 STOP [4] less than 8 GB of free RAM: NO-GO
-13:18:19 last completed stage: S11
-13:18:19 stopped in: S12 (images), exit code 4
-13:18:19 rollback that applies: no change was made to the database, the services or the files: nothing to roll back (S12 only added image tags and images; the pre-17b tags are the references)
-13:18:19 NOTHING was rolled back automatically and the next stage was NOT started; decide with the owner (runbook, stop conditions)
+    |  Image asistenteia-backend Built 
+15:17:44 image asistenteia-bootstrap:latest sha256:55e155f82583
+15:17:44 image asistenteia-migrate:latest sha256:ac7898919d4f
+15:17:44 image asistenteia-cli:latest sha256:5a18c6e17372
+15:17:45 image asistenteia-backend:latest sha256:404a1582f3f6
+15:17:45 image asistenteia-worker:latest sha256:f5f644035ba4
+    | asistenteia-backend
+    | asistenteia-worker
+    | asistenteia-frontend
+    | pgvector/pgvector:0.8.7-pg15
+15:17:46 S12 ok: images built; old images kept under the pre-17b tags; no container, volume or network touched
+15:17:46 finished: last completed stage S12
+15:17:48 STOP [7] S20 writes: it needs the owner's explicit 'GO 17B.2' (G17B_OWNER_GO); NOT authorised

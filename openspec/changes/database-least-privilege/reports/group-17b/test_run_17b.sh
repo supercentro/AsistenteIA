@@ -13,13 +13,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 R="$(cd "$HERE/.." && pwd)"
 REPO="$(cd "$R/../../../.." && pwd)"; REPOW="$(cd "$REPO" && pwd -W)"
 T17A="$R/group-17a/tools"; T17C="$R/group-17c/tools"
+ORCHS="${G17B_ORCH:-$HERE/run_17b.sh}"
 W() { cygpath -w "$1"; }
 P=g17borch
 UHOME="$(cygpath -u "$USERPROFILE")"
 SRC_B1="$UHOME/Backups/AsistenteIA"; SRC_B2="$UHOME/Backups/AsistenteIA-second"
 DUMP=asistenteia_pre_17b_20261114T013150Z.dump; SUF=.integrity.txt
 PASS=0; FAIL=0
-check() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  PASS $1"; else FAIL=$((FAIL+1)); echo "  FAIL $1 (expected '$2', got '$3')"; fi; }
+check() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  PASS $1"; else FAIL=$((FAIL+1)); echo "  FAIL $1 (expected '$2', got '$3')"; [ -f "$ROOT/last.out" ] && tail -n 7 "$ROOT/last.out" | cut -c1-230 | sed 's/^/      | /'; fi; }
 RAM=$(powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB,2)" | tr -d '\r')
 python -c "import sys; sys.exit(0 if float('$RAM') >= 8 else 1)" || { echo "free RAM $RAM GB < 8: stop (no Docker used)"; exit 4; }
 echo "free RAM before Docker: $RAM GB; HEAD $(cd "$REPO" && git rev-parse --short HEAD)"
@@ -121,6 +122,7 @@ PROJECT=$P
 DBC=$P-db-1
 API_C=$P-backend-1
 WORKER_C=$P-worker-1
+EXPECTED_SYSID=""
 ENV_DIR="$ROOT/backend"
 BACKUPS="$ROOT/b1"
 SECOND="$ROOT/b2"
@@ -128,9 +130,13 @@ EXPECTED_CLUSTER="$ROOT/cluster-baseline.txt"
 DC_FILES=(-f "$REPOW/docker-compose.yml" -f "$ROOTW/override.yml")
 export G17_DIR="$ROOTW/backend"
 CFG
+  cat > "$ROOT/hooks.sh" <<'HK'
+# S12 builds images and tags the images of the REAL containers; it was run in the real profile. In the disposable stack it is a logged no-op.
+st_images() { identity_check; log "S12 (disposable stack): images were built and checked in the real profile; nothing to do here"; }
+HK
   rm -rf "$ROOT/state"; mkdir -p "$ROOT/state"
 }
-orch() { G17B_PROFILE=test G17B_TEST_CONFIG="$ROOT/cfg.sh" G17B_STATE_DIR="$ROOT/state" bash "$HERE/run_17b.sh" "$@"; }
+orch() { G17B_PROFILE=test G17B_TEST_CONFIG="$ROOT/cfg.sh" G17B_TEST_HOOKS="$ROOT/hooks.sh" G17B_STATE_DIR="$ROOT/state" bash "$ORCHS" "$@"; }
 runo() { orch "$@" > "$ROOT/last.out" 2>&1; RC=$?; }
 sget() { sed -n "s/^$1=//p" "$ROOT/state/state" | tail -1; }
 sdump() { sqla "$1" "${2:-asistenteia}" | tr '\n' ' '; }
@@ -141,10 +147,9 @@ leak() { grep -rEl "$USERNAME|C:/Users|C:\\\\Users" "$ROOT/state" 2>/dev/null | 
 
 # ---------------------------------------------------------------- T1 happy path through the last stage
 if scen T1 "correct run S10..S31 on a disposable stack, with the real new images"; then
-  runo --through S11; check "S10 and S11 pass" 0 $RC
-  check "state: done=S10,S11" "S10,S11" "$(sget done)"
+  runo --through S12; check "S10, S11 and S12 pass" 0 $RC
+  check "state: done=S10,S11,S12" "S10,S11,S12" "$(sget done)"
   # S12 builds images: not repeated here (images already built); mark it done for the order check via a controlled stage run in a stub
-  sed -i '/^done=/d' "$ROOT/state/state"; echo "done=S10,S11,S12" >> "$ROOT/state/state"
   runo --through S26; check "S20..S26 pass (stop, env files, bootstrap exit 1, dry run 9, adopt, migrate, db-verify)" 0 $RC
   check "revision is 0006" "0006" "$(sqla 'select version_num from alembic_version' | tr -d '\r')"
   check "the four restricted roles exist" 4 "$(sqla "select count(*) from pg_roles where rolname in ('asistente_migrator','asistente_app','asistente_worker','asistente_cli')" postgres)"
@@ -157,13 +162,14 @@ if scen T1 "correct run S10..S31 on a disposable stack, with the real new images
 fi
 
 # ---------------------------------------------------------------- T2 preflight failure
-if scen T2 "preflight fails: a prepared transaction is open"; then
-  sqla "create table _t(x int); begin; insert into _t values (1); prepare transaction 'g17b';" > /dev/null
+if scen T2 "preflight fails: a query has been running for more than 30 s (gate E)"; then
+  docker exec -d "$P-db-1" sh -c 'psql -U "$POSTGRES_USER" -d asistenteia -c "select pg_sleep(150)"' > /dev/null 2>&1
+  sleep 36
   runo --stage S10; check "exit 3" 3 $RC
+  grep -q 'gate E' "$ROOT/last.out"; check "the message names gate E" 0 $?
   check "S10 is not marked done; failed=S10" S10 "$(sget failed)"
   grep -q 'rollback that applies: no change was made' "$ROOT/last.out"; check "rollback guidance printed" 0 $?
   grep -q 'NOT started' "$ROOT/last.out"; check "next stage not started" 0 $?
-  sqla "rollback prepared 'g17b'" > /dev/null
 fi
 
 # ---------------------------------------------------------------- T3 insufficient RAM
@@ -213,7 +219,6 @@ fi
 # ---------------------------------------------------------------- prefix for the destructive scenarios: S10..S21 done
 prep_to() { # $1 = last stage to run
   runo --stage S10 && runo --stage S11
-  sed -i '/^done=/d' "$ROOT/state/state"; echo "done=S10,S11,S12" >> "$ROOT/state/state"
   runo --through "$1"
 }
 # ---------------------------------------------------------------- T6 bootstrap error
@@ -233,7 +238,8 @@ if scen T7 "adoption: dry run lists a different number of objects / apply fails"
   sqla "alter table users owner to asistente_migrator" > /dev/null
   runo --stage S23; check "dry run lists 8 objects instead of 9 -> exit 23" 23 $RC
   sqla "alter table users owner to asistente" > /dev/null
-  runo --stage S23; check "after restoring the owner the dry run passes" 0 $RC
+  runo --stage S23; check "re-running a stage that stopped needs the owner's confirmation (exit 8)" 8 $RC
+  G17B_CONFIRM_RERUN=S23 runo --stage S23; check "after restoring the owner and confirming, the dry run passes" 0 $RC
   G17B_TEST_FAIL_AT=S24 runo --stage S24; check "adoption apply failure (test hook) -> exit 24" 24 $RC
   check "failed=S24 and the sequence stops" S24 "$(sget failed)"
 fi
@@ -255,7 +261,7 @@ if scen T9 "grants failure (the application role is missing when the grants run)
   prep_to S24; check "S20..S24 pass" 0 $RC
   sqla "drop owned by asistente_app" asistenteia > /dev/null; sqla "drop owned by asistente_app" postgres > /dev/null; sqla "drop role asistente_app" postgres > /dev/null
   runo --stage S25; check "grants failure -> exit 25" 25 $RC
-  [ "$RC" = 25 ] || { G17B_TEST_FAIL_AT=S25 runo --stage S25; check "(fallback) injected failure -> exit 25" 25 $RC; }
+  [ "$RC" = 25 ] || { G17B_CONFIRM_RERUN=S25 G17B_TEST_FAIL_AT=S25 runo --stage S25; check "(fallback) injected failure -> exit 25" 25 $RC; }
   check "failed=S25" S25 "$(sget failed)"
 fi
 
@@ -290,12 +296,12 @@ fi
 if scen T13 "the real profile refuses stages that write, and the test hooks"; then
   RS="$ROOT/state-real"; mkdir -p "$RS"
   for st in S20 S21 S22 S23 S24 S25 S26 S30 S31; do
-    G17B_STATE_DIR="$RS" bash "$HERE/run_17b.sh" --stage $st > /dev/null 2>&1; r=$?
+    G17B_STATE_DIR="$RS" bash "$ORCHS" --stage $st > /dev/null 2>&1; r=$?
     [ "$r" = 7 ] || { check "real profile refuses $st without the owner's GO" 7 $r; }
   done
   check "all nine writing stages are refused in the real profile (exit 7)" 7 7
-  G17B_TEST_FAIL_AT=S10 G17B_STATE_DIR="$RS" bash "$HERE/run_17b.sh" --plan > /dev/null 2>&1; check "test hooks are refused in the real profile (exit 7)" 7 $?
-  G17B_OWNER_GO=wrong G17B_STATE_DIR="$RS" bash "$HERE/run_17b.sh" --stage S20 > /dev/null 2>&1; check "a wrong GO token is refused (exit 7)" 7 $?
+  G17B_TEST_FAIL_AT=S10 G17B_STATE_DIR="$RS" bash "$ORCHS" --plan > /dev/null 2>&1; check "test hooks are refused in the real profile (exit 7)" 7 $?
+  G17B_OWNER_GO=wrong G17B_STATE_DIR="$RS" bash "$ORCHS" --stage S20 > /dev/null 2>&1; check "a wrong GO token is refused (exit 7)" 7 $?
   check "the real services were not touched (fingerprint unchanged)" "$REAL_FP" "$(docker inspect -f '{{.Id}} {{.State.Status}} {{.Image}}' asistenteia-db-1 asistenteia-worker-1 | tr '\n' ';')"
 fi
 
