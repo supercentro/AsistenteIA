@@ -46,11 +46,17 @@ Why this order: the roles must exist before the services receive their URLs; the
 
 Rehearsed on the replica (the services kept running; the whole step took about 8 s including the recreation of the database container; the API reconnected by itself).
 
-1. Generate the new value outside the repository (password manager). Never on a command line.
-2. `ALTER ROLE asistente PASSWORD '<new>'` through a `psql` session fed from standard input.
+1. Generate the new value outside the repository (password manager) into a file only your user can read, `<NEWFILE>` (letters, digits, `-` and `_` only, so that it needs no quoting). Never on a command line.
+2. Change the role through a `psql` session fed from standard input (this is the form rehearsed; the value is read by the shell builtin `printf`, never an argument of an external command):
+   ```bash
+   export MSYS_NO_PATHCONV=1
+   printf "ALTER ROLE asistente PASSWORD '%s';\n" "$(cat <NEWFILE>)" | docker exec -i asistenteia-db-1 sh -c 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -q -f -'
+   ```
 3. Replace the value in `.env.db` and `.env.roles` (and in `.env.test` if it holds `TEST_ADMIN_DATABASE_URL`). After 17B `.env` and `.env.worker` no longer contain it.
 4. Recreate only the database container so that its environment follows the file: `docker compose up -d --no-deps --force-recreate db` (a container keeps the environment it was created with, lesson L29). The data volume is untouched.
 5. Check: the old password is refused over TCP, the new one accepted, `bootstrap` again exits 0, the API answers.
+
+   **If the rotation stops half way** (the order above makes step 2 the point of no return): (a) the `ALTER ROLE` failed: nothing changed, the files still hold the old password, leave them and retry; (b) the `ALTER ROLE` succeeded but a file still has the old value: the new value is in the password manager, so write it into the file(s) by hand with an editor and recreate `db` (step 4); the services keep their open connections and fail on the next reconnect with an authentication error in their log (the API reconnects on a pooled connection failure only after the files are right); (c) never run the rollback of the files (`--rollback`) in this state: it copies the administrator password from `.env.db`, which must already hold the NEW value.
 6. Destroy `.env.pre-17b`, `.env.worker.pre-17b` and `.env.db.pre-17b` (they hold the exposed value). Do not rewrite or delete the subagent transcript of the incident without the owner's decision (it is an audit record); after the rotation the value in it is harmless.
 7. Record the date in `docs/technical-debt.md` (TD-038) and close the incident.
 

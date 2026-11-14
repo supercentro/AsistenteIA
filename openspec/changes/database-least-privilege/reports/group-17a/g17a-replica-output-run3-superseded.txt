@@ -1,0 +1,277 @@
+=== 0 preflight 2026-11-13T22:26:38Z
+free host RAM before: 10.82 GB (8 needed)
+repo HEAD: 43c0129
+  [1] PASS the base backup has the recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+=== images: OLD = the images of main that the development stack runs; NEW = built from this branch
+built asistenteia-backend:g17a-new and asistenteia-worker:g17a-new; tagged asistenteia-backend:g17a-old and asistenteia-worker:g17a-old from main-f455234
+=== 1 the replica of the development stack, OLD code and OLD files (everything as the administrator)
+  [compose up db (old spec)] rc=0 (658 ms)
+      |  Network g17arep_default Created 
+      |  Network g17arep_default Created 
+      |  Container g17arep-db-1 Creating 
+      |  Container g17arep-db-1 Created 
+      |  Container g17arep-db-1 Starting 
+      |  Container g17arep-db-1 Started 
+  db health: healthy | databases: asistenteia,asistenteia_test,postgres,template0,template1
+  [restore the 0004 dump into asistenteia] rc=0 (338 ms)
+  [alembic upgrade 0005 as the administrator] rc=0 (1365 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+  [2] PASS the replica database is at 0005 like the development database | expected 0005, obtained 0005
+  [compose up backend worker (old spec, old images)] rc=0 (1217 ms)
+      |  Container g17arep-db-1 Healthy 
+      |  Container g17arep-db-1 Healthy 
+      |  Container g17arep-backend-1 Starting 
+      |  Container g17arep-worker-1 Starting 
+      |  Container g17arep-backend-1 Started 
+      |  Container g17arep-worker-1 Started 
+  [3] PASS old API answers | expected 200, obtained 200
+  [4] PASS old worker healthy | expected healthy, obtained healthy
+  [5] PASS POST /auth/register | expected 201, obtained 201
+  [6] PASS a student written by the OLD stack exists | expected 1, obtained 1
+  sessions by user in the old stack: asistente=3
+  S0 (state of the replica before 17B): 120 + 10 + 12 lines; revision revision|0005; rows: rows|alembic_version=1 rows|document_chunks=0 rows|documents=0 rows|enrollments=0 rows|ingestion_jobs=0 rows|subjects=0 rows|users=1 
+=== 2 step 17B.1 preflight with the read-only tool, the backup procedure and the proof that it restores
+  [preflight_readonly.sh] rc=0 (1936 ms)
+      |   open_transactions_older_than_1_min|0
+      |   idle_in_transaction|0
+      |   prepared_transactions|0
+      |   ungranted_locks|0
+      |   long_running_queries_over_30s|0
+      |   revision|0005
+  [show identity] rc=0 (82 ms)
+      | compose_project|g17arep
+      | connected_database|asistenteia
+      | connected_user|asistente
+      | server_port|5432
+      | postmaster_start|2026-11-13 22:26:45.815157+00
+      | system_identifier|7707786125152432166
+      | server|PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+      | read_only_session|on
+      | databases|asistenteia,asistenteia_test,postgres,template0,template1
+      | free_ram_gb|10.04
+  [7] PASS preflight snapshot of the database equals S0 (the tool is read only and complete) | expected IDENTICAL, obtained IDENTICAL
+  [8] PASS preflight snapshot of the cluster equals S0 | expected IDENTICAL, obtained IDENTICAL
+  [9] PASS no open transaction, no idle-in-transaction session, no prepared transaction | expected 0|0|0, obtained 0|0|0
+  backup procedure (the commands planned for 17B.1, run on the replica)
+  [pg_dump inside the container] rc=0 (277 ms)
+  [pg_restore --list inside] rc=0 (256 ms)
+      | 57
+  [10] PASS the copy outside the container has the same sha256 as inside | expected af27043f94e374d1ec35c7b9cbd0fab07e3e8251527989d1d438338e276e175b, obtained af27043f94e374d1ec35c7b9cbd0fab07e3e8251527989d1d438338e276e175b
+  [11] PASS the second copy has the same sha256 | expected af27043f94e374d1ec35c7b9cbd0fab07e3e8251527989d1d438338e276e175b, obtained af27043f94e374d1ec35c7b9cbd0fab07e3e8251527989d1d438338e276e175b
+  backup taken and verified in 1436 ms
+  [pg_restore into the disposable cluster] rc=0 (258 ms)
+  restore took 357 ms
+  [12] PASS the restored copy is identical to the source (catalog, revision, owners, ACLs, grants, constraints, defaults, row counts) | expected IDENTICAL, obtained IDENTICAL
+=== 3 step 17B.2: stop the services, prepare the files with the tool, bootstrap, adopt, migrate, verify, switch
+  [compose stop backend worker (old spec)] rc=0 (1341 ms)
+      |  Container g17arep-worker-1 Stopping 
+      |  Container g17arep-backend-1 Stopping 
+      |  Container g17arep-backend-1 Stopped 
+      |  Container g17arep-worker-1 Stopped 
+  [prepare_env_files.py --dry-run] rc=0 (231 ms)
+      | dry run: nothing written; would create .env.roles, .env.migrate, .env.cli and rewrite DATABASE_URL in .env and .env.worker
+  [13] PASS dry run writes nothing | expected 0, obtained 0
+  [prepare_env_files.py] rc=0 (228 ms)
+      | created: .env.roles, .env.migrate, .env.cli | variables written: ADMIN_DATABASE_URL DB_MIGRATOR_PASSWORD DB_APP_PASSWORD DB_WORKER_PASSWORD DB_CLI_PASSWORD MIGRATION_DATABASE_URL CLI_DATABASE_URL
+      | rewritten (user and password only): DATABASE_URL in .env and .env.worker
+      | backups: .env.db.pre-17b, .env.pre-17b, .env.worker.pre-17b
+  [14] PASS the tool succeeded | expected 0, obtained 0
+  [15] PASS the tool printed no value (no password, no URL) | expected 0, obtained 0
+  [prepare_env_files.py again must refuse] rc=1 (250 ms)
+      | refused: missing=[] already-present=['.env.roles', '.env.migrate', '.env.cli', '.env.db.pre-17b', '.env.pre-17b', '.env.worker.pre-17b']
+  [16] PASS a second run refuses (nothing is overwritten) | expected 1, obtained 1
+  [17] PASS the new files exist and the backups too | expected 6, obtained 6
+  [18] PASS only the user and password of DATABASE_URL changed in .env (the other lines are byte for byte) | expected 0, obtained 0
+  [19] PASS API file now names the application role, worker file the worker role | expected asistente_app|asistente_worker, obtained asistente_app|asistente_worker
+  [bootstrap (compose one-shot, first run)] rc=1 (1613 ms)
+      | ownership drift (not changed here; use db-adopt):
+      |   table alembic_version owned by asistente
+      |   table document_chunks owned by asistente
+      |   table documents owned by asistente
+      |   table enrollments owned by asistente
+      |   table ingestion_jobs owned by asistente
+      |   table subjects owned by asistente
+      |   table users owned by asistente
+      |   type document_status owned by asistente
+      |   type user_role owned by asistente
+  [20] PASS the first bootstrap reports the drift of the old tables with exit 1 | expected 1, obtained 1
+  [db-adopt dry run] rc=0 (1518 ms)
+      | adoption dry run (nothing changed; use --apply): 9 object(s)
+      |   table alembic_version: asistente -> asistente_migrator
+      |   table document_chunks: asistente -> asistente_migrator
+      |   table documents: asistente -> asistente_migrator
+      |   table enrollments: asistente -> asistente_migrator
+      |   table ingestion_jobs: asistente -> asistente_migrator
+      |   table subjects: asistente -> asistente_migrator
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [21] PASS the dry run exits 0 | expected 0, obtained 0
+  [db-adopt --apply] rc=0 (1527 ms)
+      |   table subjects: asistente -> asistente_migrator
+      |   table users: asistente -> asistente_migrator
+      |   type document_status: asistente -> asistente_migrator
+      |   type user_role: asistente -> asistente_migrator
+  [22] PASS adoption applied | expected 0, obtained 0
+  [migrate (compose one-shot: db-migrate)] rc=0 (1501 ms)
+      |  Container g17arep-migrate-run-559631001819 Creating 
+      |  Container g17arep-migrate-run-559631001819 Created 
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+      | migrated to head and applied the privilege grants
+  [23] PASS migration 0006 and grants | expected 0, obtained 0
+  [24] PASS revision 0006 and users.role default | expected 0006|'student'::user_role, obtained 0006|'student'::user_role
+  [db-verify] rc=0 (1316 ms)
+      | no findings: the database matches the design
+  [25] PASS db-verify has no findings | expected 0, obtained 0
+  [up -d --no-deps --force-recreate backend worker (new spec)] rc=0 (785 ms)
+      |  Container g17arep-backend-1 Recreated 
+      |  Container g17arep-worker-1 Recreated 
+      |  Container g17arep-backend-1 Starting 
+      |  Container g17arep-worker-1 Starting 
+      |  Container g17arep-backend-1 Started 
+      |  Container g17arep-worker-1 Started 
+  services back in 124958 ms after the switch; forward procedure (without the backup) 138581 ms
+  [26] PASS new API answers | expected 200, obtained 200
+  [27] PASS new worker healthy | expected healthy, obtained healthy
+  who is who (SELECT current_user per session): asistente=1 asistente_app=1 asistente_worker=1
+  [28] PASS the application and the worker connect as their own roles, nobody else (the session of this very check excluded) | expected asistente_app,asistente_worker, obtained asistente_app,asistente_worker
+  [29] PASS the new API process refuses the administrator URL (the code of 15.2) | expected 1, obtained 1
+=== 4 step 17B.3 functional validation with synthetic data under the roles
+  [30] PASS POST /auth/login | expected 200, obtained 200
+  [31] PASS GET /users/me | expected 200, obtained 200
+  [32] PASS POST /auth/register | expected 201, obtained 201
+  [33] PASS the new student is a student | expected student, obtained student
+  [34] PASS teacher created by the CLI role | expected teacher, obtained teacher
+  [35] PASS POST /auth/login | expected 200, obtained 200
+  [36] PASS POST /subjects | expected 403, obtained 403
+  [37] PASS POST /subjects | expected 201, obtained 201
+  [38] PASS POST /subjects/b21ca1ea-b229-496b-8dd6-f4ad49c03c5c/enrollments | expected 201, obtained 201
+  [39] PASS POST /subjects/b21ca1ea-b229-496b-8dd6-f4ad49c03c5c/documents (upload notes.txt) | expected 202, obtained 202
+  [40] PASS the worker role processed the upload | expected ready, obtained ready
+  [41] PASS GET /subjects/b21ca1ea-b229-496b-8dd6-f4ad49c03c5c | expected 200, obtained 200
+  [42] PASS API role cannot create a teacher | expected permission denied, obtained permission denied
+  [43] PASS worker role cannot read users | expected permission denied, obtained permission denied
+  [db-verify after the functional run] rc=0 (1423 ms)
+      | no findings: the database matches the design
+  [44] PASS no drift after the functional run | expected 0, obtained 0
+=== 5 rotation of the administrator password (TD-038 and the incident of 2026-11-13)
+  [recreate the db container only (new environment)] rc=0 (853 ms)
+      |  Container g17arep-db-1 Recreate 
+      |  Container g17arep-db-1 Recreated 
+      |  Container g17arep-db-1 Starting 
+      |  Container g17arep-db-1 Started 
+  rotation including the recreation of the database container took 8211 ms (the services were running and reconnected)
+  [45] PASS the OLD password is refused over TCP | expected 1, obtained 1
+  [46] PASS the NEW password is accepted over TCP | expected 1, obtained 1
+  [47] PASS the API survived the recreation of the database (pool reconnects) | expected 200, obtained 200
+  [48] PASS POST /auth/login | expected 200, obtained 200
+  [bootstrap again with the new administrator password] rc=0 (1568 ms)
+      | roles updated: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+      | databases closed to PUBLIC: 5
+      | ownership: no drift
+  [49] PASS idempotent bootstrap after the rotation (exit 0) | expected 0, obtained 0
+  [50] PASS the old password is not in any file of the replica environment any more | expected 0, obtained 0
+  [51] PASS the .pre-17b copies still hold it: they must be destroyed after the acceptance (documented step) | expected 3, obtained 3
+=== 6 THE FULL ROLLBACK (scenario: everything done, data written under the roles, administrator password rotated)
+  [R1 stop and remove the new services] rc=0 (1735 ms)
+      |  Container g17arep-backend-1 Removed 
+      |  Container g17arep-worker-1 Removed 
+  [R2 db-migrate --downgrade 0005] rc=0 (1690 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running downgrade 0006 -> 0005, Give users.role a server default of 'student'.
+      | downgraded to 0005 (no grants applied)
+  [52] PASS downgraded | expected 0005, obtained 0005
+  [R3 db-adopt --rollback --remove-roles --apply] rc=0 (1496 ms)
+      | rollback: 21 statement(s), owners verified: True
+  [53] PASS ownership returned and roles removed (exit 0) | expected 0, obtained 0
+  [54] PASS only the administrator is left | expected asistente, obtained asistente
+  database ACL of asistenteia after the rollback of the roles (PUBLIC closed, not restored yet): {asistente=CTc/asistente}
+  [R4a restore_public_cluster.sql] rc=0 (344 ms)
+      | DO
+  [R4b restore_public_schema.sql] rc=0 (321 ms)
+      | GRANT
+  [55] PASS after the restore PUBLIC can connect again (explicit ACL equivalent to the default one) | expected 1, obtained 1
+  [R5 restore the old files (administrator URL with the CURRENT administrator password)] rc=0 (254 ms)
+      | restored (administrator of the current .env.db): .env .env.worker
+      | renamed to *.rolled-back: .env.roles, .env.migrate, .env.cli
+      | destroy the .pre-17b copies after the acceptance: they hold the previous administrator password
+  [56] PASS the rollback of the files succeeded | expected 0, obtained 0
+  [57] PASS the old API file names the administrator again | expected asistente, obtained asistente
+  [58] PASS the restored files carry the rotated password, not the exposed one | expected 0, obtained 0
+  [59] PASS the new roles files are gone from the active names | expected 0, obtained 0
+  [R6 up -d --no-deps backend worker with the OLD compose file, OLD images and OLD code] rc=0 (765 ms)
+      |  Container g17arep-backend-1 Starting 
+      |  Container g17arep-worker-1 Starting 
+      |  Container g17arep-backend-1 Started 
+      |  Container g17arep-worker-1 Started 
+  services available again 125109 ms after starting them; the whole rollback took 133956 ms
+  [60] PASS API answers (old image) | expected 200, obtained 200
+  [61] PASS worker healthy (old image) | expected healthy, obtained healthy
+  [62] PASS the services run the OLD images | expected asistenteia-backend:g17a-old|asistenteia-worker:g17a-old, obtained asistenteia-backend:g17a-old|asistenteia-worker:g17a-old
+  [63] PASS the services connect as the administrator again | expected asistente, obtained asistente
+  [64] PASS POST /auth/login | expected 200, obtained 200
+  [65] PASS GET /users/me | expected 200, obtained 200
+  [66] PASS POST /auth/register | expected 201, obtained 201
+  [67] PASS POST /auth/login | expected 200, obtained 200
+  [68] PASS GET /subjects/b21ca1ea-b229-496b-8dd6-f4ad49c03c5c/documents | expected 200, obtained 200
+  [69] PASS the data written under the roles survived the rollback | expected 4|1|1, obtained 4|1|1
+  [70] PASS POST /subjects/b21ca1ea-b229-496b-8dd6-f4ad49c03c5c/documents (upload notes.txt) | expected 202, obtained 202
+  [71] PASS the OLD worker processes an upload on the rolled-back database | expected ready, obtained ready
+=== state after the rollback against S0 (rows are ignored here, the services wrote some)
+  database asistenteia vs S0: 16 differing line(s)
+      | 4c4
+      | < database_acl|(default)
+      | ---
+      | > database_acl|{asistente=CTc/asistente,=Tc/asistente}
+      | 9,15c9,15
+      | < table|alembic_version owner=asistente acl=(default) rls=false
+      | < table|document_chunks owner=asistente acl=(default) rls=false
+      | < table|documents owner=asistente acl=(default) rls=false
+      | < table|enrollments owner=asistente acl=(default) rls=false
+      | < table|ingestion_jobs owner=asistente acl=(default) rls=false
+      | < table|subjects owner=asistente acl=(default) rls=false
+      | < table|users owner=asistente acl=(default) rls=false
+  database asistenteia_test vs S0: 2 differing line(s)
+      | 4c4
+      | < database_acl|(default)
+      | ---
+      | > database_acl|{asistente=CTc/asistente,=Tc/asistente}
+  cluster vs S0: 10 differing line(s)
+      | 3,7c3,7
+      | < database|asistenteia owner=asistente allowconn=true istemplate=false acl=(default)
+      | < database|asistenteia_test owner=asistente allowconn=true istemplate=false acl=(default)
+      | < database|postgres owner=asistente allowconn=true istemplate=false acl=(default)
+      | < database|template0 owner=asistente allowconn=false istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+      | < database|template1 owner=asistente allowconn=true istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+      | ---
+      | > database|asistenteia owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+      | > database|asistenteia_test owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+      | > database|postgres owner=asistente allowconn=true istemplate=false acl={asistente=CTc/asistente,=Tc/asistente}
+      | > database|template0 owner=asistente allowconn=false istemplate=true acl={asistente=CTc/asistente,=c/asistente}
+      | > database|template1 owner=asistente allowconn=true istemplate=true acl={asistente=CTc/asistente,=c/asistente}
+=== 7 cleanup of the synthetic data and the last resort: recovery from the dump
+  [stop the old services] rc=0 (1416 ms)
+      |  Container g17arep-backend-1 Stopped 
+      |  Container g17arep-worker-1 Stopped 
+  [72] PASS after the cleanup the rows are those of S0 | expected rows|alembic_version=1 rows|document_chunks=0 rows|documents=0 rows|enrollments=0 rows|ingestion_jobs=0 rows|subjects=0 rows|users=1 , obtained rows|alembic_version=1 rows|document_chunks=0 rows|documents=0 rows|enrollments=0 rows|ingestion_jobs=0 rows|subjects=0 rows|users=1 
+  [73] PASS after the cleanup only the representation of the default ACLs differs from S0 (database asistenteia, strict ownership) | expected IDENTICAL, obtained IDENTICAL
+  [74] PASS asistenteia_test: only the ACL representation differs | expected IDENTICAL, obtained IDENTICAL
+  [75] PASS the cluster: roles, memberships, settings and database owners identical, only the ACL representation differs | expected IDENTICAL, obtained IDENTICAL
+  [pg_restore from the verified dump over a dropped database] rc=0 (320 ms)
+  recovery from the dump took 1137 ms
+  [76] PASS the recovered database is identical to S0 (the whole catalog, ACLs, owners, constraints, defaults and rows) | expected IDENTICAL, obtained IDENTICAL
+=== result: 76 checks passed, 0 failed (of 76)
+--- identity of every resource of this replica, before removal
+containers: g17arep-worker-1 g17arep-backend-1 g17arep-db-1 
+networks:   g17arep_default 
+volumes:    g17arep_db_data 
+names outside the g17a scheme among them (must be empty): 
+after removal: containers left=0 networks left=0 volumes left=0
+temporary image tags left: 0
+other containers (the real stack and other projects) before and after identical: yes
+original backup untouched: sha equal

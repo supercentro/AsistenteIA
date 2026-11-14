@@ -1,0 +1,63 @@
+PASS newline=LF bom=False: dry run succeeds and writes nothing
+PASS newline=LF bom=False: forward run succeeds
+PASS newline=LF bom=False: nothing secret is printed
+PASS newline=LF bom=False: .env names the application role and keeps host, database, query, comment and other lines
+PASS newline=LF bom=False: every other line is byte for byte (line endings included)
+PASS newline=LF bom=False: the worker file names the worker role
+PASS newline=LF bom=False: .env.roles holds the administrator URL and four passwords
+PASS newline=LF bom=False: the backups are the originals
+PASS newline=LF bom=False: a second run refuses and does not change anything
+PASS newline=LF bom=False: rollback succeeds and prints no value
+PASS newline=LF bom=False: rollback restores the administrator with the CURRENT password, not the exposed one
+PASS newline=LF bom=False: rollback renames the three new files
+PASS newline=LF bom=False: a second rollback refuses (nothing replaced silently)
+PASS newline=LF bom=False: a new forward run is refused while the .pre-17b copies exist and says to destroy them
+PASS newline=LF bom=True: dry run succeeds and writes nothing
+PASS newline=LF bom=True: forward run succeeds
+PASS newline=LF bom=True: nothing secret is printed
+PASS newline=LF bom=True: .env names the application role and keeps host, database, query, comment and other lines
+PASS newline=LF bom=True: every other line is byte for byte (line endings included)
+PASS newline=LF bom=True: the worker file names the worker role
+PASS newline=LF bom=True: .env.roles holds the administrator URL and four passwords
+PASS newline=LF bom=True: the backups are the originals
+PASS newline=LF bom=True: a second run refuses and does not change anything
+PASS newline=LF bom=True: rollback succeeds and prints no value
+PASS newline=LF bom=True: rollback restores the administrator with the CURRENT password, not the exposed one
+PASS newline=LF bom=True: rollback renames the three new files
+PASS newline=LF bom=True: a second rollback refuses (nothing replaced silently)
+PASS newline=LF bom=True: a new forward run is refused while the .pre-17b copies exist and says to destroy them
+PASS newline=CRLF bom=False: dry run succeeds and writes nothing
+PASS newline=CRLF bom=False: forward run succeeds
+PASS newline=CRLF bom=False: nothing secret is printed
+PASS newline=CRLF bom=False: .env names the application role and keeps host, database, query, comment and other lines
+PASS newline=CRLF bom=False: every other line is byte for byte (line endings included)
+PASS newline=CRLF bom=False: the worker file names the worker role
+PASS newline=CRLF bom=False: .env.roles holds the administrator URL and four passwords
+PASS newline=CRLF bom=False: the backups are the originals
+PASS newline=CRLF bom=False: a second run refuses and does not change anything
+PASS newline=CRLF bom=False: rollback succeeds and prints no value
+PASS newline=CRLF bom=False: rollback restores the administrator with the CURRENT password, not the exposed one
+PASS newline=CRLF bom=False: rollback renames the three new files
+PASS newline=CRLF bom=False: a second rollback refuses (nothing replaced silently)
+PASS newline=CRLF bom=False: a new forward run is refused while the .pre-17b copies exist and says to destroy them
+PASS newline=CRLF bom=True: dry run succeeds and writes nothing
+PASS newline=CRLF bom=True: forward run succeeds
+PASS newline=CRLF bom=True: nothing secret is printed
+PASS newline=CRLF bom=True: .env names the application role and keeps host, database, query, comment and other lines
+PASS newline=CRLF bom=True: every other line is byte for byte (line endings included)
+PASS newline=CRLF bom=True: the worker file names the worker role
+PASS newline=CRLF bom=True: .env.roles holds the administrator URL and four passwords
+PASS newline=CRLF bom=True: the backups are the originals
+PASS newline=CRLF bom=True: a second run refuses and does not change anything
+PASS newline=CRLF bom=True: rollback succeeds and prints no value
+PASS newline=CRLF bom=True: rollback restores the administrator with the CURRENT password, not the exposed one
+PASS newline=CRLF bom=True: rollback renames the three new files
+PASS newline=CRLF bom=True: a second rollback refuses (nothing replaced silently)
+PASS newline=CRLF bom=True: a new forward run is refused while the .pre-17b copies exist and says to destroy them
+PASS a worker file that is not the administrator is refused and nothing is written
+PASS two DATABASE_URL lines are refused
+PASS an existing target file is refused
+PASS a placeholder administrator password is refused
+PASS a failure after the first write is undone completely
+PASS the message names the error type only
+0 failure(s)

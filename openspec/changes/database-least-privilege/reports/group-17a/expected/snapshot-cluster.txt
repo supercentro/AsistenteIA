@@ -1,0 +1,11 @@
+SET
+server|PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+system_identifier|7707791682690175015
+role|asistente super=true createrole=true createdb=true login=true replication=true bypassrls=true connlimit=-1 inherit=true config=(none)
+database|asistenteia owner=asistente allowconn=true istemplate=false acl=(default)
+database|asistenteia_test owner=asistente allowconn=true istemplate=false acl=(default)
+database|postgres owner=asistente allowconn=true istemplate=false acl=(default)
+database|template0 owner=asistente allowconn=false istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+database|template1 owner=asistente allowconn=true istemplate=true acl={=c/asistente,asistente=CTc/asistente}
+prepared_transactions|0
+replication_slots|0

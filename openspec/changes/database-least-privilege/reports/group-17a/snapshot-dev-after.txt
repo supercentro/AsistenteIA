@@ -1,4 +1,4 @@
-== snapshot: after-group-17a (2026-11-13T22:37:29Z)
+== snapshot: after-group-17a (2026-11-14T00:08:44Z)
 container: healthy (db), healthy (worker)
 session read-only: on
 server: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu

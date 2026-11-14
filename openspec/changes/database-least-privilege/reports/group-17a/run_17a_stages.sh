@@ -88,7 +88,7 @@ stage() { # name last-step (1 bootstrap, 2 adoption, 3 migration and grants)
   log "  rollback took $(( $(ms) - r0 )) ms"
   snap_db "$db" "$RUN/$name-s1-db.txt"; snap_cluster "$RUN/$name-s1-cluster.txt"
   check "$name: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised)" IDENTICAL "$(NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$RUN/$name-s0-db.txt" "$RUN/$name-s1-db.txt" | grep -o IDENTICAL)"
-  check "$name: cluster identical to S0 (roles, memberships, settings, database owners)" IDENTICAL "$(NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$RUN/$name-s0-cluster.txt" "$RUN/$name-s1-cluster.txt" | grep -o IDENTICAL)"
+  check "$name: cluster identical to S0 (roles, memberships, settings, database owners)" IDENTICAL "$(MIN_LINES=5 NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$RUN/$name-s0-cluster.txt" "$RUN/$name-s1-cluster.txt" | grep -o IDENTICAL)"
   check "$name: only the original administrator exists again" asistente "$(sqlc postgres "select string_agg(rolname, ',' order by rolname) from pg_roles where rolname !~ '^pg_'")"
   sqlc postgres "DROP DATABASE $db WITH (FORCE)" > /dev/null
 }

@@ -33,6 +33,7 @@ compose_project|{{index .Config.Labels "com.docker.compose.project"}}'
         SELECT 'server', version();
         SELECT 'read_only_session', current_setting('transaction_read_only');" | q "$DB"
   echo "databases|$(echo "SELECT string_agg(datname, ',' ORDER BY datname) FROM pg_database" | q postgres)"
+  echo "free_disk_gb_where_the_output_goes|$(df -BG --output=avail "$OUT" 2>/dev/null | tail -1 | tr -d ' G')"
   echo "free_ram_gb|$(powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB,2)" 2>/dev/null | tr -d '\r')"
 } > "$OUT/identity.txt" 2>&1
 q "$DB" < "$HERE/snapshot_db.sql" > "$OUT/snapshot-db.txt" 2>&1
@@ -42,8 +43,10 @@ echo "SELECT 'open_transactions_older_than_1_min', count(*) FROM pg_stat_activit
       SELECT 'prepared_transactions', count(*) FROM pg_prepared_xacts;
       SELECT 'ungranted_locks', count(*) FROM pg_locks WHERE NOT granted;
       SELECT 'sessions_by_user', coalesce(usename,'?')||' on '||coalesce(datname,'-')||' x'||count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid <> pg_backend_pid() GROUP BY usename, datname ORDER BY 2;
+      SELECT 'clients_by_address_and_application', coalesce(client_addr::text,'unix socket')||' / '||coalesce(nullif(application_name,''),'(no name)')||' x'||count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid <> pg_backend_pid() GROUP BY 1 ORDER BY 1;
+      SELECT 'login_roles_other_than_the_administrator', coalesce(string_agg(rolname, ',' ORDER BY rolname), '(none)') FROM pg_roles WHERE rolcanlogin AND rolname !~ '^pg_' AND rolsuper = false;
       SELECT 'long_running_queries_over_30s', count(*) FROM pg_stat_activity WHERE state = 'active' AND query_start < now() - interval '30 seconds' AND pid <> pg_backend_pid();" | q postgres > "$OUT/activity.txt" 2>&1
 ( cd "$OUT" && sha256sum identity.txt snapshot-db.txt snapshot-cluster.txt activity.txt > SHA256SUMS )
 echo "written to $OUT: $(ls "$OUT" | tr '\n' ' ')"
-grep -hE "^(connected|read_only|open_transactions|idle_in|prepared|ungranted|long_running|revision)" "$OUT/identity.txt" "$OUT/activity.txt" "$OUT/snapshot-db.txt" | sed 's/^/  /'
+grep -hE "^(connected|read_only|open_transactions|idle_in|prepared|ungranted|long_running|revision|free_disk|clients_by|login_roles)" "$OUT/identity.txt" "$OUT/activity.txt" "$OUT/snapshot-db.txt" | sed 's/^/  /'
 [ -z "$EXPECTED" ] || echo "expected backup sha256 given: $EXPECTED"

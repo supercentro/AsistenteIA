@@ -1,59 +1,59 @@
-=== rollback from each stage 2026-11-13T22:35:26Z
-free RAM 10.02 GB (8 needed); repo HEAD 43c0129
+=== rollback from each stage 2026-11-14T00:07:42Z
+free RAM 8.15 GB (8 needed); repo HEAD 15fc412
   [1] PASS the backup has its recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
 cluster PostgreSQL 15.19 (Debian 15.19-1.pgdg12+, published ports [], mounts 0
 === stage after-bootstrap: forward up to step 1, then the full rollback
   [2] PASS after-bootstrap: at 0005 before the stage | expected 0005, obtained 0005
-  [after-bootstrap: bootstrap] rc=1 (1360 ms)
+  [after-bootstrap: bootstrap] rc=1 (1381 ms)
       |   type user_role owned by asistente
-  forward to step 1 took 1603 ms
-  [after-bootstrap: rollback --remove-roles] rc=0 (1389 ms)
+  forward to step 1 took 1616 ms
+  [after-bootstrap: rollback --remove-roles] rc=0 (1385 ms)
       | rollback: 17 statement(s), owners verified: True
   [3] PASS after-bootstrap: rollback succeeded | expected 0, obtained 0
-  rollback took 2153 ms
+  rollback took 2121 ms
   [4] PASS after-bootstrap: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
   [5] PASS after-bootstrap: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
   [6] PASS after-bootstrap: only the original administrator exists again | expected asistente, obtained asistente
 === stage after-adoption: forward up to step 2, then the full rollback
   [7] PASS after-adoption: at 0005 before the stage | expected 0005, obtained 0005
-  [after-adoption: bootstrap] rc=1 (1313 ms)
+  [after-adoption: bootstrap] rc=1 (1340 ms)
       |   type user_role owned by asistente
-  [after-adoption: adopt --apply] rc=0 (1613 ms)
+  [after-adoption: adopt --apply] rc=0 (1655 ms)
       |   type user_role: asistente -> asistente_migrator
   [8] PASS after-adoption: adoption applied | expected 0, obtained 0
-  forward to step 2 took 3412 ms
-  [after-adoption: rollback --remove-roles] rc=0 (1698 ms)
+  forward to step 2 took 3494 ms
+  [after-adoption: rollback --remove-roles] rc=0 (1603 ms)
       | rollback: 17 statement(s), owners verified: True
   [9] PASS after-adoption: rollback succeeded | expected 0, obtained 0
-  rollback took 2461 ms
+  rollback took 2308 ms
   [10] PASS after-adoption: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
   [11] PASS after-adoption: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
   [12] PASS after-adoption: only the original administrator exists again | expected asistente, obtained asistente
 === stage after-migration: forward up to step 3, then the full rollback
   [13] PASS after-migration: at 0005 before the stage | expected 0005, obtained 0005
-  [after-migration: bootstrap] rc=1 (1350 ms)
+  [after-migration: bootstrap] rc=1 (1464 ms)
       |   type user_role owned by asistente
-  [after-migration: adopt --apply] rc=0 (1659 ms)
+  [after-migration: adopt --apply] rc=0 (1707 ms)
       |   type user_role: asistente -> asistente_migrator
   [14] PASS after-migration: adoption applied | expected 0, obtained 0
-  [after-migration: migrate] rc=0 (1650 ms)
+  [after-migration: migrate] rc=0 (1643 ms)
       | migrated to head and applied the privilege grants
   [15] PASS after-migration: migration and grants | expected 0, obtained 0
-  [after-migration: verify] rc=0 (1509 ms)
+  [after-migration: verify] rc=0 (1425 ms)
       | no findings: the database matches the design
     (verify exit 0: the only findings can be the CONNECT of the roles to the databases of earlier stages: none remain, they were removed)
-  forward to step 3 took 7176 ms
-  [after-migration: downgrade 0005] rc=0 (1720 ms)
+  forward to step 3 took 7249 ms
+  [after-migration: downgrade 0005] rc=0 (1823 ms)
       | downgraded to 0005 (no grants applied)
   [16] PASS after-migration: downgraded | expected 0, obtained 0
-  [after-migration: rollback --remove-roles] rc=0 (2090 ms)
+  [after-migration: rollback --remove-roles] rc=0 (1922 ms)
       | rollback: 17 statement(s), owners verified: True
   [17] PASS after-migration: rollback succeeded | expected 0, obtained 0
-  rollback took 4898 ms
+  rollback took 4705 ms
   [18] PASS after-migration: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
   [19] PASS after-migration: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
   [20] PASS after-migration: only the original administrator exists again | expected asistente, obtained asistente
 === result: 20 checks passed, 0 failed (of 20)
---- identity before removal: containers [g17stpg1008 ] networks [g17stnet1008 ]; outside the scheme: []
+--- identity before removal: containers [g17stpg2091 ] networks [g17stnet2091 ]; outside the scheme: []
 after removal: containers left=0 networks left=0 image tags left=0
 original backup untouched: sha equal

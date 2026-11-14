@@ -44,6 +44,9 @@ run() { local name="$1"; shift; local a; a=$(ms); OUTP="$("$@" 2>&1)"; RC=$?; ST
   if [ -n "$OUTP" ]; then printf '%s\n' "$OUTP" | tail -n "${TAILN:-6}" | cut -c1-220 | sed 's/^/      | /' | mask | tee -a "$OUT" > /dev/null; fi; }
 dcx() { local which="$1"; shift; local file="$REPOW/docker-compose.yml"; local over="$RUNW/override.new.yml"
   if [ "$which" = old ]; then file="$RUNW/compose.main.yml"; over="$RUNW/override.old.yml"; fi
+  if [ "$which" = rollback ]; then
+    (cd "$REPO" && G17_DIR="$ENVW" G17_PORT="$PORT" docker compose -p "$P" --project-directory "$REPOW" -f "$RUNW/compose.main.yml" -f "$TOOLSW/compose.rollback.override.yml" -f "$RUNW/override.isolation.yml" "$@"); return
+  fi
   (cd "$REPO" && G17_DIR="$ENVW" G17_PORT="$PORT" docker compose -p "$P" --project-directory "$REPOW" -f "$file" -f "$over" "$@"); }
 sqlc() { docker exec -i "$1" sh -c "psql -U \"\$POSTGRES_USER\" -d ${2:-postgres} -At -v ON_ERROR_STOP=1" <<< "$3" 2>&1; }
 psqla() { sqlc "$DBC" "$1" "$2"; }
@@ -90,8 +93,8 @@ teardown() {
   dcx new down -v --remove-orphans > /dev/null 2>&1
   docker rm -f "$BKC" > /dev/null 2>&1; docker network rm "$BKNET" > /dev/null 2>&1
   log "after removal: containers left=$(docker ps -a --filter label=$LABEL -q | wc -l) networks left=$(docker network ls --filter label=$LABEL -q | wc -l) volumes left=$(docker volume ls --filter label=$LABEL -q | wc -l)"
-  docker rmi "$IMG_OLD_API" "$IMG_OLD_WK" "$IMG_NEW_API" "$IMG_NEW_WK" > /dev/null 2>&1
-  log "temporary image tags left: $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -c 'g17a-')"
+  docker rmi asistenteia-backend:pre-17b asistenteia-worker:pre-17b "$IMG_OLD_API" "$IMG_OLD_WK" "$IMG_NEW_API" "$IMG_NEW_WK" > /dev/null 2>&1
+  log "temporary image tags left (g17a-* and the pre-17b tags this script created): $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -c 'g17a-\|:pre-17b$')"
   log "other containers (the real stack and other projects) before and after identical: $([ "$BEFORE_OTHER" = "$(docker ps --format '{{.Names}}' | grep -v "^$P\|^g17a" | sort | tr '\n' ';')" ] && echo yes || echo NO)"
   log "original backup untouched: sha $( [ "$(sha256sum "$BACKUP" | cut -d' ' -f1)" = "$SHA_BEFORE" ] && echo equal || echo DIFFERENT )"
   rm -rf "$RUN"/env "$RUN"/*.yml "$RUN"/Dockerfile.worker "$RUN"/*.pdf "$RUN"/body.json "$RUN"/*.txt "$RUN"/backup.dump
@@ -111,6 +114,11 @@ cp "$BACKUP" "$RUN/backup.dump"
 
 log "=== images: OLD = the images of main that the development stack runs; NEW = built from this branch"
 docker tag asistenteia-backend:main-f455234 "$IMG_OLD_API" && docker tag asistenteia-worker:main-f455234 "$IMG_OLD_WK" || { log "old images missing"; exit 5; }
+[ "$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -c ':pre-17b$')" = 0 ] || { log "a pre-17b tag already exists: not touching it"; exit 5; }
+docker tag "$IMG_OLD_API" asistenteia-backend:pre-17b && docker tag "$IMG_OLD_WK" asistenteia-worker:pre-17b
+id_of() { docker images --no-trunc --format '{{.ID}}' "$1"; }
+check "the pre-17b tags (made like the runbook, from the OLD images) have the ids of the main-f455234 images" "$(id_of asistenteia-backend:main-f455234)|$(id_of asistenteia-worker:main-f455234)" "$(id_of asistenteia-backend:pre-17b)|$(id_of asistenteia-worker:pre-17b)"
+check "and the development 'latest' tags have those same ids (what the old stack runs today)" "$(id_of asistenteia-backend:latest)|$(id_of asistenteia-worker:latest)" "$(id_of asistenteia-backend:pre-17b)|$(id_of asistenteia-worker:pre-17b)"
 CTX="$(cd "$REPO/backend" && pwd -W)"
 docker build -q --target api -t "$IMG_NEW_API" "$CTX" > /dev/null || { log "api image build FAILED"; exit 5; }
 printf 'FROM asistenteia-worker:main-f455234\nUSER root\nCOPY app /app/app\nUSER appuser\n' > "$RUN/Dockerfile.worker"
@@ -174,6 +182,34 @@ services:
     env_file: !override
       - ${G17_DIR}/.env.worker
     volumes: !override []
+    cpus: 2
+    mem_limit: 2g
+  frontend:
+    profiles: ["g17a-excluded"]
+YML
+cat > "$RUN/override.isolation.yml" <<'YML'
+services:
+  db:
+    ports: !reset []
+    env_file: !override
+      - ${G17_DIR}/.env.db
+    cpus: 1
+    mem_limit: 1g
+  backend:
+    ports: !override
+      - "127.0.0.1:${G17_PORT}:8000"
+    env_file: !override
+      - ${G17_DIR}/.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    cpus: 1
+    mem_limit: 512m
+  worker:
+    env_file: !override
+      - ${G17_DIR}/.env.worker
     cpus: 2
     mem_limit: 2g
   frontend:
@@ -253,7 +289,15 @@ log "=== 2 step 17B.1 preflight with the read-only tool, the backup procedure an
 run "preflight_readonly.sh" bash "$TOOLS/preflight_readonly.sh" "$DBC" asistenteia "$RUN/preflight-before"
 TAILN=10 run "show identity" cat "$RUN/preflight-before/identity.txt"
 check "preflight snapshot of the database equals S0 (the tool is read only and complete)" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$S0/db.txt" "$RUN/preflight-before/snapshot-db.txt" | grep -o IDENTICAL)"
-check "preflight snapshot of the cluster equals S0" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/preflight-before/snapshot-cluster.txt" | grep -o IDENTICAL)"
+check "preflight snapshot of the cluster equals S0" "IDENTICAL" "$(MIN_LINES=5 MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/preflight-before/snapshot-cluster.txt" | grep -o IDENTICAL)"
+check "GATE D: the committed expected baseline of 0005 equals the preflight snapshot of the database (the row of the old student ignored)" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$HERE/expected/snapshot-db-0005.txt" "$RUN/preflight-before/snapshot-db.txt" '^rows\|users=' | grep -o IDENTICAL)"
+check "GATE D: the same for the cluster (roles, databases, ACLs)" "IDENTICAL" "$(MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$HERE/expected/snapshot-cluster.txt" "$RUN/preflight-before/snapshot-cluster.txt" | grep -o IDENTICAL)"
+: > "$RUN/empty.txt"; bash "$TOOLS/compare_snapshots.sh" "$HERE/expected/snapshot-db-0005.txt" "$RUN/empty.txt" > /dev/null 2>&1; EMPTY_RC=$?
+check "GATE D is not vacuous: a comparison against an empty file is refused (exit 2)" "2" "$EMPTY_RC"
+cp "$REPO/backend/.env.example" "$REPO/backend/.env.worker.example" "$ENVDIR/" 2>/dev/null
+TAILN=4 run "check_env_names.py (names only) on the replica env files" python "$TOOLSW/check_env_names.py" "$ENVW"
+check "the names report holds no value (no password, no URL)" "0" "$(echo "$OUTP" | grep -c -E "postgresql|$PA|@db")"
+rm -f "$ENVDIR/.env.example" "$ENVDIR/.env.worker.example"
 check "no open transaction, no idle-in-transaction session, no prepared transaction" "0|0|0" "$(grep -E '^(open_transactions_older_than_1_min|idle_in_transaction|prepared_transactions)\|' "$RUN/preflight-before/activity.txt" | cut -d'|' -f2 | paste -sd'|')"
 
 log "  backup procedure (the commands planned for 17B.1, run on the replica)"
@@ -282,6 +326,8 @@ docker rm -f "$BKC" > /dev/null; docker network rm "$BKNET" > /dev/null
 log "=== 3 step 17B.2: stop the services, prepare the files with the tool, bootstrap, adopt, migrate, verify, switch"
 T_FWD=$(ms)
 run "compose stop backend worker (old spec)" dcx old stop backend worker
+snap_db "$DBC" asistenteia "$RUN/S_after_stop.txt"
+check "after the stop the database is exactly as the backup (the rows included): nothing was written between the backup and the stop" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$RUN/preflight-before/snapshot-db.txt" "$RUN/S_after_stop.txt" | grep -o IDENTICAL)"
 TAILN=3 run "prepare_env_files.py --dry-run" python "$TOOLSW/prepare_env_files.py" "$ENVW" --dry-run
 check "dry run writes nothing" 0 "$(ls -a "$ENVDIR" | grep -c -E 'pre-17b|env.roles|env.migrate|env.cli')"
 TAILN=4 run "prepare_env_files.py" python "$TOOLSW/prepare_env_files.py" "$ENVW"
@@ -401,13 +447,17 @@ check "the old API file names the administrator again" "asistente" "$(grep '^DAT
 check "the restored files carry the rotated password, not the exposed one" "0" "$(grep -l "$PA" "$ENVDIR"/.env "$ENVDIR"/.env.worker 2>/dev/null | wc -l)"
 check "the new roles files are gone from the active names" 0 "$(ls -a "$ENVDIR" | grep -c -E '^\.env\.(roles|migrate|cli)$')"
 T_UP=$(ms)
-TAILN=4 run "R6 up -d --no-deps backend worker with the OLD compose file, OLD images and OLD code" dcx old up -d --no-deps backend worker
+CONF="$(dcx rollback config 2>&1)"
+check "pre-GO check 'docker compose config' (main's file + the SHIPPED override): backend and worker use the pre-17b images" "2" "$(echo "$CONF" | grep -c 'image: asistenteia-.*:pre-17b')"
+check "...and no bind mount of backend/app remains in the rollback definition" "0" "$(echo "$CONF" | grep -c 'backend[/\\]app')"
+TAILN=4 run "R6 up -d --no-deps backend worker: main's compose file + the SHIPPED rollback override (images pre-17b, no mounts)" dcx rollback up -d --no-deps backend worker
 for _ in $(seq 1 60); do curl -s -o /dev/null --max-time 2 "$BASE/health" && break; sleep 2; done
 for _ in $(seq 1 100); do [ "$(docker inspect "$WK" --format '{{.State.Health.Status}}' 2>/dev/null)" = healthy ] && break; sleep 3; done
 log "  services available again $(( $(ms) - T_UP )) ms after starting them; the whole rollback took $(( $(ms) - T_RB )) ms"
 check "API answers (old image)" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/health")"
 check "worker healthy (old image)" healthy "$(docker inspect "$WK" --format '{{.State.Health.Status}}')"
-check "the services run the OLD images" "$IMG_OLD_API|$IMG_OLD_WK" "$(docker inspect "$API" --format '{{.Config.Image}}')|$(docker inspect "$WK" --format '{{.Config.Image}}')"
+check "the services run the pre-17b images" "asistenteia-backend:pre-17b|asistenteia-worker:pre-17b" "$(docker inspect "$API" --format '{{.Config.Image}}')|$(docker inspect "$WK" --format '{{.Config.Image}}')"
+check "and have no bind mount (the code is the one inside the old image)" "0" "$(docker inspect "$API" "$WK" --format '{{range .Mounts}}{{if eq .Type "bind"}}b{{end}}{{end}}' | tr -d '\n' | wc -c)"
 check "the services connect as the administrator again" "asistente" "$(sql "select string_agg(distinct usename, ',') from pg_stat_activity where datname='asistenteia' and backend_type='client backend' and usename is not null and pid<>pg_backend_pid() and usename like 'asistente%'")"
 api POST /auth/login 200 "" "{\"email\":\"g17b-old@example.com\",\"password\":\"$UP1\"}"; T_OLD=$(field access_token); SECRETS+=("$T_OLD")
 api GET /users/me 200 "$T_OLD"
@@ -420,18 +470,18 @@ check "the OLD worker processes an upload on the rolled-back database" ready "$(
 log "=== state after the rollback against S0 (rows are ignored here, the services wrote some)"
 snap_db "$DBC" asistenteia "$RUN/S_after_db.txt"; snap_db "$DBC" asistenteia_test "$RUN/S_after_test.txt"; snap_cluster "$DBC" "$RUN/S_after_cluster.txt"
 bash "$TOOLS/compare_snapshots.sh" "$S0/db.txt" "$RUN/S_after_db.txt" '^rows\|' > "$RUN/diff_db.txt" 2>&1; log "  database asistenteia vs S0: $(grep -c '^[<>]' "$RUN/diff_db.txt") differing line(s)"; sed 's/^/      | /' "$RUN/diff_db.txt" | cut -c1-230 | head -12 | tee -a "$OUT" > /dev/null
-bash "$TOOLS/compare_snapshots.sh" "$S0/test.txt" "$RUN/S_after_test.txt" > "$RUN/diff_test.txt" 2>&1; log "  database asistenteia_test vs S0: $(grep -c '^[<>]' "$RUN/diff_test.txt") differing line(s)"; sed 's/^/      | /' "$RUN/diff_test.txt" | cut -c1-230 | head -6 | tee -a "$OUT" > /dev/null
-bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/S_after_cluster.txt" > "$RUN/diff_cluster.txt" 2>&1; log "  cluster vs S0: $(grep -c '^[<>]' "$RUN/diff_cluster.txt") differing line(s)"; sed 's/^/      | /' "$RUN/diff_cluster.txt" | cut -c1-260 | head -12 | tee -a "$OUT" > /dev/null
+MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$S0/test.txt" "$RUN/S_after_test.txt" > "$RUN/diff_test.txt" 2>&1; log "  database asistenteia_test vs S0: $(grep -c '^[<>]' "$RUN/diff_test.txt") differing line(s)"; sed 's/^/      | /' "$RUN/diff_test.txt" | cut -c1-230 | head -6 | tee -a "$OUT" > /dev/null
+MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/S_after_cluster.txt" > "$RUN/diff_cluster.txt" 2>&1; log "  cluster vs S0: $(grep -c '^[<>]' "$RUN/diff_cluster.txt") differing line(s)"; sed 's/^/      | /' "$RUN/diff_cluster.txt" | cut -c1-260 | head -12 | tee -a "$OUT" > /dev/null
 cp "$RUN/diff_db.txt" "$HERE/g17a-diff-db.txt"; cp "$RUN/diff_test.txt" "$HERE/g17a-diff-test.txt"; cp "$RUN/diff_cluster.txt" "$HERE/g17a-diff-cluster.txt"
 
 # =================================================================================== 7
 log "=== 7 cleanup of the synthetic data and the last resort: recovery from the dump"
-TAILN=2 run "stop the old services" dcx old stop backend worker
+TAILN=2 run "stop the old services" dcx rollback stop backend worker
 sql "delete from document_chunks; delete from ingestion_jobs; delete from documents; delete from enrollments; delete from subjects; delete from users where email like 'g17b-%' and email <> 'g17b-old@example.com';" > /dev/null
 check "after the cleanup the rows are those of S0" "$(grep '^rows|' "$S0/db.txt" | sort | tr '\n' ' ')" "$(snap_db "$DBC" asistenteia "$RUN/S_clean.txt"; grep '^rows|' "$RUN/S_clean.txt" | sort | tr '\n' ' ')"
 check "after the cleanup only the representation of the default ACLs differs from S0 (database asistenteia, strict ownership)" "IDENTICAL" "$(snap_db "$DBC" asistenteia "$RUN/S_clean2.txt"; NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$S0/db.txt" "$RUN/S_clean2.txt" | grep -o IDENTICAL)"
-check "asistenteia_test: only the ACL representation differs" "IDENTICAL" "$(NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$S0/test.txt" "$RUN/S_after_test.txt" | grep -o IDENTICAL)"
-check "the cluster: roles, memberships, settings and database owners identical, only the ACL representation differs" "IDENTICAL" "$(NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/S_after_cluster.txt" | grep -o IDENTICAL)"
+check "asistenteia_test: only the ACL representation differs" "IDENTICAL" "$(MIN_LINES=5 NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$S0/test.txt" "$RUN/S_after_test.txt" | grep -o IDENTICAL)"
+check "the cluster: roles, memberships, settings and database owners identical, only the ACL representation differs" "IDENTICAL" "$(MIN_LINES=5 NORMALIZE=1 bash "$TOOLS/compare_snapshots.sh" "$S0/cluster.txt" "$RUN/S_after_cluster.txt" | grep -o IDENTICAL)"
 T0=$(ms)
 sqlc "$DBC" postgres "DROP DATABASE asistenteia WITH (FORCE)" > /dev/null
 docker exec "$DBC" sh -c 'createdb -U "$POSTGRES_USER" asistenteia'

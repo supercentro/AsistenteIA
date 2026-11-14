@@ -1,6 +1,6 @@
 # First run of the `privileges` job on GitHub Actions (group 17A plan; not executed)
 
-Status today: the branch `feature/database-least-privilege` is 60 commits ahead of `main` and is **not on the remote**; `.github/workflows/ci.yml` has never run on GitHub. Everything the gate does was validated locally with the harness `reports/group-10/run_gate_local.sh` and the Linux runs of groups 9 to 16, none of which is a GitHub Actions run (TD-045). Nothing below was done: no push, no pull request, no branch protection.
+Status today: the branch `feature/database-least-privilege` is 61 commits ahead of `main` and is **not on the remote**; `.github/workflows/ci.yml` has never run on GitHub. Everything the gate does was validated locally with the harness `reports/group-10/run_gate_local.sh` and the Linux runs of groups 9 to 16, none of which is a GitHub Actions run (TD-045). Nothing below was done: no push, no pull request, no branch protection.
 
 ## What the workflow does
 
@@ -21,7 +21,8 @@ Triggers: `push` (any branch) and `pull_request`. Permissions: `contents: read`.
 
 ## Procedure (for the owner to authorise; commands for the day, not executed)
 
-1. Check that the working tree is clean and that the last local gates are green (`openspec validate --all --strict`, ruff, mypy, the unit and integration commands of `docs/development_guide.md`).
+0. **Scan what a push publishes** (61 commits): `git log -p main..HEAD -- . ':!*.lock' | grep -E '^\+' | grep -cE '(PASSWORD|SECRET)=[A-Za-z0-9_-]{16,}|://[a-z_]+:[A-Za-z0-9_-]{16,}@'` and read the matches WITHOUT printing values (`sed -E 's/(PASSWORD|SECRET)=[A-Za-z0-9_-]{16,}/\1=<value>/'`): 14 matches were found in 17A; by their shape (the user names `asistente`, `asistente_app`, `admin`, hosts `db`, `127.0.0.1`, `db.internal`) they are fixtures of tests and examples, but 17A did not verify that none of them equals a real password (it may not read the real files); the owner must confirm it before the first push, because a pushed commit is public history.
+1. Check that the working tree is clean (apart from the seven untracked reference documents, which are not committed) and that the last local gates are green (`openspec validate --all --strict`, ruff, mypy, the unit and integration commands of `docs/development_guide.md`).
 2. **Push the branch only** (this triggers the `push` workflow, without a pull request and without the duplicate `pull_request` run): `git push -u origin feature/database-least-privilege`.
 3. Watch the run: `gh run list --branch feature/database-least-privilege`, then `gh run watch <id>` or the Actions page. Collect the logs of the `privileges` job (`gh run view <id> --log`) into the change's reports.
 4. Do **not** open the pull request, apply branch protection or merge until the acceptance criteria below are met.
@@ -48,7 +49,7 @@ Acceptance: all three jobs green **and** the counts at or above the floors **and
 | Service cluster not ready when the first step connects (`pg_isready` uses the socket; nothing retries the first connection) | `prerequisites` or `clusters` fail at once | re-run the job once; if it repeats, add a retry loop in `step_clusters` with a test first |
 | Wall-clock tests on the shared runner (heartbeat, lease fencing, upload concurrency, per-role connection limits) | a single failing test with a timing assertion | reproduce locally with `run_gate_local.sh` under CPU limits; fix the test with TDD; never raise a floor or skip the test to get a green |
 | Different Python or uv resolution | import or lock errors | `uv sync --frozen` fails on a lock drift: fix the lock locally |
-| `MIN_*` floors tight (484 against 480) | a legitimate removal of a few tests fails the gate | change the script floors in a reviewed commit, not by environment override |
+| `MIN_*` floors tight (484 against 480) | a legitimate removal of a few tests fails the gate | change the script floors in a reviewed commit (the script also reads `MIN_*` from the environment: the workflow does not set them, and no one should) |
 | Windows versus Linux paths in scripts | a script fails on the runner only | reproduce in the Linux runner of `run_linux_tests.sh` |
 | The superuser refusal (15.2) in child-process tests | a real-server test fails with "refusing to start" | the test must pass `superuser_exception()`; fix the test |
 
