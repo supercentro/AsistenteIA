@@ -60,4 +60,6 @@ PASS an existing target file is refused
 PASS a placeholder administrator password is refused
 PASS a failure after the first write is undone completely
 PASS the message names the error type only
+PASS a quoted DATABASE_URL is refused before anything is written
+PASS a failure in the middle of a copy leaves no truncated backup and no changed original
 0 failure(s)

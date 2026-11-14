@@ -127,7 +127,8 @@ Stop the services first (`docker compose rm -sf backend worker`), then, **as far
    ```bash
    git show main:docker-compose.yml > <TMP>/compose.main.yml
    O=<REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/compose.rollback.override.yml
-   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O config | grep -E 'image:|backend/app'   # pre-GO check: two pre-17b images, NO line with backend/app
+   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O config | grep -cE 'backend[/\\]app'   # pre-GO check: must print 0 (Windows prints backslashes in bind sources)
+   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O config | grep -c 'image: asistenteia-.*:pre-17b'   # must print 2
    docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml -f $O up -d --no-deps backend worker
    ```
    The replica rehearsed exactly this file (`compose.rollback.override.yml`) on top of main's compose file, with only the isolation of ports and env files added.

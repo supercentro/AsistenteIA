@@ -81,6 +81,27 @@ def database_url_lines(path: Path) -> int:
     return sum(1 for line in read_text(path).splitlines() if line.startswith("DATABASE_URL="))
 
 
+def database_url_is_quoted(path: Path) -> bool:
+    for line in read_text(path).splitlines():
+        if line.startswith("DATABASE_URL="):
+            return line[len("DATABASE_URL=") :].lstrip()[:1] in {"'", '"'}
+    return False
+
+
+def rewritten_correctly(path: Path, user: str, password: str) -> bool:
+    """Re-read the file and check scheme, user, password and host of DATABASE_URL (never printed)."""
+    try:
+        parts = urlsplit(read_assignments(path).get("DATABASE_URL", ""))
+        return (
+            parts.scheme == "postgresql+psycopg"
+            and unquote(parts.username or "") == user
+            and unquote(parts.password or "") == password
+            and parts.hostname == HOST
+        )
+    except ValueError:
+        return False
+
+
 def url(user: str, password: str, database: str) -> str:
     return f"postgresql+psycopg://{quote(user, safe='')}:{quote(password, safe='')}@{HOST}:5432/{database}"
 
@@ -183,6 +204,9 @@ def forward(folder: Path, dry_run: bool) -> int:
         if database_url_lines(folder / name) != 1:
             print(f"refused: DATABASE_URL must appear exactly once in {name}")
             return 1
+        if database_url_is_quoted(folder / name):
+            print(f"refused: DATABASE_URL of {name} is quoted; remove the quotes by hand first")
+            return 1
         if not is_administrator_url(read_assignments(folder / name).get("DATABASE_URL", ""), admin_user, admin_password):
             print(f"refused: DATABASE_URL of {name} is not the administrator of .env.db at host {HOST}")
             return 1
@@ -192,10 +216,12 @@ def forward(folder: Path, dry_run: bool) -> int:
 
     passwords = {logical: secrets.token_urlsafe(24) for logical in ROLES}
     created: list[Path] = []
+    completed: list[str] = []  # backups copied completely: only these may restore an original
     try:
         for name in BACKED_UP:
+            created.append(folder / (name + ".pre-17b"))  # registered BEFORE the copy: a truncated copy is removed
             private_copy(folder / name, folder / (name + ".pre-17b"))
-            created.append(folder / (name + ".pre-17b"))
+            completed.append(name)
         roles = (
             f"ADMIN_DATABASE_URL={url(admin_user, admin_password, 'postgres')}\n"
             f"DB_MIGRATOR_PASSWORD={passwords['migrator']}\nDB_APP_PASSWORD={passwords['app']}\n"
@@ -214,14 +240,28 @@ def forward(folder: Path, dry_run: bool) -> int:
             and rewrite_database_url(folder / WORKER_FILE, ROLES["worker"], passwords["worker"])
         ):
             raise RuntimeError("DATABASE_URL not rewritten")
+        if not (
+            rewritten_correctly(folder / API_FILE, ROLES["app"], passwords["app"])
+            and rewritten_correctly(folder / WORKER_FILE, ROLES["worker"], passwords["worker"])
+        ):
+            raise RuntimeError("DATABASE_URL rewritten wrongly")
     except Exception as error:  # noqa: BLE001 - undo, then report the TYPE only (a message could hold a value)
+        problems: list[str] = []
         for name in (API_FILE, WORKER_FILE):
-            backup = folder / (name + ".pre-17b")
-            if backup.exists():
-                shutil.copy2(backup, folder / name)
+            if name in completed:
+                try:
+                    shutil.copy2(folder / (name + ".pre-17b"), folder / name)
+                except OSError as undo_error:
+                    problems.append(f"{name}: {type(undo_error).__name__}")
         for path in created:
-            path.unlink(missing_ok=True)
-        print(f"error: {type(error).__name__}; everything was undone, the folder is as it was")
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as undo_error:
+                problems.append(f"{path.name}: {type(undo_error).__name__}")
+        if problems:
+            print(f"error: {type(error).__name__}; the undo itself failed for: {', '.join(problems)}; the originals are the files named *.pre-17b, copy them back by hand")
+        else:
+            print(f"error: {type(error).__name__}; everything was undone, the folder is as it was")
         return 1
     print("created:", ", ".join(files), "| variables written: ADMIN_DATABASE_URL DB_MIGRATOR_PASSWORD DB_APP_PASSWORD DB_WORKER_PASSWORD DB_CLI_PASSWORD MIGRATION_DATABASE_URL CLI_DATABASE_URL")
     print("rewritten (user and password only): DATABASE_URL in", API_FILE, "and", WORKER_FILE)

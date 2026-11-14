@@ -110,6 +110,38 @@ def case_refusals() -> None:
         check("a placeholder administrator password is refused", code == 1)
 
 
+def case_quoted_and_partial_copy() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder)
+        text = (folder / ".env").read_text(encoding="utf-8")
+        quoted = text.replace("DATABASE_URL=", 'DATABASE_URL="', 1).replace("  # trailing", '"  # trailing', 1)
+        (folder / ".env").write_text(quoted, encoding="utf-8")
+        before = snapshot(folder)
+        code, output = run(folder)
+        check("a quoted DATABASE_URL is refused before anything is written", code == 1 and snapshot(folder) == before and "quoted" in output)
+    with tempfile.TemporaryDirectory() as raw:
+        folder = Path(raw)
+        make(folder)
+        before = snapshot(folder)
+        original = tool.private_copy
+        calls = {"n": 0}
+
+        def truncating(source: Path, target: Path) -> None:
+            calls["n"] += 1
+            if calls["n"] == 2:
+                target.write_bytes(b"trunc")  # a partial copy, then the failure
+                raise OSError("disk full")
+            original(source, target)
+
+        tool.private_copy = truncating  # type: ignore[assignment]
+        try:
+            code, output = run(folder)
+        finally:
+            tool.private_copy = original  # type: ignore[assignment]
+        check("a failure in the middle of a copy leaves no truncated backup and no changed original", code == 1 and snapshot(folder) == before)
+
+
 def case_failure_midway() -> None:
     with tempfile.TemporaryDirectory() as raw:
         folder = Path(raw)
@@ -136,5 +168,6 @@ for newline in ("\n", "\r\n"):
         case_normal(newline, bom)
 case_refusals()
 case_failure_midway()
+case_quoted_and_partial_copy()
 print(f"{len(FAILURES)} failure(s)")
 sys.exit(1 if FAILURES else 0)

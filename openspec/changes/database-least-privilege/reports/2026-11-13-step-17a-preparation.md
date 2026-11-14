@@ -1,6 +1,6 @@
 # Group 17, phase 17A: preparation of the real run (2026-11-13)
 
-Branch `feature/database-least-privilege`, code at `43c0129` (no functional code, test, spec, skill or agent changed; this phase adds documents, tools and evidence). Authorised scope: the preparation only. **Nothing was executed on the development database, its worker, its volume, its images or its real `.env` files**: no backup of the real database was taken, no bootstrap, adoption, migration, grant, role change or rotation was run, no service was stopped, started or recreated, `docker compose up` was never run on the real project, nothing was pushed, and no value of a real `.env` file was read or printed. The only contacts with the real stack are read-only: container metadata (`docker inspect`) and the read-only snapshots of `group-12/db_snapshot.sh`, identical before and after (`snapshot-dev-*.txt`). GitHub Actions has not run the workflow.
+Branch `feature/database-least-privilege`, code at `a953b6f` (group 16 reports on top) (no functional code, test, spec, skill or agent changed; this phase adds documents, tools and evidence). Authorised scope: the preparation only. **Nothing was executed on the development database, its worker, its volume, its images or its real `.env` files**: no backup of the real database was taken, no bootstrap, adoption, migration, grant, role change or rotation was run, no service was stopped, started or recreated, `docker compose up` was never run on the real project, nothing was pushed, and no value of a real `.env` file was read or printed. The only contacts with the real stack are read-only: container metadata (`docker inspect`) and the read-only snapshots of `group-12/db_snapshot.sh`, identical before and after (`snapshot-dev-*.txt`). GitHub Actions has not run the workflow.
 
 ## Documents and tools (in `reports/group-17a/`)
 
@@ -11,7 +11,7 @@ Branch `feature/database-least-privilege`, code at `43c0129` (no functional code
 | `credentials-and-services-map.md` | identities, files, services, the safe order and the rotation of the exposed administrator password (TD-038 and the incident) |
 | `ci-first-run.md` | the exact procedure to run the `privileges` job on GitHub for the first time, dependencies, risks, expected results, acceptance, action on failure |
 | `checklist-go-nogo.md` | the verifiable checklist for 17B (gates A to M) |
-| `tools/` | `snapshot_db.sql`, `snapshot_cluster.sql`, `compare_snapshots.sh` (refuses empty or error files), `preflight_readonly.sh`, `prepare_env_files.py` (with `--dry-run` and `--rollback`; self-test `test_prepare_env_files.py`, 62 checks), `check_env_names.py`, `restore_public_cluster.sql`, `restore_public_schema.sql`, `compose.rollback.override.yml` |
+| `tools/` | `snapshot_db.sql`, `snapshot_cluster.sql`, `compare_snapshots.sh` (refuses empty or error files), `preflight_readonly.sh`, `prepare_env_files.py` (with `--dry-run` and `--rollback`; self-test `test_prepare_env_files.py`, 64 checks), `check_env_names.py`, `restore_public_cluster.sql`, `restore_public_schema.sql`, `compose.rollback.override.yml` |
 | `expected/` and `run_17a_baseline.sh` | the expected snapshots of the development database at 0005 (120 + 10 + 11 lines), generated from the verified backup brought to 0005 in a cluster built like the development one; gate D of the checklist compares the real catalog with them |
 | `run_17a_replica.sh`, `run_17a_stages.sh` and their outputs | the reproducible rehearsals (below) |
 
@@ -66,7 +66,7 @@ The reviewer (clean context) recommended NO-GO until two high and several medium
 | M7 | the backup is taken while the services still write | **Fixed**: a second snapshot after the stop must be `IDENTICAL` (rehearsed) |
 | M8 | no exact rotation command or half-done rule | **Fixed** in `credentials-and-services-map.md` |
 | M9 | checklist gaps (disk, frontend, other clients, host tests, window, reference for the tools) | **Added** (disk, client addresses, login roles, window, commit id of the tools) |
-| M10 | `prepare_env_files.py` edge cases | **Fixed and tested**: CRLF preserved, BOM tolerated, percent-encoded special characters, comments and query kept, a single DATABASE_URL required, undo on failure, no silent replacement of `.rolled-back` or `.pre-17b`; 62 self-test checks |
+| M10 | `prepare_env_files.py` edge cases | **Fixed and tested**: CRLF preserved, BOM tolerated, percent-encoded special characters, comments and query kept, a single DATABASE_URL required, undo on failure, no silent replacement of `.rolled-back` or `.pre-17b`; 64 self-test checks |
 | M11 | CI doc inaccuracies and no scan of what a push publishes | **Fixed**: 61 commits, untracked documents, `MIN_*` note, and a secret scan step (14 matches by shape, fixtures; the owner must confirm) |
 | L2, L3 | plain `up` fails after a rollback; logs lost | **Added** to the list of what is not restored |
 
