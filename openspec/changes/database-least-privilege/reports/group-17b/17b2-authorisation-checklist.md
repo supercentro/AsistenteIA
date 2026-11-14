@@ -28,6 +28,8 @@ Code state this checklist refers to: branch `feature/database-least-privilege`, 
 | L | Residual risks accepted | **OWNER, OPEN** | table in section 4 | the owner accepts it in writing |
 | M | Explicit "GO 17B.2" before the first write | **OWNER, OPEN: not given** | none | only after A to L are green and the owner has seen the output of S10 to S13 of that day |
 
+The owner's decision sheet for the four open gates (A, H2, L, M), the messages the owner can send, the preparation of the new password and the recovery after a rotation is `17b-authorisation-package.md`.
+
 ## 2. Order of the real operations (all but the first four need the owner's GO)
 
 Read only, before the GO (they are already authorised): `S10 preflight`, `S11 backup_validate`, `S12 images` (only if needed, see F), `S13 settings_load` (needs the owner's decision, argument `--allow-real-settings`). The owner reads their output.

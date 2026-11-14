@@ -13,8 +13,9 @@ HERE = Path(__file__).resolve().parent
 REAL_TOOL = HERE / "rotate_admin_password.py"
 TOOL = REAL_TOOL
 FAILURES = 0
-OLD = "Old/Admin+pw=0123456789abcdefABCDEF"  # needs URL quoting on purpose
-NEW = "Nw9-Fresh_Value_0123456789abcdefghijKLMNOP"
+# SYNTHETIC test values: not credentials of anything, never used outside these tests
+OLD = "Old/Admin+pw=0123456789abcdefABCDEF"  # SYNTHETIC; needs URL quoting on purpose
+NEW = "Nw9-Fresh_Value_0123456789abcdefghijKLMNOP"  # SYNTHETIC
 USER = os.environ.get("USERNAME") or os.environ.get("USER") or "nobody"
 
 
