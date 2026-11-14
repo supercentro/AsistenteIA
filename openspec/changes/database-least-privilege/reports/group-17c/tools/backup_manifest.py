@@ -45,12 +45,16 @@ def sensitive(value: str) -> bool:
     return bool(user) and user.lower() in value.lower()
 
 
-def companions(folder: Path, name: str) -> tuple[Path, Path, Path]:
-    return folder / name, folder / (name + ".sha256"), folder / (name + ".manifest.txt")
+DEFAULT_SUFFIX = ".manifest.txt"
+SUFFIX_RULE = re.compile(r"\.[a-z0-9][a-z0-9.-]*\.txt")
 
 
-def write(folder: Path, name: str, copy: str, meta: list[str]) -> int:
-    dump, sha_file, manifest = companions(folder, name)
+def companions(folder: Path, name: str, suffix: str = DEFAULT_SUFFIX) -> tuple[Path, Path, Path]:
+    return folder / name, folder / (name + ".sha256"), folder / (name + suffix)
+
+
+def write(folder: Path, name: str, copy: str, meta: list[str], suffix: str = DEFAULT_SUFFIX) -> int:
+    dump, sha_file, manifest = companions(folder, name, suffix)
     if not dump.is_file():
         print(f"MANIFEST FAIL {name}: the dump is missing")
         return 2
@@ -106,8 +110,8 @@ def parse_sha_file(text: str, expected_names: tuple[str, str]) -> tuple[dict[str
     return entries, problems
 
 
-def verify(folder: Path, name: str, copy: str | None) -> int:
-    dump, sha_file, manifest = companions(folder, name)
+def verify(folder: Path, name: str, copy: str | None, suffix: str = DEFAULT_SUFFIX) -> int:
+    dump, sha_file, manifest = companions(folder, name, suffix)
     if not dump.is_file():
         print(f"MANIFEST FAIL {name}: the dump is missing")
         return 2
@@ -166,6 +170,9 @@ def main(argv: list[str]) -> int:
         branch.add_argument("folder")
         branch.add_argument("name")
         branch.add_argument("--copy", required=(command == "write"))
+        # A different manifest file name lets an older folder that already holds a legacy `<dump>.manifest.txt` get a
+        # new-format manifest next to it without touching the legacy file (TD-049 migration).
+        branch.add_argument("--manifest-suffix", default=DEFAULT_SUFFIX)
         if command == "write":
             branch.add_argument("--meta", action="append", default=[])
     args = parser.parse_args(argv)
@@ -173,9 +180,12 @@ def main(argv: list[str]) -> int:
     if not folder.is_dir():
         print("MANIFEST FAIL: the folder does not exist")
         return 2
+    if not SUFFIX_RULE.fullmatch(args.manifest_suffix) or sensitive(args.manifest_suffix):
+        print("MANIFEST FAIL: the manifest suffix is malformed")
+        return 2
     if args.command == "write":
-        return write(folder, args.name, args.copy, args.meta)
-    return verify(folder, args.name, args.copy)
+        return write(folder, args.name, args.copy, args.meta, args.manifest_suffix)
+    return verify(folder, args.name, args.copy, args.manifest_suffix)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<REPO>/openspec/changes/dat
 # source and the copy, hashed) before trusting a restore.
 ```
 
+Existing 17b backup (2026-11-14, TD-049): the folder policy is applied to both folders and the legacy `.sha256` were replaced with `tools/migrate_legacy_sha256.py` (all or nothing; stash and SDDL export outside the repository; `tools/acl_descriptor.ps1 -Mode Restore|Compare` restores the folder descriptors). Its new manifest is `<dump>.integrity.txt` (`backup_manifest.py ... --manifest-suffix .integrity.txt`); the legacy `<dump>.manifest.txt` stays as a descriptive note. Manual rollback order: (1) `acl_descriptor.ps1 -Mode Restore -Path <folder> -Store <rollback>/<label>.sddl` for each folder; (2) copy `<rollback>/<label>.sha256.orig` over `<dump>.sha256` and delete `<dump>.integrity.txt`; (3) compare with `inventory-before.txt`. PowerShell `Remove-Item` cannot delete a Read-restricted file; use `[IO.File]::Delete` or Python (the folder's delete-child right).
+
 (The dump holds the table data, ownership and ACLs; the roles are cluster objects and are **not** in it, which is why the recovery re-applies the restore scripts, see section 4.) Remove `/tmp/asistenteia_pre_17b.dump` from the container only after the copies are verified (a container's `/tmp` is not durable).
 
 ## 2. Proving that it restores (before any change)
