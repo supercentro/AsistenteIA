@@ -1,12 +1,12 @@
-# Checklist A to M: status after the final preflight (2026-11-14, code at `951d282`)
+# Checklist A to M: status after the final preflight and the 17C closure (2026-11-14, code at `cb45726` + 17C)
 
-`OK` = verified with the evidence named; `OPEN` = not done and why; `BLOCKED` = cannot be done now; `OWNER` = needs the owner. Nothing here is a GO: gates A, B (restore), K, L and M are not green.
+`OK` = verified with the evidence named; `OPEN` = not done and why; `BLOCKED` = cannot be done now; `OWNER` = needs the owner. Nothing here is a GO: gates A, L and M need the owner. **17C update**: B and K are now green (see `../2026-11-14-step-17c-blockers-closure.md`).
 
 | # | Gate | Status | Evidence / reason |
 |---|---|---|---|
 | A | Authorisation of 17B, task 3.3b and the rotation window | **OWNER, OPEN** | the owner has authorised only the final preflight; 17B needs a new explicit message |
 | A2 | Nothing else in flight | OK | branch `feature/database-least-privilege`, HEAD `951d282` at the start, tree clean except the seven reference documents; OpenSpec 18/18 |
-| B | Exact backup, restore proven | **BLOCKED (restore)** | the new backup `asistenteia_pre_17b_20261114T013150Z.dump` (17 437 bytes, 57 `pg_restore --list` lines, sha256 `d0a2ad6b…6279d9`) was taken as a read of the real database; the hash outside equals the hash inside the container; the second, independent copy has the same hash; the source did not change while the dump was taken (snapshots equal). **The restore into the disposable cluster did not run: the memory gate of 8 GB was not reached (free RAM 6.5 to 7.6 GB, including 30 minutes of waiting, held by processes outside this project).** `g17c-restore-output.txt` records the stop. Without the restore proof this gate is red |
+| B | Exact backup, restore proven | **OK (17C)** | **17C: the second copy restored into a disposable PostgreSQL 15.19 + pgvector 0.8.7 (`pg_restore` rc 0), IDENTICAL to the source on 118 compared lines and to the expected 0005 baseline (`g17c-restore-output.txt`, `evidence/restored-snapshot-db.txt`); the six backup files carry the verified restrictive descriptor (`evidence/backup-acl-verify.txt`).** Preflight record: the new backup `asistenteia_pre_17b_20261114T013150Z.dump` (17 437 bytes, 57 `pg_restore --list` lines, sha256 `d0a2ad6b…6279d9`) was taken as a read of the real database; the hash outside equals the hash inside the container; the second, independent copy has the same hash; the source did not change while the dump was taken (snapshots equal). **The restore into the disposable cluster did not run: the memory gate of 8 GB was not reached (free RAM 6.5 to 7.6 GB, including 30 minutes of waiting, held by processes outside this project).** `g17c-restore-output.txt` records the stop. Without the restore proof this gate is red |
 | B2 | Older backups untouched | OK (partly) | `asistenteia_pre_0005_20261112T034241Z` hash equals its recorded one (check [10] of `g17c-backup-output.txt`); `pre_0004` was not hash-checked, only not touched |
 | C | Unambiguous cluster | OK | `evidence/source-identity.txt`: container `asistenteia-db-1`, compose project `asistenteia`, host port 127.0.0.1:5442, database `asistenteia`, PostgreSQL 15.19, read-only session, revision 0005 |
 | D | Catalog equals the expected baseline | **OK** | the real catalog is `IDENTICAL` to `group-17a/expected/snapshot-db-0005.txt` on 118 compared lines, and the real cluster (roles, databases, ACLs) to `expected/snapshot-cluster.txt`; all rows 0 except `alembic_version` = 1. `asistenteia_test` differs in ONE line, `schema_public` (the real one is owned by the administrator with the default ACL, a fresh PostgreSQL 15 has `pg_database_owner`): the test fixtures drop and recreate the schema; explained, not a gate |
@@ -20,7 +20,7 @@
 | I | Exposed credential, rotation planned | OK on paper | `credentials-and-services-map.md`; not rotated; the secret scan found the exposed value nowhere in the repository (`g17c-secret-classification.md`) |
 | J | Quality gates | OK | ruff and mypy strict clean, `openspec validate --all --strict` 18/18, tool self-tests 80/80, backend suites as in the last report (1377 / 864 / 439 / 484), frontend 97.68 % |
 | J2 | CI decision | OWNER | `ci-remote-proposal.md`: nothing pushed; branch protection is not available on this plan |
-| K | Resources and window | **BLOCKED** | disk 679 GB free; **RAM 6.5 to 7.6 GB, below the 8 GB gate**; the window is the owner's |
+| K | Resources and window | **OK for the restore (17C); to re-check on the day** | disk 679 GB free; the restore script enforced the 8 GB gate and ran at 8.34 GB free (the preflight had 6.5 to 7.6 GB); the worker image build of 17B.1 needs the same threshold again; the window is the owner's |
 | L | Residual risks accepted | OWNER, OPEN | list in `checklist-go-nogo.md` plus the three added below |
 | M | Explicit GO before the first write | OWNER, OPEN | — |
 

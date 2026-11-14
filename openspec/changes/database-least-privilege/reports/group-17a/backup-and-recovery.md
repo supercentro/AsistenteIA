@@ -15,7 +15,13 @@ cp "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump" "<SECOND-LOCATION>/"
 sha256sum "<SECOND-LOCATION>/asistenteia_pre_17b_$STAMP.dump"                                                      # second copy, same hash
 # manifest next to the dump (database, revision, size, sha256, toc lines, row counts, created UTC, source; no data) and its .sha256 file
 sha256sum "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump" > "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump.sha256"
-chmod 600 "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump"      # on Windows: only the owner's user has access to the folder
+# Restrictive permissions on Windows (chmod has no effect there): inheritance removed, one rule (current user, Read), descriptor
+# re-read and verified, fails closed. Apply it to the dump, the .sha256 and the manifest of BOTH copies (17C, group-17c/tools):
+powershell -NoProfile -ExecutionPolicy Bypass -File "<REPO>/openspec/changes/database-least-privilege/reports/group-17c/tools/secure_file_acl.ps1" -Path "<BACKUPS>/asistenteia_pre_17b_$STAMP.dump"
+# -VerifyOnly re-checks an existing file without touching it. Known limits: a member of Administrators can still take ownership,
+# and the FOLDER keeps its own ACL (TD-049). Comparison limit: snapshot_db.sql compares owners, ACLs, constraints, defaults, enums,
+# indexes, extensions and row COUNTS; once the database holds data, add a content check (for example pg_dump --data-only of the
+# source and the copy, hashed) before trusting a restore.
 ```
 
 (The dump holds the table data, ownership and ACLs; the roles are cluster objects and are **not** in it, which is why the recovery re-applies the restore scripts, see section 4.) Remove `/tmp/asistenteia_pre_17b.dump` from the container only after the copies are verified (a container's `/tmp` is not durable).

@@ -27,6 +27,7 @@ check() { N=$((N+1)); if [ "$2" = "$3" ]; then PASS=$((PASS+1)); log "  [$N] PAS
 ms() { echo $(( $(date +%s%N) / 1000000 )); }
 BKNET="g17cnet$$"; BKC="g17cpg$$"; LABEL="purpose=g17c-restore"
 cleanup() { docker rm -f "$BKC" > /dev/null 2>&1; docker network rm "$BKNET" > /dev/null 2>&1
+  docker exec "$REAL" rm -f /tmp/asistenteia_pre_17b.dump > /dev/null 2>&1   # also on a failure: no dump is left in the real container
   log "after cleanup: containers left=$(docker ps -a --filter label=$LABEL -q | wc -l) networks left=$(docker network ls --filter label=$LABEL -q | wc -l)"
   rm -rf "$TMP"/restore.dump "$TMP"/pw.txt; }
 trap cleanup EXIT
@@ -42,7 +43,7 @@ check "revision 0005" "revision|0005" "$(grep '^revision|' "$TMP/pre/snapshot-db
 check "no open transaction, no idle in transaction, no prepared transaction, no ungranted lock" "0|0|0|0" "$(grep -E '^(open_transactions_older_than_1_min|idle_in_transaction|prepared_transactions|ungranted_locks)\|' "$TMP/pre/activity.txt" | cut -d'|' -f2 | paste -sd'|')"
 check "GATE D: the catalog of the real database equals the expected baseline of 0005" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$S17A/expected/snapshot-db-0005.txt" "$TMP/pre/snapshot-db.txt" | grep -o IDENTICAL)"
 check "GATE D: the cluster (roles, databases, ACLs) equals the expected baseline" "IDENTICAL" "$(MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$S17A/expected/snapshot-cluster.txt" "$TMP/pre/snapshot-cluster.txt" | grep -o IDENTICAL)"
-docker exec -i "$REAL" sh -c 'psql -U "$POSTGRES_USER" -d asistenteia_test -At -F "|" -v ON_ERROR_STOP=1 -f -' < "$TOOLS/snapshot_db.sql" > "$TMP/pre/snapshot-test-db.txt" 2>&1
+docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' "$REAL" sh -c 'psql -U "$POSTGRES_USER" -d asistenteia_test -At -F "|" -v ON_ERROR_STOP=1 -f -' < "$TOOLS/snapshot_db.sql" > "$TMP/pre/snapshot-test-db.txt" 2>&1
 check "asistenteia_test equals the expected baseline" "IDENTICAL" "$(MIN_LINES=5 bash "$TOOLS/compare_snapshots.sh" "$S17A/expected/snapshot-test-db.txt" "$TMP/pre/snapshot-test-db.txt" | grep -o IDENTICAL)"
 log "  rows of the real database: $(grep '^rows|' "$TMP/pre/snapshot-db.txt" | cut -d'|' -f2 | tr '\n' ' ')"
 
@@ -59,7 +60,10 @@ log "  dump taken and copied in $(( $(ms) - T0 )) ms; size $(stat -c %s "$BACKUP
 check "sha256 outside equals sha256 inside the container" "$INSIDE" "$OUTSIDE"
 cp "$BACKUPS/$NAME" "$SECOND/$NAME"
 check "the second, independent copy has the same sha256" "$OUTSIDE" "$(sha256sum "$SECOND/$NAME" | cut -d' ' -f1)"
-sha256sum "$BACKUPS/$NAME" | sed "s#  .*#  $NAME#" > "$BACKUPS/$NAME.sha256"; cp "$BACKUPS/$NAME.sha256" "$SECOND/$NAME.sha256"
+# The .sha256 file names the dump by its file NAME only (Git Bash sha256sum prints " *<absolute path>", which would carry the
+# user's folder into the evidence and make `sha256sum -c` of the second copy check the first one: review finding of 17C).
+echo "$OUTSIDE  $NAME" > "$BACKUPS/$NAME.sha256"; cp "$BACKUPS/$NAME.sha256" "$SECOND/$NAME.sha256"
+check "the .sha256 file holds the hash and the file name only" "$OUTSIDE  $NAME" "$(cat "$BACKUPS/$NAME.sha256")"
 { echo "Backup manifest (no data inside; the dump itself is private)"
   echo "file:            $NAME"
   echo "created (UTC):   $STAMP"
@@ -73,10 +77,16 @@ sha256sum "$BACKUPS/$NAME" | sed "s#  .*#  $NAME#" > "$BACKUPS/$NAME.sha256"; cp
   echo "restore test:    see reports/group-17c/g17c-backup-output.txt"
 } > "$BACKUPS/$NAME.manifest.txt"
 cp "$BACKUPS/$NAME.manifest.txt" "$SECOND/$NAME.manifest.txt"
-for f in "$BACKUPS/$NAME" "$SECOND/$NAME"; do
-  powershell -NoProfile -Command "icacls '$(cygpath -w "$f")' /inheritance:r /grant:r \"\$env:USERNAME:(R)\" | Out-Null" > /dev/null 2>&1
+# Restrictive permissions, verified: tools/secure_file_acl.ps1 removes the inheritance, leaves one rule (current user,
+# Read), re-reads the descriptor and fails closed. (The first version built an icacls command inside a PowerShell string,
+# where "$env:USERNAME:(R)" expands to "(R)"; icacls rejected it and the error was discarded, so the dumps kept their
+# inherited ACLs. Found in the final preflight, fixed in 17C.)
+ACL_OK=0
+for f in "$BACKUPS/$NAME" "$BACKUPS/$NAME.sha256" "$BACKUPS/$NAME.manifest.txt" "$SECOND/$NAME" "$SECOND/$NAME.sha256" "$SECOND/$NAME.manifest.txt"; do
+  line="$(powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$HERE/tools/secure_file_acl.ps1")" -Path "$(cygpath -w "$f")" 2>&1 | tail -1)"
+  log "  $line"; case "$line" in "ACL OK"*) ACL_OK=$((ACL_OK+1));; esac
 done
-log "  permissions: $(powershell -NoProfile -Command "(icacls '$(cygpath -w "$BACKUPS/$NAME")') -join ' ; '" | sed -E 's#[A-Za-z]:\\[^ ]*##g' | cut -c1-200)"
+check "the six backup files (both copies) carry the verified restrictive descriptor" 6 "$ACL_OK"
 check "the pre_0005 backup is untouched (its hash equals the recorded one)" "OK" "$( [ "$(sha256sum "$BACKUPS/asistenteia_pre_0005_20261112T034241Z.dump" | cut -d' ' -f1)" = "$(cut -d' ' -f1 "$BACKUPS/asistenteia_pre_0005_20261112T034241Z.dump.sha256")" ] && echo OK || echo CHANGED )"
 docker exec "$REAL" rm -f /tmp/asistenteia_pre_17b.dump
 snapshot_after() { docker exec -i "$REAL" sh -c 'psql -U "$POSTGRES_USER" -d asistenteia -At -F "|" -v ON_ERROR_STOP=1 -c "SET default_transaction_read_only=on" -f -' < "$TOOLS/snapshot_db.sql" 2>&1; }

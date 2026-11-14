@@ -1,0 +1,7 @@
+# secure_file_acl.ps1 -VerifyOnly on the two copies of the 17b backup (dump, .sha256, manifest), 2026-11-14T03:25:36Z; names only
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump.sha256: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+ACL OK asistenteia_pre_17b_20261114T013150Z.dump.sha256: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user

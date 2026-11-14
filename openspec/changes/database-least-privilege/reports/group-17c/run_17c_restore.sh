@@ -40,8 +40,7 @@ check "the restored copy is IDENTICAL to the source (revision, schema, owners, t
 log "  restored: revision $(grep '^revision|' "$TMP/restored.txt" | cut -d'|' -f2); owners $(grep '^table|' "$TMP/restored.txt" | sed -E 's/^table\|([a-z_]+) owner=([a-z_]+).*/\1=\2/' | tr '\n' ' '); table ACLs $(grep '^table|' "$TMP/restored.txt" | grep -o 'acl=[^ ]*' | sort | uniq -c | tr '\n' ' '); rows $(grep '^rows|' "$TMP/restored.txt" | cut -d'|' -f2 | tr '\n' ' ')"
 check "the revision, the owners and the row counts of the restored copy are those of the expected 0005" "IDENTICAL" "$(bash "$TOOLS/compare_snapshots.sh" "$S17A/expected/snapshot-db-0005.txt" "$TMP/restored.txt" | grep -o IDENTICAL)"
 mkdir -p "$HERE/evidence"
-cp "$TMP/pre/snapshot-db.txt" "$HERE/evidence/source-snapshot-db.txt"; cp "$TMP/pre/snapshot-cluster.txt" "$HERE/evidence/source-snapshot-cluster.txt"; cp "$TMP/pre/activity.txt" "$HERE/evidence/source-activity.txt"
-grep -v '^mounts_json|' "$TMP/pre/identity.txt" | grep -v '^container_id|' > "$HERE/evidence/source-identity.txt"
+# Only the restored snapshot is written here: the source evidence belongs to the backup run (a rerun must not overwrite it).
 cp "$TMP/restored.txt" "$HERE/evidence/restored-snapshot-db.txt"
 log "=== result: $PASS checks passed, $FAIL failed (of $N); backup file name: $NAME; sha256 $(sha256sum "$SECOND/$NAME" | cut -d' ' -f1)"
 [ "$FAIL" = 0 ]
