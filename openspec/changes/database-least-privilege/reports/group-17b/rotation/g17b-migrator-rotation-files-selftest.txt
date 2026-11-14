@@ -1,0 +1,8 @@
+DISCARD REMOVE .env.migrate.old
+DISCARD KEEP .env.roles.old so that the discard can be run again
+DISCARD backup folder kept (it holds other files)
+DISCARD INCOMPLETE: .env.migrate.old could not be removed
+DISCARD REMOVE .env.migrate.old
+DISCARD REMOVE .env.roles.old
+DISCARD OK: 2 backup copy(ies) removed; the *.pre-17b copies were not touched
+PASS=54 FAIL=0

@@ -1,0 +1,10 @@
+  PASS container with the value created
+  PASS container without the value created
+  PASS exit 1 when a container holds the value
+  PASS it names the holder and not the other one
+  PASS the value is never printed
+  PASS exit 0 once the holder is removed
+  PASS a QUOTED variable is unquoted before the scan: the holder is found (exit 1)
+  PASS exit 2 when the variable is missing
+  PASS exit 2 when the folder is missing
+PASS=9 FAIL=0
