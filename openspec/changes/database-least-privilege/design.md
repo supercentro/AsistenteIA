@@ -21,11 +21,11 @@ Evidence: the analysis, two independent adversarial reviews (24 and 13 findings)
 
 ## Decisions
 
-Status of the decisions: **confirmed** by the owner on 2026-11-12: D1 to D8, the consent commit (designed here, implemented later) and the instruction to design the teacher separation; **proposed** for approval with these artifacts: DD-1 to DD-8 and DD-10 to DD-13 (they follow from D1 to D8 and from the evidence); **approved by the owner on 2026-11-12 after the group 2 request**: DD-9 option A as the target design (five identities); its implementation is not authorised yet.
+Status of the decisions: **confirmed** by the owner on 2026-11-12: D1 to D8, the consent commit (designed here, implemented later) and the instruction to design the teacher separation; **proposed** for approval with these artifacts: DD-1 to DD-8 and DD-10 to DD-13 (they follow from D1 to D8 and from the evidence); **approved by the owner on 2026-11-12 after the group 2 request**: DD-9 option A as the target design (five identities); its implementation (group 8, migration `0006`) was authorised and delivered, and it is applied to the development database since 2026-11-14.
 
 Owner decisions of 2026-11-12: D1 independent change; D2 specific environment files per concern; D3 permissions derived mechanically, `SELECT` on `document_chunks` kept for the API; D4 RLS, `SECURITY DEFINER` and `pg_hba.conf` out; D5 privilege tests are a mandatory CI gate; D6 spike on a disposable server; D7 pgvector stays in `public` and the privileged bootstrap manages the extension; D8 `TEST_DATABASE_URL` isolated in a test-only environment; plus the instruction to design (not implement) the teacher-provisioning separation and the consent commit.
 
-**DD-1 Five identities.** Administrator (existing superuser, cluster administration only), `asistente_migrator`, `asistente_app`, `asistente_worker` and `asistente_cli` (working names; the CLI role is the owner's DD-9 decision and is implemented in group 8, so until then the CLI uses the application role). Alternatives: keep the superuser (rejected: it is the problem); two roles only, migrator merged with app (rejected: a SQL injection would own the schema); per-statement `SECURITY DEFINER` functions (out of scope, D4). The administrator keeps its current name, so the image, the health check and the guide commands do not change.
+**DD-1 Five identities.** Administrator (existing superuser, cluster administration only), `asistente_migrator`, `asistente_app`, `asistente_worker` and `asistente_cli` (working names; the CLI role is the owner's DD-9 decision and was implemented in group 8; until then the CLI used the application role). Alternatives: keep the superuser (rejected: it is the problem); two roles only, migrator merged with app (rejected: a SQL injection would own the schema); per-statement `SECURITY DEFINER` functions (out of scope, D4). The administrator keeps its current name, so the image, the health check and the guide commands do not change.
 
 **DD-2 Roles live outside Alembic.** Roles are cluster objects with secrets and need `CREATEROLE`; the migrator has neither. The bootstrap creates them. Alternatives: roles in migrations (rejected: passwords in code history, migrations would need superuser).
 
@@ -60,7 +60,7 @@ Notes (what group 2 found, against the matrix of the spike):
 
 **DD-8 Compose flow and environment files (D2, D8, A-03, A-04, B-02).** `db` (healthy) -> `bootstrap` (completed) -> `migrate` (completed) -> `backend` and `worker`, all in the **default profile** (a one-shot in an inactive profile that others depend on makes the whole project invalid, H13); both one-shots are idempotent because a plain `up` starts the finished containers again; credentials change with `up -d` (Compose recreates a service whose environment changed) and never with `restart`. Files: `backend/.env` (API: application-role URL, JWT, CORS; no `POSTGRES_*`, no `TEST_DATABASE_URL`), `backend/.env.worker`, `backend/.env.db` (administrator, database container only), new `backend/.env.migrate` (migrator URL), new `backend/.env.roles` (administrator password and the three role passwords, bootstrap only), new host-only `backend/.env.test` (never passed to a container). Variable names fixed in group 3: `MIGRATION_DATABASE_URL` (`MigrationSettings`, deliberately not `DATABASE_URL`, so a migration run with the API environment fails instead of using another credential); `ADMIN_DATABASE_URL`, `DB_MIGRATOR_PASSWORD`, `DB_APP_PASSWORD`, `DB_WORKER_PASSWORD`, `DB_CLI_PASSWORD` (`RolesSettings`); `TEST_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`. Consequence: a manual `alembic` in a container that only has the API environment now fails by design; until the migrator exists the guide gives an explicit one-liner that passes the URL knowingly. The one-shots use the image, not the source bind mount; `up --build` is required when `app/` or `alembic/` change. The API's read-write source mount, visible to the read-only worker, stays a recorded residual risk of change 13 (A-06).
 
-**DD-9 Teacher provisioning is separated from public registration at database level (option A approved by the owner on 2026-11-12; not implemented yet).** Today the runtime role can `INSERT` a `users` row with `role = 'teacher'` (proved), so "teachers only by CLI" holds only in code. Options:
+**DD-9 Teacher provisioning is separated from public registration at database level (option A approved by the owner on 2026-11-12; implemented in group 8 and applied to the development database on 2026-11-14).** At the time of the decision the runtime role could `INSERT` a `users` row with `role = 'teacher'` (proved), so "teachers only by CLI" holds only in code. Options:
 
 | Option | What it is | Complexity | Tests | Verdict |
 |---|---|---|---|---|
@@ -104,7 +104,7 @@ Decision (owner, 2026-11-12): option A is the target design: a separate CLI role
 - A matrix derived from today's code can lag behind tomorrow's: the inventory test and `db-verify` make a missing or extra privilege fail the build instead of production.
 - Failure modes look like capacity or authentication errors (connection limits, a changed password, a silent `200`): the persisted-state tests and `db-verify` are the controls, not the application logs.
 - One-shot services run on every `up`: they must stay fast and idempotent, and a failure blocks the stack by design.
-- Option A of DD-9 (approved) needs a migration and a small code change in the registration path; until group 8 is implemented the runtime role can still insert teachers (recorded).
+- Option A of DD-9 (approved) needs a migration and a small code change in the registration path; until group 8 was implemented the runtime role could still insert teachers (recorded; closed in group 8).
 - `FetchedValue()` is a marker, not a database default: a new nullable column added without a decision would again be sent as `NULL`; the matrix comparison (a column without a decision) fails first. Expired attributes after a flush trigger a `SELECT` on access: for the fencing token that `SELECT` is refused, which is intended, and no code reads it.
 - The stand-ins used for H13 prove the Compose behaviour, not the commands; task 6.4 repeats the run with the real ones.
 
@@ -117,9 +117,9 @@ Decision (owner, 2026-11-12): option A is the target design: a separate CLI role
 
 ## Open Questions
 
-- **DD-9**: decided (option A, five identities); its implementation (group 8) needs the owner's authorisation. Archive rule: the change is archived only after group 8 is done or after the owner explicitly moves the `role-based-access` delta to a follow-up change.
+- **DD-9**: decided (option A, five identities) and implemented in group 8 (tasks 8.1 to 8.7). Archive rule: the change is archived only after group 8 is done (it is) or after the owner explicitly moves the `role-based-access` delta to a follow-up change.
 - Exact names of the commands and of the new environment files (working names above) are fixed during group 3.
-- Whether the advisory-lock replacement of the subject row lock (task 2.5) is worth removing the single `UPDATE (description)` grant.
+- Resolved: the advisory-lock replacement of the subject row lock (task 2.5) is not adopted; `SELECT ... FOR UPDATE` and the lock-carrier `UPDATE (description)` stay (DD-3 note 6); the alternative stays documented for a later change.
 
 ## Traceability matrix
 

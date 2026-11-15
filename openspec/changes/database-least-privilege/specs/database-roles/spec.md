@@ -6,7 +6,7 @@ Defines the PostgreSQL identities, object ownership, privilege matrix, bootstrap
 ## ADDED Requirements
 
 ### Requirement: Five database identities exist
-The system SHALL use five distinct PostgreSQL identities: the **administrator** (the bootstrap superuser of the database image, used only for cluster administration), a **migrator**, an **application role** (API), a **worker role** and a **CLI role** (administrative commands such as teacher provisioning and the seed). Until the teacher-provisioning requirement of `role-based-access` is implemented (group 8 of the tasks), the CLI keeps using the application role.
+The system SHALL use five distinct PostgreSQL identities: the **administrator** (the bootstrap superuser of the database image, used only for cluster administration), a **migrator**, an **application role** (API), a **worker role** and a **CLI role** (administrative commands such as teacher provisioning and the seed), implemented by migration `0006` and group 8 of the tasks (`CLI_DATABASE_URL`).
 
 #### Scenario: One identity per component
 - **WHEN** the effective database URLs of the API, the worker, the migration service and the bootstrap are inspected by role name
@@ -187,11 +187,16 @@ The verifier command (`db-verify`) SHALL change nothing, SHALL compare the catal
 - **THEN** it reads every catalog it needs and the login probe uses only the passwords of the four roles
 
 ### Requirement: Rollback never destroys application objects
-The documented rollback SHALL return ownership before removing anything: in every database of the cluster `REASSIGN OWNED BY` the migrator to the administrator, verify the owners, then `DROP OWNED` for the three roles (which then only revokes), re-grant what must remain (for example `CONNECT`), and `DROP ROLE` only when every database is clean. `DROP OWNED` of a table owner before reassigning MUST NOT appear in any procedure.
+The documented rollback SHALL return ownership before removing anything: in every database of the cluster `REASSIGN OWNED BY` the migrator to the administrator, verify the owners, then `DROP OWNED` for the three roles (which then only revokes), and `DROP ROLE` only when every database is clean. `DROP OWNED` of a table owner before reassigning MUST NOT appear in any procedure. Restoring the access removed from `PUBLIC` is a documented manual step, not part of the automated rollback (TD-044).
 
 #### Scenario: Rollback on a database with data
 - **WHEN** the rollback runs on an adopted database that holds rows
-- **THEN** the tables, the catalog fingerprint and the row counts are identical to the state before the adoption and the services work again with the administrator URL
+- **THEN** the tables, the catalog fingerprint and the row counts are identical to the state before the adoption and the administrator (a superuser) can use the tables again
+
+#### Scenario: Access removed from PUBLIC is restored by a manual step
+- **WHEN** the rollback has completed
+- **THEN** ownership has been returned by the automated rollback (`db-adopt --rollback`, with `--remove-roles` for the roles) and the grants of the runtime roles are gone with the roles; the access that the bootstrap removed from `PUBLIC` (`CONNECT` and `TEMPORARY` on the databases, `USAGE` on schema `public`) stays closed until the documented restore scripts (`restore_public_cluster.sql` and `restore_public_schema.sql` under `reports/group-17a/tools/`) are run, after which `PUBLIC` can connect again; a role that relied on `PUBLIC` depends on that manual step
+- **Evidence and status**: the rehearsal of 17A, not an automated test; automating the restore is a pending limitation (TD-044), neither remediated nor formally accepted. Reconciliation of 2026-11-15 (task 19.3, finding M-1 of `reports/2026-11-15-step-19-final-verification.md`, section 8): the previous text of this requirement also said that the rollback re-grants what must remain (for example `CONNECT`) and the scenario above promised that the services work again with the administrator URL; the code never implemented that re-grant
 
 #### Scenario: Role removal waits for every database
 - **WHEN** `DROP ROLE` is attempted while another database still holds objects or privileges of the role
