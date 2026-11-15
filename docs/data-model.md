@@ -188,6 +188,50 @@ erDiagram
 - Retention: conversation data lives until the user deletes it or the account is deleted. Application logs must not contain message content or document text.
 - Third-party processing: message text and retrieved chunks are sent to Gemini. This must be disclosed in the privacy policy shown at consent time.
 
+## Database identities and privileges
+
+Change `database-least-privilege`; applied to the development database on 2026-11-14 (revision `0006`, `db-verify` without findings). The privilege matrix has **one home, `backend/app/db_privileges.py`**; the tables below are a reading guide checked against that file on 2026-11-15, not a second copy to maintain: if they ever differ, the code and `db-verify` win and this section is wrong. Rationale and alternatives: `openspec/changes/database-least-privilege/design.md` (DD-1 to DD-16).
+
+### Identities
+
+| Identity | Responsibility | Attributes | Credential file |
+|---|---|---|---|
+| Administrator (`POSTGRES_USER`, `asistente`) | cluster administration only: roles, access to the databases, the `vector` extension, adoption (`db-bootstrap`, `db-adopt`). It owns no application object and no application process connects as it | the only superuser | `.env.db` (container `db`), `ADMIN_DATABASE_URL` in `.env.roles` |
+| `asistente_migrator` | **owns every application object**; runs Alembic and applies the grants (`db-migrate`, `db-grants`); runs `db-verify` | none of the attributes below | `MIGRATION_DATABASE_URL` in `.env.migrate` (`DB_MIGRATOR_PASSWORD` in `.env.roles`) |
+| `asistente_app` | the API | none | `DATABASE_URL` in `.env` (`DB_APP_PASSWORD`) |
+| `asistente_worker` | the ingestion worker | none | `DATABASE_URL` in `.env.worker` (`DB_WORKER_PASSWORD`) |
+| `asistente_cli` | administrative commands (`create-teacher`, `seed`) | none | `CLI_DATABASE_URL` in `.env.cli` (`DB_CLI_PASSWORD`) |
+
+"None" means no `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION` or `BYPASSRLS` (read from `pg_roles` on the development database on 2026-11-15) and, by design (DD-1), no membership of another role. The API and the worker also refuse to start as a superuser.
+
+### Ownership and `PUBLIC`
+
+- The migrator owns the nine objects of the schema: the seven tables (`users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `ingestion_jobs` and `alembic_version`) and the two enum types (`user_role`, `document_status`). The development database was adopted on 2026-11-14 (`db-adopt --apply`: owner changed, data, indexes and constraints identical). The `vector` extension lives in `public` and is managed by the bootstrap.
+- `PUBLIC` has no privilege on the application tables and columns, on the databases or on schema `public`; the bootstrap closes it on every database of the cluster, the templates included, and the migrator's default privileges revoke `EXECUTE` on new functions from `PUBLIC`.
+- `alembic_version` is closed to every runtime role.
+
+### Effective privileges of the runtime roles
+
+Column lists are exact; `SELECT *` means every column of the table. A blank cell is no privilege at all (the table is closed to that role). Nothing in the table is granted to `PUBLIC`.
+
+| Table | `asistente_app` (API) | `asistente_worker` | `asistente_cli` |
+|---|---|---|---|
+| `users` | SELECT *; INSERT (`name`, `email`, `password_hash`); UPDATE (`consent_version`, `consent_accepted_at`) | | SELECT *; INSERT (`name`, `email`, `password_hash`, `role`) |
+| `subjects` | SELECT *; INSERT (`name`, `description`, `teacher_id`); UPDATE (`description`, which also carries the row lock of `SELECT ... FOR UPDATE`); DELETE | | |
+| `enrollments` | SELECT *; INSERT (`subject_id`, `student_id`); DELETE | | |
+| `documents` | SELECT *; INSERT (`subject_id`, `filename`, `content_type`, `size_bytes`, `status`); DELETE | SELECT (`id`, `subject_id`, `filename`, `content_type`, `status`); UPDATE (`status`, `chunks_count`, `error_code`, `error_message`) | |
+| `document_chunks` | SELECT (every column except `created_at`) | INSERT (`document_id`, `subject_id`, `chunk_index`, `page_number`, `content`, `embedding`); SELECT (`id`) | |
+| `ingestion_jobs` | SELECT (`id`, `payload`); INSERT (`document_id`, `payload`) | SELECT (`id`, `document_id`, `payload`, `attempts`, `locked_by`, `locked_until`, `available_at`, `created_at`); UPDATE (`payload`, `attempts`, `locked_by`, `locked_until`, `updated_at`) | |
+
+What follows from it (proved by the denied-operation tests and, on the development database, by the checks of the real run of 2026-11-14):
+- **`users.role` can never be written by the API**: registration omits it and the server default `student` (migration `0006`) supplies it; only the CLI role inserts a `role`, which is how teacher accounts exist. The API cannot insert a teacher.
+- **The worker sees no personal data**: it has no privilege on `users`, `subjects` or `enrollments`, cannot create or delete documents or jobs, and can update only the listed columns of `documents` and `ingestion_jobs`. `locked_by` and `locked_until` (the fencing token and the lease) are readable and writable only by the worker.
+- **No runtime role can delete from `users`, `document_chunks` or `ingestion_jobs`**; chunks and jobs go away through the `ON DELETE CASCADE` of their parent document, and erasing a user account needs a reviewed grant that does not exist yet (TD-039, change `personal-data-erasure`).
+- **No runtime role can create objects, read `alembic_version` or change a schema**: only the migrator owns objects and changes them.
+- `conversations`, `messages` and `message_sources` appear in the diagram above but do not exist in the database yet; a table without a decision in the matrix is closed to every runtime role by default and fails the test suite until someone decides.
+
+Verification: `python -m app.cli db-verify` compares the live catalog with the matrix (read only, exit 1 on a difference); the same comparison runs in the CI job `privileges` (see `docs/development_guide.md`, "Database"). Known limits of that check (defaults, column ACLs of other roles) are TD-043.
+
 ## Changes vs readme.md
 
 1. Added `enrollments` (the readme requires "enrolled student" but had no entity).
