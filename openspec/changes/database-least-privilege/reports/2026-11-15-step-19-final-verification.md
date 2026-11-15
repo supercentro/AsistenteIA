@@ -131,3 +131,116 @@ Created and removed by the runs: six PostgreSQL containers (four single-cluster 
 ## 7. Result
 
 Every mandatory gate of 19.1 is **PASS** on disposable resources; the development environment was not altered; every omission is listed in section 4.1 and none is counted as a pass. The documentary closure of 19.1 (this review, the section 4b checks and the mark in `tasks.md`) was made on the owner's approval of 2026-11-15, with the same OpenSpec validations repeated afterwards (`openspec validate database-least-privilege --strict` and `openspec validate --all --strict`). Tasks 19.2, 19.3 and 19.4 stay pending.
+
+
+## 8. Task 19.2 (2026-11-15): OpenSpec, dependency and secret audits, final adversarial review, E2E requirement
+
+Scope of this section: the validations and reviews of task 19.2 under the owner's authorisation of 2026-11-15. Head `59c6e6f`, 17 local commits unpublished. Nothing else was done: no code, test, script, configuration, lockfile, `tasks.md` or `.env` was changed; no commit, push, PR or archive; no PostgreSQL or container operation; no new test suite and no new E2E run. Network access was used only to query vulnerability databases and package registries. The only file written is this report.
+
+### 8.1 OpenSpec
+
+| Command | Result |
+|---|---|
+| `openspec validate database-least-privilege --strict` | **PASS**: the change is valid |
+| `openspec validate --all --strict` | **PASS**: 18 passed, 0 failed (18 items); no new inconsistency |
+
+### 8.2 Dependency audits (no fix applied, no lockfile or dependency changed)
+
+**Backend: `uv run --frozen --no-sync pip-audit --format json` (the CI step) on the locked environment** (98 packages audited; `uv sync --frozen --extra ingestion --dry-run` reported no change, so the environment equals `uv.lock`; the tool's cache went to a scratch directory). The exit code 1 means vulnerabilities were found, not a tool error.
+
+| Package | Installed | Identifier | Fixed version | Nature | How it enters | Reachability in this code |
+|---|---|---|---|---|---|---|
+| `dnspython` | 2.9.0 | CVE-2026-128089 / GHSA-vvf4-9x63-8xvv | 2.9.2 | a crafted zone file with a WKS record exhausts memory and CPU (denial of service) | transitive, through `email-validator` | the only call is `validate_email(..., check_deliverability=False)` in `app/schemas/validators.py`: no DNS query and no zone-file parsing |
+| `opentelemetry-api` | 1.45.1 | CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg | 1.45.2 | ReDoS in `TraceContextTextMapPropagator.extract()` on a crafted `traceparent` value | transitive, through `fastapi` | the application does not use OpenTelemetry nor read a `traceparent` header |
+
+Counts: 2 vulnerabilities in 2 packages; `pip-audit` does not report a severity, both are denial-of-service classes. A fixed version exists for both. No technical-debt entry records them today (TD-015 only mentions that the audit is non-blocking). Updating either package means changing `backend/uv.lock`, which was not authorised here and needs a new CI run: a decision for 19.3 or a separate change.
+
+**Frontend: `npm audit --json`** (515 dependencies audited): **0 vulnerabilities** (info 0, low 0, moderate 0, high 0, critical 0). `package.json` and `package-lock.json` were byte-identical before and after.
+
+### 8.3 Secret and sensitive-content audit of `main...HEAD` (97 commits, 488 files with added lines) and of the 17 local commits
+
+| Check | Result |
+|---|---|
+| Seven real secret values (current and previous administrator password, current migrator password, `JWT_SECRET`, the application, worker and CLI role passwords), searched in every added and removed line of the 97 commits | **none found**; the same for the 17 local commits alone. The previous password of the migrator is not available to compare (it lives only in the session transcript); the scope scan of SEC-17B-01 is in its own report |
+| Real `.env*` files, dumps, `*.old`, `*.pre-17b`, private keys, cloud or CI tokens | none versioned |
+| URL-shaped credentials | 48 occurrences in 29 files outside the obvious placeholders, all in tests and tools with synthetic values (for example `test_ci_gate_scripts.py`, `make_migrator_fixture.py`, `test_rotate_admin_password.py`); in the 17 local commits only 5 (`make_migrator_fixture.py`, `test_rotate_role_password.py`). **Severity: low.** One 20-character synthetic password in `group-11/mutate_regression.py` does not match any real value |
+| 64-character hexadecimal strings | 111 in 29 files, image ids and SHA-256 of dumps in evidence files; none belongs to a credential file. **Informational** |
+| Personal path or user name | 4 occurrences in one file, `reports/group-3/windows-baseline.txt`. **Severity: low** (personal data, not a secret). None in the 17 local commits, none in `prompts.md` |
+| `reports/spike/out/results.jsonl` | 186 valid JSON records with the fields `h`, `ok` and `msg`; no URL with credentials, key with a value, SCRAM verifier, token, e-mail, private key or personal path; the 9 records that mention password-like words describe behaviour and variable **names**. **No finding.** The file is a spike result, not a conversation |
+| `prompts.md` | the three literal prompts of section 16 were compared again with the user messages of the session transcript: 3 of 3 verbatim; no personal path |
+
+No active real credential appears in any versioned file or commit; the preparation for publication need not stop.
+
+### 8.4 Final independent adversarial review
+
+Method: the `adversarial-review` skill, run by a separate subagent with a clean context and no editing tools (the Plan agent type), instructed not to run Docker, a database client, tests, installers or any write command, and never to read real secret files; it reviewed the repository statically at `59c6e6f` against `main`. Its report is model output, not proof. **I checked every finding against the repository**; the verdict column says what I confirmed.
+
+**Verdict of the reviewer: PASS WITH GAPS** (no BLOCKER, no HIGH). My verification confirms all of the findings below.
+
+| Id | Severity | Where | Evidence I verified | Risk | Recommendation | Belongs to |
+|---|---|---|---|---|---|---|
+| M-1 | MEDIUM | spec `database-roles`, requirement "Rollback never destroys application objects" against `app/db_admin/adopt.py` | the requirement says the rollback re-grants what must remain (for example `CONNECT`); `adopt.py` only does `REASSIGN OWNED` and `DROP OWNED` and never restores the `PUBLIC` rights the bootstrap removed; the manual `reports/group-17a/tools/restore_public_*.sql` does it, and TD-044 admits it | the scenario "services work again with the administrator URL" holds for a superuser only; another role that relied on `PUBLIC` stays locked out | amend the requirement to match TD-044, or implement an opt-in restore with a test | OpenSpec (or code and tests) |
+| M-2 | MEDIUM | `app/db_admin/bootstrap.py` lines 223 to 246 | `database_closing_steps(all_databases)` revokes `PUBLIC` on every database of the cluster; `db-bootstrap` has no dry run or confirmation (`db-adopt` has); the guide and TD-044 say not to run it on a shared cluster, and the guard against a foreign cluster exists only in CI and in the test fixtures | pointing `.env.roles` at a shared cluster breaks other applications silently | print the databases to be closed and require an explicit option, or restrict the revoke; at least state the limit in the spec | code and tests (or spec and guide) |
+| M-3 | MEDIUM | OpenSpec texts | `specs/database-roles/spec.md` line 9 still says the CLI uses the application role until group 8; `tasks.md` line 3 says "Groups 18 and 19 are not started"; `design.md` line 122 lists the advisory-lock question (task 2.5) as open although DD-3 note 6 decided it, and the DD-9 line still says its implementation needs authorisation | an archive reader gets a wrong picture | edit the four texts | OpenSpec |
+| L-1 | LOW | `app/cli.py` lines 244 to 246 | the CLI reads the whole `backend/.env` (`DATABASE_URL`, `JWT_SECRET`) with `dotenv_values` only to find the `SEED_*` variables | the API secrets are loaded into the CLI process although not used or printed | read only the `SEED_*` keys | code and tests |
+| L-2 | LOW | `app/core/config.py` line 54 | `database_url: str` in the base settings of the API and the worker, while the new settings use `SecretStr` and `_check_database_url` | the API and the worker accept a placeholder password and `repr(settings)` shows it; no call site that logs the object was found | use `SecretStr` and the same validator | code and tests |
+| L-3 | LOW | `app/db_admin/migrate.py` lines 33 to 34, `alembic/env.py` | migration and grants are two transactions (`command.upgrade`, then `apply_grants`); `env.py` refuses only an online run without a URL, so an `alembic upgrade` with an explicit URL bypasses the grants | a failure in between leaves a new table owner-only (fails closed); the scenario "Direct Alembic run" is only partly met | document the limit (TD-044 covers part of it) | docs or code |
+| L-4 | LOW | `app/db_admin/verify.py` lines 296 to 300 | the grant-option check uses table privileges only; a column-level `GRANT ... WITH GRANT OPTION` is not seen; the default of `users.role` is not checked either (TD-043 admits the second) | a drift is not reported | add checks on `attacl` and on `pg_attrdef` | code and tests |
+| L-5 | LOW | `tests/integration/test_db_roles_lifecycle.py` line 46 | `CONNECTION_LIMITS["worker"] >= 4` is a typed number, while the application limit is derived from the pool | the worker limit is not tied to its real use | derive it from the engine and sweep configuration | tests |
+| L-6 | LOW | `docs/technical-debt.md`, TD-053 (R8) | `connection.py` lines 40 to 43 give the bootstrap session `log_min_error_statement=panic`, so a failed statement of the **bootstrap** is not logged; the leak path of R8 is the rotation tool (`rotate_db_role.py`, plain `psql` under the server setting `error`). My text of TD-053 says a failed statement "can still be logged" without that distinction | an inaccurate record | make TD-053 and the R8 row precise | docs |
+| I-1 | INFO | `.github/workflows/ci.yml` | actions pinned by tag, image by tag; ephemeral passwords as `env` arguments in the runner | known (TD-045) | none now | CI |
+| I-2 | INFO | committed outputs and tests | URLs with the throw-away user `tstadmin` of disposable clusters; no tracked `.env*` except examples | none | none | none |
+| I-3 | INFO | `backend/.env.test.example` | its two example URLs point to the administrator on the development cluster (127.0.0.1:5442); `assert_cluster_is_disposable` (`tests/db_admin_support.py`) refuses a cluster that holds `asistente*` roles or an extra database, so the **role-bound** suites cannot run against it; the ordinary integration tests are guarded only by the `*_test` name rule (the risk I recorded in 19.1) | a host-side `pytest tests/integration` would use the development cluster | keep the isolated runners as the way to run them | process |
+
+Reviewer's items without finding (checked by it, consistent with what I read): the matrix and its rendering (table-level revoke then grants in one transaction, minimal column sets), role attributes and memberships, the superuser refusal of the API and the worker, `ALTER ... OWNER TO` adoption with lock timeout and row-count comparison, `commit_or_rollback` on every write endpoint with the 503/500 mapping and the classification test, 404 symmetry and upload authorisation before the body, the composite foreign key, the clearing of `payload`, client-side SCRAM verifiers, error paths that name SQLSTATE and type only, and the rotation and recovery scripts (no `down -v`, no destructive statement against the development stack).
+
+Claims the reviewer could not verify (outside the repository; they stand on reports and on the earlier stages of this session): the GitHub Actions runs and whether `privileges` is a required check (TD-045 says it is not available); the real run on the development database, the `SELECT current_user` read and the 25 of 25 checks; the real `.env*` files and the `*.pre-17b` copies; the numeric counts of the suites and mutations; the two real rotations; the line-by-line comparison of the privilege table with the live catalog.
+
+Spec requirements without an automated test, according to the reviewer, which I confirm by reading the test names and `ci.yml` (CI runs no Compose): the Compose scenarios of `dev-environment` (clean start, second start, credentials changed, a failed migration stops the dependants) have only static tests and the manual scripts of H13 and group 6; the rollback with data does not prove that services work again with the administrator URL (M-1); the worker connection limit (L-5); the direct Alembic run (L-3); the column-level grant option (L-4); the scenario "Gate runs and passes" is validated by a remote run that is not in the repository.
+
+### 8.5 Requirement of `base-standards.md` section 9.2 on the end-to-end test
+
+Literal requirement (MUST): "at least one automated end-to-end test of the main flow (teacher uploads → student asks → answer with citation) written with **Playwright Test** (`@playwright/test`, committed and run in `npm run test:e2e`) **before final delivery**".
+
+- **Is it mandatory for this change? No, and it is not satisfied by it.** The sentence is a requirement of the final delivery of the product. This change has no user-facing flow: the rules of `openspec/config.yaml` ask for E2E tasks "for user-facing flows", group 14 of `tasks.md` records "no browser E2E required" with the applicability review of 2026-11-13, and the main flow cannot be tested yet (below). The change does not claim to meet it.
+- **What exists:** the mocked Playwright suite (`auth-flow.mocked.spec.ts`, `smoke.spec.ts`): 11 passed in 19.1; the opt-in `real-backend.spec.ts` (authentication only, 6 tests skipped in 19.1, not run in this change); HTTP-level evidence of the restricted roles (group 9: 15 operations under the roles with persisted-state assertions; group 13: curl checks; 17B.5: 25 of 25 functional checks, including a text file uploaded by the teacher that reached `ready` with its chunks).
+- **Implemented parts of the flow:** teacher uploads a document: the API (`POST /subjects/{id}/documents`), the queue and the ingestion worker exist and are tested, but **no interface** (the frontend has only the login, registration and subjects pages); retrieval: `ChunkRepository.find_similar` exists, with **no endpoint**.
+- **Pending parts:** student asks and answer with citation: there is no `POST /chat`, no answer service or LLM provider and no chat interface (`docs/api-spec.yml` lists them as planned; TD-039 item d for the erasure and chat endpoints).
+- **Where it belongs:** TD-041 (open) assigns the main-flow E2E to the change that builds the chat or to `e2e-and-quality-closure`, "keep open until both ran". Nothing in this verification changes that, and no acceptance criterion was modified.
+
+### 8.6 Status of every finding after this verification (documented is not resolved)
+
+Writing a finding down does not resolve it. Nothing below was fixed in 19.2; the files that would change were not touched.
+
+| Id | What it is | Status after 19.2 | What would resolve it |
+|---|---|---|---|
+| M-1 | the rollback does not re-grant what must remain, against the spec | **open, not remediated** | amend the requirement to match TD-044, or implement and test an opt-in restore |
+| M-2 | `db-bootstrap` closes `PUBLIC` on every database of the cluster, with no dry run or confirmation | **open, not remediated** (documented limit in the guide and TD-044) | a guard or confirmation with tests, or restrict the revoke, or state the limit in the spec |
+| M-3 | four stale OpenSpec texts (spec line 9, `tasks.md` line 3, `design.md` line 122 and the DD-9 line) | **open: documentary correction required** | edit the texts (OpenSpec artifacts, through the update workflow) |
+| L-1 | the CLI loads the whole API environment file | open | read only the `SEED_*` keys (code, tests first) |
+| L-2 | `DATABASE_URL` of the API and the worker is a plain string | open | `SecretStr` and the same validator (code, tests first) |
+| L-3 | migration and grants are two transactions; a direct Alembic run with an explicit URL bypasses the grants | open (partly TD-044) | document the limit or change the flow |
+| L-4 | `db-verify` misses a column-level grant option and the default of `users.role` | open (the second is TD-043) | new checks with drift cases (code, tests first) |
+| L-5 | the worker connection-limit test uses a typed number | open | derive it from the engine and sweep configuration |
+| L-6 | the text of TD-053 (R8) is inaccurate about which path can log a failed statement | **open: documentary correction required** | rewrite TD-053 and the R8 row of the traceability table |
+| 19.1 findings | TD-052 and the R4 row say R4 has no test; task 14.1 omits a comment-only frontend change | **open: documentary correction required** | correct the three texts |
+| TD-052 | priority Low | **proposed by the AI, not formally accepted by the owner** | the owner's explicit acceptance or another priority |
+| Dependencies | `dnspython` 2.9.0 (fixed in 2.9.2) and `opentelemetry-api` 1.45.1 (fixed in 1.45.2) | **not corrected**; no lockfile or dependency was changed and no technical-debt entry records them yet | update `uv.lock` in a tested change, or record them as debt |
+| E2E of section 9.2 | the main-flow Playwright test | **pending for the final delivery** (TD-041); not met, not claimed | the change that builds the chat, or the quality-closure change |
+
+**Blockers: none.** The reviewer found no BLOCKER or HIGH, and my checks found no active credential and no failing mandatory gate.
+
+**This PASS is not an authorisation to publish.** Publishing (push, pull request, merge) and archiving are separate decisions of the owner after 19.3; the CI of the pull request, with `backend`, `privileges` and `frontend` green (TD-045), still has to be checked there.
+
+**Decisions needed for 19.3, in priority order:**
+1. Which of M-2, L-1, L-2 and L-4 are fixed before publishing (code, tests first, a new CI run) and which are recorded as technical debt.
+2. How M-1 is closed: amend the requirement or implement the restore.
+3. Authorise the documentary corrections: the four texts of M-3, TD-053 and its R8 row (L-6), TD-052 and the R4 row, task 14.1; and decide the priority of TD-052.
+4. What to do with the two vulnerable transitive dependencies: a tested lock update or two debt entries.
+5. Whether the low-severity items of 8.3 (a personal path in `windows-baseline.txt`, the synthetic fixtures) are cleaned before publishing.
+6. The confirmation that section 4.1 asks for: that the main-flow E2E is a requirement of the final delivery, not of this change.
+7. Unchanged and outside 19.2: TD-038 (`JWT_SECRET`), TD-039, TD-045 and the NO-GO on cleaning the `*.pre-17b` copies.
+
+### 8.7 Result of 19.2
+
+OpenSpec: PASS (both validations, 18 of 18). Dependencies: `pip-audit` found 2 vulnerabilities (CVE-2026-128089 in `dnspython` 2.9.0, fixed in 2.9.2; CVE-2026-126360 in `opentelemetry-api` 1.45.1, fixed in 1.45.2), `npm audit` found 0; none was corrected. Secrets: no real credential in any versioned file or commit; low and informational items only. Adversarial review: **PASS WITH GAPS**, every finding verified against the repository and none remediated. E2E requirement: not mandatory for this change, not met, not declared met. The documentary closure of 19.2 (this section and the mark in `tasks.md`) was made on the owner's approval of 2026-11-15, with the OpenSpec validations repeated afterwards and no new network audit. Tasks 19.3 and 19.4 stay pending.
