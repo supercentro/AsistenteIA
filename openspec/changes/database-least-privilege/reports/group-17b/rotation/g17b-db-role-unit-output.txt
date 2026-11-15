@@ -1,0 +1,15 @@
+PASS password_of_url percent-decodes the password
+PASS password_of_url accepts the +psycopg dialect
+REFUSED the variable is not a URL of that role with a password
+PASS password_of_url refuses a URL of another user
+REFUSED the variable is not a URL of that role with a password
+PASS password_of_url refuses a URL without a password
+REFUSED the variable is not a URL of that role with a password
+PASS password_of_url refuses a value that is not a URL
+PASS the probe refuses a URL of another user before any Docker call (exit 1), nothing printed
+PASS a non-ASCII URL: exit 4, the type only, no traceback and no echo
+PASS a missing variable is refused (exit 1) without printing
+PASS a missing env file is refused (exit 2)
+PASS a malformed password file is refused (exit 1)
+PASS a role that is not an identifier never reaches Docker (exit 1)
+0 failure(s)

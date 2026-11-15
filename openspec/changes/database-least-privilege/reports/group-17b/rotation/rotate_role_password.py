@@ -187,13 +187,8 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
     replacing = False  # once true every backup copy is complete and verified: restore ALL targets (idempotent), even one whose os.replace was interrupted
     try:
         for name, (raw, _, _) in result.items():
-            copy = backup_dir / (name + ".old")
-            copy.write_bytes(b"")
-            restrict(acl_script, copy, "Modify")
-            copy.write_bytes(raw)
-            if copy.read_bytes() != raw:
-                raise Refused(f"{name}: the backup copy differs from the original")
-            restrict(acl_script, copy, "Read")
+            base.write_backup_copy(backup_dir, name, raw, acl_script)
+        base.write_marker(backup_dir, {n: len(v[0]) for n, v in result.items()}, acl_script)  # only now may a rollback trust the copies
         say(f"BACKUP {len(result)} original file(s) copied to the backup folder (owner-only); {', '.join(result)}")
         fail_at("temp")
         for name, (_, encoded, _) in result.items():
@@ -237,9 +232,7 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
 
 def cmd_rollback(folder: Path, backup_dir: Path, acl_script: str | None) -> int:
     require_acl(acl_script)
-    present = [n for n in TARGETS if (backup_dir / (n + ".old")).is_file()]
-    if not present:
-        raise Refused("the backup folder holds no original file")
+    present = base.check_backup(backup_dir, TARGETS)
     bad = restore(folder, backup_dir, present, acl_script)
     say("ROLLBACK COMPLETE (orphan temporary files removed)" if bad == 0 else f"ROLLBACK INCOMPLETE: {bad} file(s)")
     return 0 if bad == 0 else 3
@@ -304,6 +297,8 @@ def cmd_discard(folder: Path, new_file: Path, old_source: Path, backup_dir: Path
         say(f"DISCARD {'WOULD REMOVE' if dry_run else 'REMOVE'} {path.name}")
         if not dry_run and not base.overwrite_and_remove(path, acl_script):
             stuck.append(path.name)
+    if not dry_run and not stuck:
+        (backup_dir / base.BACKUP_MARK).unlink(missing_ok=True)
     if not dry_run:
         try:
             backup_dir.rmdir()

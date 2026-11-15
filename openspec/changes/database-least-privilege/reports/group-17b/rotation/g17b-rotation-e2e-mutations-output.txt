@@ -3,4 +3,3 @@ PASS mutation 'the password goes in an argument of docker exec' is detected (4 c
 PASS mutation 'probe always succeeds' is detected (1 check(s) fail)
 PASS mutation 'role name not validated' is detected (1 check(s) fail)
 mutation problems: 0
-exit=0

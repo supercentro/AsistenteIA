@@ -5,6 +5,7 @@
   PASS the value is never printed
   PASS exit 0 once the holder is removed
   PASS a QUOTED variable is unquoted before the scan: the holder is found (exit 1)
+  PASS a value with & < > is found although Go's JSON encoder escapes them in docker inspect (exit 1), and is not printed
   PASS exit 2 when the variable is missing
   PASS exit 2 when the folder is missing
-PASS=9 FAIL=0
+PASS=10 FAIL=0

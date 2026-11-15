@@ -18,6 +18,9 @@ python -I "$(W "$HERE/check_containers_for_value.py")" "$(W "$T/backend")" > "$T
 printf 'DB_MIGRATOR_PASSWORD="%s"\n' "$VAL" > "$T/backend/.env.roles"; docker create --name g17bchk-a --label $LABEL -e "SOME_URL=postgresql://x:$VAL@h/db" $IMG >/dev/null 2>&1
 python -I "$(W "$HERE/check_containers_for_value.py")" "$(W "$T/backend")" >/dev/null 2>&1; check "a QUOTED variable is unquoted before the scan: the holder is found (exit 1)" 1 $?
 docker rm -f g17bchk-a >/dev/null 2>&1
+VAL2='Syn&Pw<x>0123456789abcdefABCDEF'; printf 'DB_MIGRATOR_PASSWORD=%s\n' "$VAL2" > "$T/backend/.env.roles"; docker create --name g17bchk-a --label $LABEL -e "SOME=$VAL2" $IMG >/dev/null 2>&1
+python -I "$(W "$HERE/check_containers_for_value.py")" "$(W "$T/backend")" > "$T/out3.txt" 2>&1; rc3=$?; check "a value with & < > is found although Go's JSON encoder escapes them in docker inspect (exit 1), and is not printed" "1 0" "$rc3 $(grep -c -F -e "$VAL2" "$T/out3.txt")"
+docker rm -f g17bchk-a >/dev/null 2>&1
 printf 'OTHER=1\n' > "$T/backend/.env.roles"; python -I "$(W "$HERE/check_containers_for_value.py")" "$(W "$T/backend")" >/dev/null 2>&1; check "exit 2 when the variable is missing" 2 $?
 python -I "$(W "$HERE/check_containers_for_value.py")" "$(W "$T/nonexistent")" >/dev/null 2>&1; check "exit 2 when the folder is missing" 2 $?
 echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" = 0 ]

@@ -11,6 +11,8 @@ PASS .env.test: both administrator URLs updated, the segregated user's URL untou
 PASS the old value (raw and quoted) is in no live env file
 PASS the pre-17b copies were not touched by apply
 PASS backups are byte-identical to the originals
+PASS the migrator password in .env.roles is untouched byte for byte (the administrator rotation never resets it)
+PASS apply notes the recovery copies that keep the old value
 PASS verify OK after apply
 PASS verify reports the pre-17b copies still present
 PASS a second apply is refused (new equals current)
@@ -70,16 +72,42 @@ PASS the live env files are untouched by cleanup
 PASS cleanup before the rotation is refused (exit 1) and removes nothing
 PASS a directory named like a target is refused, nothing removed
 PASS a pre-17b file that does not hold the old value is kept
+PASS a non-ASCII URL never produces a traceback or an echo of the value (M1, plan)
+PASS apply with that URL changes nothing and leaks nothing (M1, apply)
+PASS on Windows apply refuses without --acl-script and writes nothing (M2)
+PASS an interruption between os.replace and its bookkeeping still restores that file (minor 2)
+PASS an empty .env.test is left alone and gets no (zero-byte) backup copy
+PASS rollback still works after such an apply
+PASS discard --dry-run lists the three .old copies, .env.db.old last, and removes nothing
+PASS discard removes only the .old copies and the empty folder; *.pre-17b untouched
+PASS discard output holds no password
+PASS discard is refused while the live files still hold the old value, and keeps the copies
+PASS a stuck copy leaves .env.db.old (the --old-from source) so that the discard can be repeated
+PASS rollback refuses an empty .old without a marker and leaves every live file untouched (N1)
+PASS rollback refuses when a listed .old is empty or of another size and touches nothing (N1)
+PASS a finished backup has the marker and no temporary copy
+PASS the marker holds names and sizes only
+PASS discard removes the marker with the copies and the empty folder
+PASS a real cleanup is refused without the explicit acknowledgement flag and removes nothing
 PASS the interface has no argument that could carry a password
-PASS mutation 'rollback does not restore' is detected (4 check(s) fail)
+PASS mutation 'rollback does not restore' is detected (5 check(s) fail)
 PASS mutation 'the plan does not refuse a variable that would keep the old value' is detected (2 check(s) fail)
 PASS mutation 'quoted URL accepted' is detected (1 check(s) fail)
 PASS mutation 'different password accepted' is detected (1 check(s) fail)
 PASS mutation 'cleanup uses a wildcard' is detected (2 check(s) fail)
 PASS mutation 'output leaks the new value' is detected (2 check(s) fail)
 PASS mutation 'the owner-only descriptors are not applied' is detected (2 check(s) fail)
-PASS mutation 'an interruption does not restore' is detected (1 check(s) fail)
+PASS mutation 'an interruption does not restore' is detected (2 check(s) fail)
 PASS mutation 'other env files are not scanned for the old value' is detected (1 check(s) fail)
-PASS mutation 'cleanup does not tolerate an undeletable file' is detected (1 check(s) fail)
-PASS mutation 'temporary files are never removed' is detected (8 check(s) fail)
+PASS mutation 'cleanup does not tolerate an undeletable file' is detected (2 check(s) fail)
+PASS mutation 'an unexpected parser error is not caught (traceback may echo a URL)' is detected (2 check(s) fail)
+PASS mutation 'apply restores only the files already replaced' is detected (1 check(s) fail)
+PASS mutation 'Windows apply without --acl-script is allowed' is detected (1 check(s) fail)
+PASS mutation 'discard skips the verification' is detected (1 check(s) fail)
+PASS mutation 'discard removes the --old-from source first' is detected (2 check(s) fail)
+PASS mutation 'an .env.test with nothing to rotate is backed up (a zero-byte copy blocks every rollback)' is detected (2 check(s) fail)
+PASS mutation 'rollback does not need the completeness marker' is detected (1 check(s) fail)
+PASS mutation 'rollback does not compare the size of the copy' is detected (1 check(s) fail)
+PASS mutation 'a real cleanup needs no acknowledgement' is detected (1 check(s) fail)
+PASS mutation 'temporary files are never removed' is detected (9 check(s) fail)
 0 failure(s)

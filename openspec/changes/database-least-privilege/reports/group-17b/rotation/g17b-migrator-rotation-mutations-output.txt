@@ -11,5 +11,6 @@
   caught   an unexpected parser error is not caught (traceback may echo a URL)
   caught   apply restores only the files already replaced
   caught   Windows apply without --acl-script is allowed
+  caught   rollback trusts any .old, as before the fix
   caught   discard removes the old-value source copy first
-MUTATIONS caught=13 of 13
+MUTATIONS caught=14 of 14

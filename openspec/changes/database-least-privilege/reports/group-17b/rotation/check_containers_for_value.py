@@ -52,7 +52,9 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     try:
         value = read_value(Path(args.folder), args.file, args.var)
-        forms = {value, quote(value, safe=""), json.dumps(value)[1:-1]}  # raw, percent-encoded, JSON-escaped
+        escaped = json.dumps(value)[1:-1]
+        go_escaped = escaped.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")  # Go's encoder (docker inspect) escapes these three
+        forms = {value, quote(value, safe=""), escaped, go_escaped}  # raw, percent-encoded, JSON-escaped (both encoders)
         listing = docker(["ps", "-a", "-q", "--no-trunc"])
         if listing.returncode != 0:
             print("FAILED docker does not answer")

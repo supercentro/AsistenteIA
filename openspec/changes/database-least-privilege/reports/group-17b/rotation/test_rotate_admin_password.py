@@ -26,7 +26,10 @@ def check(label: str, ok: bool) -> None:
 
 
 def run(*args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
-    proc = subprocess.run([sys.executable, "-I", str(TOOL), *args], capture_output=True, text=True, env={**os.environ, **(env or {})}, check=False)
+    if args and args[0] == "cleanup" and "--dry-run" not in args and "--no-ack" not in args:
+        args = (*args, "--i-know-this-removes-the-only-file-rollback")
+    args = tuple(a for a in args if a != "--no-ack")
+    proc = subprocess.run([sys.executable, "-I", str(TOOL), *args], capture_output=True, text=True, env={**os.environ, "ROT_TEST_NO_ACL": "1", **(env or {})}, check=False)
     return proc.returncode, proc.stdout + proc.stderr
 
 
@@ -43,7 +46,7 @@ def build(root: Path, test_file: bool = True, crlf: bool = False, bom: bool = Fa
     b = "\ufeff" if bom else ""
     (folder / ".env.db").write_text(f"{b}POSTGRES_USER=asistente{eol}POSTGRES_PASSWORD={OLD}  # admin{eol}POSTGRES_DB=asistenteia{eol}", encoding="utf-8", newline="")
     (folder / ".env.roles").write_text(
-        f"ADMIN_DATABASE_URL=postgresql+psycopg://asistente:{q}@db:5432/postgres{eol}DB_APP_PASSWORD=AppPw_0123456789abcdefghijklmnop{eol}# keep this comment{eol}", encoding="utf-8", newline="")
+        f"ADMIN_DATABASE_URL=postgresql+psycopg://asistente:{q}@db:5432/postgres{eol}DB_MIGRATOR_PASSWORD=Mig_0123456789abcdefghijklmnopqrstuv{eol}DB_APP_PASSWORD=AppPw_0123456789abcdefghijklmnop{eol}# keep this comment{eol}", encoding="utf-8", newline="")
     if test_file:
         (folder / ".env.test").write_text(
             f"TEST_DATABASE_URL=postgresql+psycopg://asistente:{q}@127.0.0.1:5442/asistenteia_test{eol}"
@@ -76,6 +79,7 @@ def main() -> int:
 
         # apply, plain
         code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        out_apply = out
         check("apply succeeds (exit 0)", code == 0)
         check("apply output holds no password", OLD not in out and NEW not in out and quote(OLD, safe="") not in out and quote(NEW, safe="") not in out)
         after = snapshot(folder)
@@ -86,6 +90,9 @@ def main() -> int:
         check("the old value (raw and quoted) is in no live env file", all(OLD not in v.decode() and quote(OLD, safe="") not in v.decode() for k, v in after.items() if k in (".env.db", ".env.roles", ".env.test")))
         check("the pre-17b copies were not touched by apply", after[".env.db.pre-17b"] == before[".env.db.pre-17b"])
         check("backups are byte-identical to the originals", all((bk / (n + ".old")).read_bytes() == before[n] for n in (".env.db", ".env.roles", ".env.test")))
+
+        check("the migrator password in .env.roles is untouched byte for byte (the administrator rotation never resets it)", "DB_MIGRATOR_PASSWORD=Mig_0123456789abcdefghijklmnopqrstuv" in after[".env.roles"].decode() and before[".env.roles"].decode().count("Mig_0123456789abcdefghijklmnopqrstuv") == after[".env.roles"].decode().count("Mig_0123456789abcdefghijklmnopqrstuv"))
+        check("apply notes the recovery copies that keep the old value", ".env.db.pre-17b" in out_apply and "NOTE" in out_apply)
 
         # verify / second apply
         code, out = run("verify", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"))
@@ -227,7 +234,7 @@ def main() -> int:
             code, out = run("cleanup", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
             check("a file that cannot be deleted is reported, not a traceback; the others are still removed (exit 1)", code == 1 and "NOT REMOVED .env.db.pre-17b" in out and "Traceback" not in out and not (folder / ".env.pre-17b").exists())
             check("the backup copies are kept so that the clean-up can run again", all((bk / (n + ".old")).exists() for n in (".env.db", ".env.roles", ".env.test")))
-            os.chmod(stuck, 0o666)
+            os.chmod(stuck, 0o666)  # noqa: S103 - restoring a test file so the temp folder can be removed
             code, out = run("cleanup", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
             check("after fixing the permission the clean-up completes and removes the backups last", code == 0 and not stuck.exists() and not bk.exists())
 
@@ -268,13 +275,87 @@ def main() -> int:
         code, out = run("cleanup", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"))
         check("a pre-17b file that does not hold the old value is kept", code == 0 and (folder / ".env.worker.pre-17b").exists() and "KEEP .env.worker.pre-17b" in out)
 
+        # review findings of SEC-17B-01 applied to the administrator tool: M1 (no traceback, no echo), M2 (Windows ACL), minor 2 (interruption window)
+        folder, nf, bk = fresh()
+        with open(folder / ".env.roles", "a", encoding="utf-8", newline="") as handle:
+            handle.write("OTHER_URL=postgresql://user:PW" + chr(0xFF03) + "SECRETPART@host:5432/db" + chr(10))
+        before = snapshot(folder)
+        code, out = run("plan", str(folder), "--new-file", str(nf))
+        check("a non-ASCII URL never produces a traceback or an echo of the value (M1, plan)", code == 1 and "Traceback" not in out and "SECRETPART" not in out and "FAILED unexpected" in out)
+        code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        check("apply with that URL changes nothing and leaks nothing (M1, apply)", code == 1 and snapshot(folder) == before and "SECRETPART" not in out and "Traceback" not in out)
+        if os.name == "nt":
+            folder, nf, bk = fresh()
+            proc = subprocess.run([sys.executable, "-I", str(TOOL), "apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk)], capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "ROT_TEST_NO_ACL"}, check=False)
+            check("on Windows apply refuses without --acl-script and writes nothing (M2)", proc.returncode == 1 and "--acl-script is required" in proc.stdout and not bk.exists())
+        folder, nf, bk = fresh()
+        before = snapshot(folder)
+        code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk), env={"ROT_TEST_FAIL_AT": "interruptmid1"})
+        check("an interruption between os.replace and its bookkeeping still restores that file (minor 2)", code == 130 and snapshot(folder) == before)
+
+        # review 3 of 17B.6, finding 1: an .env.test with nothing to rotate must not make a later rollback impossible
+        folder, nf, bk = fresh(test_file=False)
+        (folder / ".env.test").write_text("", encoding="utf-8")
+        code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        check("an empty .env.test is left alone and gets no (zero-byte) backup copy", code == 0 and (folder / ".env.test").read_bytes() == b"" and not (bk / ".env.test.old").exists())
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("rollback still works after such an apply", code == 0 and "ROLLBACK COMPLETE" in out)
+
+        # discard: only the *.old copies of this rotation, .env.db.old (the --old-from source) last
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        pre = {n: (folder / n).read_bytes() for n in (".env.db.pre-17b", ".env.pre-17b", ".env.worker.pre-17b")}
+        code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk), "--dry-run")
+        check("discard --dry-run lists the three .old copies, .env.db.old last, and removes nothing", code == 0 and out.index("REMOVE .env.test.old") < out.index("REMOVE .env.db.old") and (bk / ".env.db.old").exists() and out.count("WOULD REMOVE") == 3)
+        code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
+        check("discard removes only the .old copies and the empty folder; *.pre-17b untouched", code == 0 and not bk.exists() and all((folder / n).read_bytes() == v for n, v in pre.items()))
+        check("discard output holds no password", OLD not in out and NEW not in out)
+        folder, nf, bk = fresh()
+        bk.mkdir()
+        for n in (".env.db", ".env.roles", ".env.test"):
+            (bk / (n + ".old")).write_bytes((folder / n).read_bytes())
+        code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
+        check("discard is refused while the live files still hold the old value, and keeps the copies", code == 1 and (bk / ".env.db.old").exists() and (bk / ".env.test.old").exists())
+        if os.name == "nt":
+            folder, nf, bk = fresh()
+            run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+            os.chmod(bk / ".env.test.old", 0o444)  # a read-only attribute makes the removal fail on Windows
+            code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
+            check("a stuck copy leaves .env.db.old (the --old-from source) so that the discard can be repeated", code == 1 and (bk / ".env.db.old").exists() and "KEEP .env.db.old" in out)
+            os.chmod(bk / ".env.test.old", 0o666)  # noqa: S103 - restoring a test file so the temp folder can be removed
+
+        # review 2 of 17B.6, MAJOR N1: a kill while a backup copy is being written must never let rollback destroy a live file
+        folder, nf, bk = fresh()
+        before = snapshot(folder)
+        bk.mkdir()
+        (bk / ".env.roles.old").write_bytes(b"")  # what a hard kill between create and write leaves under the OLD scheme
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("rollback refuses an empty .old without a marker and leaves every live file untouched (N1)", code == 1 and snapshot(folder) == before and "no complete backup" in out)
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        applied = snapshot(folder)
+        (bk / ".env.roles.old").write_bytes(b"")
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("rollback refuses when a listed .old is empty or of another size and touches nothing (N1)", code == 1 and snapshot(folder) == applied and "incomplete" in out)
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        check("a finished backup has the marker and no temporary copy", (bk / ".backup-complete").is_file() and not [p for p in bk.iterdir() if p.name.endswith(".tmp")])
+        check("the marker holds names and sizes only", all(len(line.split()) == 2 and line.split()[1].isdigit() for line in (bk / ".backup-complete").read_text().splitlines()) and OLD not in (bk / ".backup-complete").read_text())
+        code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
+        check("discard removes the marker with the copies and the empty folder", code == 0 and not bk.exists())
+        # review 2, minor 2: the file-level rollback material cannot be removed by accident
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        code, out = run("cleanup", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--no-ack")
+        check("a real cleanup is refused without the explicit acknowledgement flag and removes nothing", code == 1 and "--i-know-this-removes-the-only-file-rollback" in out and (folder / ".env.db.pre-17b").exists() and (bk / ".env.db.old").exists())
+
         # no secret in argv: the tool takes only paths
         check("the interface has no argument that could carry a password", "--password" not in REAL_TOOL.read_text(encoding="utf-8"))
 
         # mutation testing
         if TOOL == REAL_TOOL and os.environ.get("ROT_NO_MUTATION") != "1":
             mutants = [
-                ("rollback does not restore", "bad = restore(folder, backup_dir, replaced, acl_script)", "bad = 0"),
+                ("rollback does not restore", "bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script)", "bad = 0"),
                 ("the plan does not refuse a variable that would keep the old value", 'if holds_old(new_text, old):', "if False:"),
                 ("quoted URL accepted", 'if value[:1] in "\'\\"":', "if False:"),
                 ("different password accepted", "if unquote(parts.password or \"\") != old:", "if False:"),
@@ -284,9 +365,18 @@ def main() -> int:
                 ("an interruption does not restore", "except BaseException as exc:  # an interruption must restore the files too", "except (Refused, OSError) as exc:"),
                 ("other env files are not scanned for the old value", 'if watched and path.is_file() and not path.is_symlink() and holds_old(', "if False and holds_old("),
                 ("cleanup does not tolerate an undeletable file", "    except OSError:" + chr(10) + "        return False", "    except OSError:" + chr(10) + "        raise"),
+                ("an unexpected parser error is not caught (traceback may echo a URL)", "    except Exception as exc:  # a parser error", "    except ZeroDivisionError as exc:  # a parser error"),
+                ("apply restores only the files already replaced", "list(result) if replacing else replaced", "replaced"),
+                ("Windows apply without --acl-script is allowed", 'if os.name == "nt" and acl_script is None and os.environ.get("ROT_TEST_NO_ACL") != "1":', "if False:"),
+                ("discard skips the verification", 'problems = verify_state(folder, new_file, old_source)\n    if problems:\n        for problem in problems:\n            say(f"DISCARD REFUSED', 'problems = []\n    if problems:\n        for problem in problems:\n            say(f"DISCARD REFUSED'),
+                ("discard removes the --old-from source first", "order = (TEST_FILE, ROLES_FILE, ADMIN_FILE)", "order = (ADMIN_FILE, ROLES_FILE, TEST_FILE)"),
+                ("an .env.test with nothing to rotate is backed up (a zero-byte copy blocks every rollback)", "if name == TEST_FILE and not changed:", "if False:"),
+                ("rollback does not need the completeness marker", 'marker = backup_dir / BACKUP_MARK\n    if not marker.is_file() or marker.is_symlink():', 'marker = backup_dir / BACKUP_MARK\n    if False:'),
+                ("rollback does not compare the size of the copy", "or copy.stat().st_size != int(size):", "or False:"),
+                ("a real cleanup needs no acknowledgement", "if not args.dry_run and not args.ack_cleanup:", "if False:"),
                 ("temporary files are never removed", "def remove_quietly(path: Path) -> None:" + chr(10) + "    try:", "def remove_quietly(path: Path) -> None:" + chr(10) + "    return" + chr(10) + "    try:"),
             ]
-            mutant_path = HERE / "rotate_admin_password.mut.py"
+            mutant_path = tmp_root / "rotate_admin_password.mut.py"  # inside the temporary folder: a killed run leaves nothing in the repository
             try:
                 for label, old_text, new_text in mutants:
                     source = REAL_TOOL.read_text(encoding="utf-8")

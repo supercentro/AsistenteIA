@@ -4,6 +4,7 @@ a generated script or the shell history. Names and verdicts only.
     python rotate_db_role.py alter  --container <db container> --role <role> --password-file <file>
     python rotate_db_role.py probe  --network <docker network> --host <db host> --role <role> --password-file <file> --expect accept|reject [--database postgres] [--image <image with psql>]
     python rotate_db_role.py check  --container <db container>
+  (probe also accepts --from-env-file F --var NAME [--as-url] to read the password from an env variable, or from the userinfo of a URL variable)
 
 How the secret travels:
   * the password is read from a file (one line, letters, digits, '-' and '_', 32 to 128 characters; owner-only, outside the repository);
@@ -13,7 +14,7 @@ How the secret travels:
   * `probe` hands the password to a throw-away container on its STANDARD INPUT (it is exported only inside that container, so it is in no
     argument and not in the container configuration) and connects from ANOTHER container over the Docker network: inside the database container the loopback address is trusted by pg_hba, so a check
     from there would prove nothing.
-Exit codes: 0 ok, 1 refused or the expectation failed, 2 usage or missing file, 3 the server rejected the statement.
+Exit codes: 0 ok, 1 refused or the expectation failed, 2 usage or missing file, 3 the server rejected the statement or the container did not answer (an `alter` may or may not have been applied: probe), 4 a local error (nothing was sent), 130 interrupted (an `alter` may or may not have been applied: probe).
 """
 
 from __future__ import annotations
@@ -66,6 +67,16 @@ def read_env_secret(path: Path, name: str) -> str:
     raise stop(f"REFUSED {name} is missing or empty in the env file", 1)
 
 
+def password_of_url(value: str, role: str) -> str:
+    """The password inside `scheme://user:password@host/db` (percent-decoded); the user must be the role being probed."""
+    from urllib.parse import unquote, urlsplit
+
+    parts = urlsplit(value.replace("+psycopg://", "://", 1))
+    if "://" not in value or unquote(parts.username or "") != role or not parts.password:
+        raise stop("REFUSED the variable is not a URL of that role with a password", 1)
+    return unquote(parts.password)
+
+
 def scram_verifier(password: str, salt: bytes | None = None, iterations: int = ITERATIONS) -> str:
     """SCRAM-SHA-256 verifier as PostgreSQL stores it (RFC 5802 / RFC 7677)."""
     salt = salt if salt is not None else os.urandom(16)
@@ -96,12 +107,15 @@ def cmd_check(container: str) -> int:
     return 0 if encryption == "scram-sha-256" else 1
 
 
-def cmd_alter(container: str, role: str, password: str) -> int:
+def cmd_alter(container: str, role: str, password: str, require_superuser: bool = False) -> int:
     if not ROLE.fullmatch(role):
         say("REFUSED the role name must be lower case letters, digits and '_'")
         return 1
     verifier = scram_verifier(password)
-    sql = f'ALTER ROLE "{role}" PASSWORD \'{verifier}\';\n'.encode()
+    guard = ""
+    if require_superuser:  # 17B.6: the role being altered MUST be a superuser, so a mistyped --role can never change a restricted role
+        guard = f"DO $guard$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{role}' AND rolsuper) THEN RAISE EXCEPTION 'not a superuser'; END IF; END $guard$;\n"  # noqa: S608 - `role` already matched ROLE (lower case letters, digits, underscore): it cannot carry SQL
+    sql = f'{guard}ALTER ROLE "{role}" PASSWORD \'{verifier}\';\n'.encode()
     proc = docker(["exec", "-i", container, "sh", "-c", 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -q -f -'], stdin=sql)
     if proc.returncode != 0:
         say(f"ALTER ROLE FAILED for {role}: the server rejected the statement (exit {proc.returncode}); nothing is known to have changed")
@@ -135,6 +149,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--password-file")
     parser.add_argument("--from-env-file", help="read the password from NAME=value in this env file instead (the current or the old password)")
     parser.add_argument("--var", default="POSTGRES_PASSWORD")
+    parser.add_argument("--require-superuser", action="store_true", help="alter only: refuse (nothing changed) unless the role is a superuser; mandatory in the 17B.6 procedure")
+    parser.add_argument("--as-url", action="store_true", help="the variable is a URL: take the password of its userinfo (the user must be --role); proves the stored URL form works")
     parser.add_argument("--network")
     parser.add_argument("--host")
     parser.add_argument("--expect", choices=["accept", "reject"])
@@ -146,13 +162,28 @@ def main(argv: list[str]) -> int:
         if bool(a.password_file) == bool(a.from_env_file):
             say("give exactly one of --password-file and --from-env-file")
             return 2
-        password = read_password(Path(a.password_file)) if a.password_file else read_env_secret(Path(a.from_env_file), a.var)
-    if a.command == "check" and a.container:
-        return cmd_check(a.container)
-    if a.command == "alter" and a.container and a.role:
-        return cmd_alter(a.container, a.role, password)
-    if a.command == "probe" and a.network and a.host and a.role and a.expect:
-        return cmd_probe(a.network, a.host, a.role, password, a.expect, a.database, a.image)
+        try:
+            password = read_password(Path(a.password_file)) if a.password_file else read_env_secret(Path(a.from_env_file), a.var)
+            if a.as_url:
+                password = password_of_url(password, a.role or "")
+        except SystemExit:
+            raise
+        except Exception as exc:  # urlsplit and decode errors can echo the value: type only
+            say(f"FAILED unexpected {type(exc).__name__}; no detail is shown")
+            return 4
+    try:
+        if a.command == "check" and a.container:
+            return cmd_check(a.container)
+        if a.command == "alter" and a.container and a.role:
+            return cmd_alter(a.container, a.role, password, a.require_superuser)
+        if a.command == "probe" and a.network and a.host and a.role and a.expect:
+            return cmd_probe(a.network, a.host, a.role, password, a.expect, a.database, a.image)
+    except KeyboardInterrupt:
+        say("INTERRUPTED: the state of the database is unknown for an alter; run the read-only probes before anything else")
+        return 130
+    except Exception as exc:  # no traceback: an error message must never carry the password that is in memory
+        say(f"FAILED unexpected {type(exc).__name__}; no detail is shown")
+        return 4
     say("missing argument for this command")
     return 2
 

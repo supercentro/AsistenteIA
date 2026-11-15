@@ -41,5 +41,6 @@ mutate "the backup folder may be non-empty" 'raise Refused("the backup folder is
 mutate "an unexpected parser error is not caught (traceback may echo a URL)" '    except Exception as exc:  # a parser error' '    except ZeroDivisionError as exc:  # a parser error'
 mutate "apply restores only the files already replaced" 'list(result) if replacing else replaced' 'replaced'
 mutate "Windows apply without --acl-script is allowed" 'if os.name == "nt" and acl_script is None and os.environ.get("ROT_TEST_NO_ACL") != "1":' 'if False:'
+mutate "rollback trusts any .old, as before the fix" 'present = base.check_backup(backup_dir, TARGETS)' 'present = [n for n in TARGETS if (backup_dir / (n + ".old")).is_file()]'
 mutate "discard removes the old-value source copy first" 'for n in (URL_FILE, PASSWORD_FILE) if' 'for n in (PASSWORD_FILE, URL_FILE) if'
 echo "MUTATIONS caught=$caught of $n"; [ "$caught" = "$n" ]
