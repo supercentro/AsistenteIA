@@ -5,4 +5,4 @@ DISCARD INCOMPLETE: .env.migrate.old could not be removed
 DISCARD REMOVE .env.migrate.old
 DISCARD REMOVE .env.roles.old
 DISCARD OK: 2 backup copy(ies) removed; the *.pre-17b copies were not touched
-PASS=58 FAIL=0
+PASS=65 FAIL=0

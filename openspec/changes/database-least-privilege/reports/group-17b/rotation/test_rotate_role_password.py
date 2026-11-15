@@ -229,5 +229,43 @@ with tempfile.TemporaryDirectory() as t:
     check("a finished backup has the marker, no temporary copy", (bkk / ".backup-complete").is_file() and not [p for p in bkk.iterdir() if p.name.endswith(".tmp")])
     r = run("discard", str(fk), "--new-file", str(nfk), "--old-from", str(bkk / ".env.roles.old"), "--backup-dir", str(bkk))
     check("discard removes the marker with the copies and the empty folder", r.returncode == 0 and not bkk.exists())
+    # hardening round of 17B.6 (same helpers)
+    sub = tmp / "h1"
+    sub.mkdir()
+    fh, nfh, bkh, oh, nh = fixture(sub)
+    run("apply", str(fh), "--new-file", str(nfh), "--backup-dir", str(bkh))
+    applied = snapshot(fh)
+    original = (bkh / ".env.roles.old").read_bytes()
+    (bkh / ".env.roles.old").write_bytes(bytes(reversed(original)))
+    r = run("rollback", str(fh), "--backup-dir", str(bkh))
+    check("rollback refuses a .old replaced by other content of the SAME size and touches nothing", r.returncode == 1 and snapshot(fh) == applied)
+    for point, expected in (("marker", 1), ("markermid", 130)):
+        sub = tmp / ("h2" + point)
+        sub.mkdir()
+        fh, nfh, bkh, oh, nh = fixture(sub)
+        before = snapshot(fh)
+        r = run("apply", str(fh), "--new-file", str(nfh), "--backup-dir", str(bkh), fail_at=point)
+        check(f"apply interrupted while the marker is created ({point}) exits {expected} and touches no live file", r.returncode == expected and snapshot(fh) == before and not (bkh / ".backup-complete").exists())
+        r = run("rollback", str(fh), "--backup-dir", str(bkh))
+        check(f"rollback refuses a folder whose marker was never completed ({point})", r.returncode == 1 and snapshot(fh) == before)
+    sub = tmp / "h3"
+    sub.mkdir()
+    fh, nfh, bkh, oh, nh = fixture(sub)
+    run("apply", str(fh), "--new-file", str(nfh), "--backup-dir", str(bkh))
+    (bkh / "..env.roles.old.tmp").write_bytes(oh.encode())
+    r = run("discard", str(fh), "--new-file", str(nfh), "--old-from", str(bkh / ".env.roles.old"), "--backup-dir", str(bkh))
+    check("discard also removes the hidden leftovers of a killed apply", r.returncode == 0 and not bkh.exists())
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rrp_lock", TOOL)
+    mod2 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod2)
+    lock_dir = tmp / "lockdir"
+    lock_dir.mkdir()
+    mod2.base.acquire_lock(lock_dir)
+    try:
+        mod2.base.acquire_lock(lock_dir)
+        check("the second acquisition of the apply lock is refused", False)
+    except mod2.Refused:
+        check("the second acquisition of the apply lock is refused", True)
 print(f"PASS={passed} FAIL={failed}")
 sys.exit(1 if failed else 0)

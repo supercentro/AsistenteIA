@@ -7,7 +7,7 @@
   caught   the URL may name the role with another password
   caught   plan accepts a new file inside the env folder
   caught   discard skips verify
-  caught   the backup folder may be non-empty
+  caught   the backup folder may be non-empty (both checks removed)
   caught   an unexpected parser error is not caught (traceback may echo a URL)
   caught   apply restores only the files already replaced
   caught   Windows apply without --acl-script is allowed

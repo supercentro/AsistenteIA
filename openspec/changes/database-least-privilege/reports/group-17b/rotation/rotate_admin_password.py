@@ -18,8 +18,8 @@ the targets already replaced are restored from the backup and compared byte for 
 cleanup: only after `verify` is clean, and only the EXACT names the 17B tools created (`.env.pre-17b`, `.env.worker.pre-17b`,
 `.env.db.pre-17b`, `.env.test.pre-17b`, `.env.test.absent-before-17b`; with --backup-dir the `*.old` copies); no wildcard.
 Exit codes: 0 ok, 1 refused or failed (nothing changed, or everything restored), 2 usage or missing file, 3 rollback incomplete, 130 interrupted (restored).
-Backups: each `<name>.old` is written through a temporary name and a `.backup-complete` marker (names and sizes) is written last; `rollback` refuses without the marker or when a copy is missing, empty or of another size.
-Test hook: environment ROT_TEST_FAIL_AT=<temp|replace1|replace2|replace3|verify|interruptmid1> (and ROT_TEST_NO_ACL=1 disables the Windows ACL requirement in file-level tests) makes the tool fail at that point (it can only make it fail).
+Backups: each `<name>.old` is written through a temporary name (fsynced) and a `.backup-complete` marker (name, size and SHA-256 of each copy, written atomically) is written last, before any live file is touched; `rollback` refuses without the marker or when a copy is missing, empty, of another size or of another content. `apply` takes an exclusive `.apply.lock` in the backup folder: of two concurrent runs exactly one proceeds.
+Test hook: environment ROT_TEST_FAIL_AT=<temp|marker|markermid|replace1|replace2|replace3|verify|interruptmid1> (and ROT_TEST_HOLD_LOCK_SECONDS) (and ROT_TEST_NO_ACL=1 disables the Windows ACL requirement in file-level tests) makes the tool fail at that point (it can only make it fail).
 """
 
 from __future__ import annotations
@@ -57,14 +57,24 @@ def require_acl(acl_script: str | None) -> None:
 
 
 BACKUP_MARK = ".backup-complete"
+LOCK_NAME = ".apply.lock"
+
+
+def sha256_hex(raw: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(raw).hexdigest()
 
 
 def write_backup_copy(backup_dir: Path, name: str, raw: bytes, acl_script: str | None) -> None:
-    """Write `<name>.old` through a temporary name: a kill can never leave an empty or partial `.old` under the real name (review 2 of 17B.6, MAJOR N1)."""
+    """Write `<name>.old` through a temporary name, fsynced, then rename: a kill can never leave an empty or partial `.old` under the real name."""
     final, temp = backup_dir / (name + ".old"), backup_dir / ("." + name + ".old.tmp")
     temp.write_bytes(b"")
     restrict(acl_script, temp, "Modify")
-    temp.write_bytes(raw)
+    with open(temp, "wb") as handle:
+        handle.write(raw)
+        handle.flush()
+        os.fsync(handle.fileno())
     if temp.read_bytes() != raw:
         remove_quietly(temp)
         raise Refused(f"{name}: the backup copy differs from the original")
@@ -72,29 +82,68 @@ def write_backup_copy(backup_dir: Path, name: str, raw: bytes, acl_script: str |
     os.replace(temp, final)
 
 
-def write_marker(backup_dir: Path, sizes: dict[str, int], acl_script: str | None) -> None:
-    """The marker (names and sizes only) says that every copy is complete and verified; `rollback` refuses without it."""
-    marker = backup_dir / BACKUP_MARK
-    marker.write_bytes(b"")
-    restrict(acl_script, marker, "Modify")
-    marker.write_text("".join(f"{n} {s}\n" for n, s in sizes.items()), encoding="utf-8")
+def write_marker(backup_dir: Path, copies: dict[str, bytes], acl_script: str | None) -> None:
+    """The marker (name, size and SHA-256 of each copy) says that every copy is complete and verified; `rollback` refuses without it.
+
+    It is written to a temporary name, fsynced and renamed, so an interrupted write leaves no marker at all (and then no live file was touched yet).
+    """
+    fail_at("marker")
+    marker, temp = backup_dir / BACKUP_MARK, backup_dir / (BACKUP_MARK + ".tmp")
+    temp.write_bytes(b"")
+    restrict(acl_script, temp, "Modify")
+    with open(temp, "wb") as handle:
+        handle.write("".join(f"{n} {len(raw)} {sha256_hex(raw)}\n" for n, raw in copies.items()).encode("utf-8"))
+        handle.flush()
+        os.fsync(handle.fileno())
+    if os.environ.get("ROT_TEST_FAIL_AT") == "markermid":
+        raise KeyboardInterrupt  # the window between the temporary marker and its rename
+    os.replace(temp, marker)
 
 
-def check_backup(backup_dir: Path, targets: tuple[str, ...]) -> list[str]:
-    """Names the marker lists whose `.old` exists, is not a link and has exactly the recorded non-zero size; anything else refuses."""
+def check_backup(backup_dir: Path, targets: tuple[str, ...]) -> dict[str, bytes]:
+    """Names the marker lists whose `.old` exists, is not a link and has exactly the recorded non-zero size AND SHA-256; anything else refuses."""
     marker = backup_dir / BACKUP_MARK
     if not marker.is_file() or marker.is_symlink():
         raise Refused("the backup folder holds no complete backup (no marker): do not roll back from it; compare the live files with the .old copies by hand")
-    names: list[str] = []
+    verified: dict[str, bytes] = {}
     for line in marker.read_text(encoding="utf-8").splitlines():
-        name, _, size = line.partition(" ")
+        name, _, rest = line.partition(" ")
+        size, _, digest = rest.partition(" ")
         copy = backup_dir / (name + ".old")
-        if name not in targets or not size.isdigit() or int(size) == 0 or not copy.is_file() or copy.is_symlink() or copy.stat().st_size != int(size):
+        if name not in targets or not size.isdigit() or int(size) == 0 or len(digest) != 64 or not copy.is_file() or copy.is_symlink() or copy.stat().st_size != int(size):
             raise Refused(f"{name or '?'}: the backup copy is missing, empty or incomplete: do not roll back from it")
-        names.append(name)
-    if not names:
+        data = copy.read_bytes()
+        if sha256_hex(data) != digest:
+            raise Refused(f"{name}: the backup copy changed after it was written (same size, other content): do not roll back from it")
+        verified[name] = data  # the restore writes THESE bytes, not a second read of the file
+    if not verified:
         raise Refused("the backup marker lists no file")
-    return names
+    for target in targets:
+        if target not in verified and (backup_dir / (target + ".old")).exists():
+            raise Refused(f"{target}: a backup copy exists that the marker does not list: do not roll back from this folder")
+    return verified
+
+
+def acquire_lock(backup_dir: Path) -> None:
+    """Exclusive creation: of two applies on the same folder, exactly one gets the lock."""
+    try:
+        os.close(os.open(backup_dir / LOCK_NAME, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        raise Refused("another apply is using this backup folder (or a killed one left .apply.lock): use a fresh folder") from None
+
+
+def release_lock(backup_dir: Path) -> None:
+    remove_quietly(backup_dir / LOCK_NAME)
+
+
+def remove_leftovers(backup_dir: Path, targets: tuple[str, ...], dry_run: bool, acl_script: str | None) -> None:
+    """Hidden files a killed apply can leave in the folder; the temporary copies hold the old value, so they are overwritten before removal."""
+    for name in [f".{n}.old.tmp" for n in targets] + [BACKUP_MARK + ".tmp", LOCK_NAME]:
+        path = backup_dir / name
+        if path.is_file() and not path.is_symlink() and path.stat().st_nlink <= 1:  # a hard link to a live file must never be overwritten
+            say(f"DISCARD {'WOULD REMOVE' if dry_run else 'REMOVE'} leftover {name}")
+            if not dry_run:
+                overwrite_and_remove(path, acl_script)
 
 
 def orphans(folder: Path) -> list[Path]:
@@ -290,13 +339,21 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
         say(f"NOTE recovery copies that keep the old value (the file-level rollback material; dead after the database change, not rotated): {', '.join(held)}")
     backup_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(backup_dir, 0o700)
+    acquire_lock(backup_dir)
+    if [p for p in backup_dir.iterdir() if p.name != LOCK_NAME]:
+        release_lock(backup_dir)
+        raise Refused("the backup folder is not empty; not overwriting")
+    if os.environ.get("ROT_TEST_HOLD_LOCK_SECONDS"):
+        import time
+
+        time.sleep(float(os.environ["ROT_TEST_HOLD_LOCK_SECONDS"]))  # test hook: keeps the lock long enough for a concurrent run to collide
     temps: list[Path] = []
     replaced: list[str] = []
     replacing = False  # once true every backup copy is complete and verified: restore ALL targets (idempotent)
     try:
         for name, (raw, _, _) in result.items():
             write_backup_copy(backup_dir, name, raw, acl_script)
-        write_marker(backup_dir, {n: len(v[0]) for n, v in result.items()}, acl_script)  # only now may a rollback trust the copies
+        write_marker(backup_dir, {n: v[0] for n, v in result.items()}, acl_script)  # only now may a rollback trust the copies
         say(f"BACKUP {len(result)} original file(s) copied to the backup folder (owner-only); {', '.join(result)}")
         fail_at("temp")
         for name, (_, encoded, _) in result.items():
@@ -326,7 +383,7 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
         return 0
     except BaseException as exc:  # an interruption must restore the files too
         say(f"APPLY FAILED ({type(exc).__name__}: {exc if isinstance(exc, Refused) else 'file operation failed or interrupted'}); restoring")
-        bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script)
+        bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script, {n: v[0] for n, v in result.items()})
         say("ROLLBACK COMPLETE: every replaced file restored byte for byte" if bad == 0 else f"ROLLBACK INCOMPLETE: {bad} file(s) differ from their backup")
         if isinstance(exc, KeyboardInterrupt):
             return 130 if bad == 0 else 3
@@ -336,6 +393,7 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
     finally:
         for temp in temps:
             remove_quietly(temp)
+        release_lock(backup_dir)
 
 
 def post_check(folder: Path, result: dict[str, tuple[bytes, bytes, list[str]]], old: str, new: str) -> None:
@@ -357,21 +415,24 @@ def post_check(folder: Path, result: dict[str, tuple[bytes, bytes, list[str]]], 
             raise Refused(f"{name}: a line outside the rotated variables changed")
 
 
-def restore(folder: Path, backup_dir: Path, replaced: list[str], acl_script: str | None) -> int:
+def restore(folder: Path, backup_dir: Path, replaced: list[str], acl_script: str | None, verified: dict[str, bytes] | None = None) -> int:
+    """Put the originals back. `verified` holds bytes already checked (digest, or the in-memory originals): they are used instead of re-reading the `.old` file."""
     bad = 0
     for name in replaced:
-        copy = backup_dir / (name + ".old")
         try:
-            raw = copy.read_bytes()
+            raw = (verified or {})[name]  # only bytes that were verified (a digest, or the in-memory originals) are ever written back; a name without them is a bug and counts as a failure
             temp = folder / f".{name}.restore-{os.getpid()}"
             temp.write_bytes(b"")
             restrict(acl_script, temp, "Modify")
-            temp.write_bytes(raw)
+            with open(temp, "wb") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
             os.replace(temp, folder / name)
             restrict(acl_script, folder / name, "Modify")
             if (folder / name).read_bytes() != raw:
                 bad += 1
-        except (OSError, Refused):
+        except (OSError, Refused, KeyError):
             bad += 1
     for left in orphans(folder):
         remove_quietly(left)
@@ -380,8 +441,9 @@ def restore(folder: Path, backup_dir: Path, replaced: list[str], acl_script: str
 
 def cmd_rollback(folder: Path, backup_dir: Path, acl_script: str | None) -> int:
     require_acl(acl_script)
-    present = check_backup(backup_dir, TARGETS)
-    bad = restore(folder, backup_dir, present, acl_script)
+    contents = check_backup(backup_dir, TARGETS)
+    present = list(contents)
+    bad = restore(folder, backup_dir, present, acl_script, contents)
     say("ROLLBACK COMPLETE (orphan temporary files removed)" if bad == 0 else f"ROLLBACK INCOMPLETE: {bad} file(s)")
     return 0 if bad == 0 else 3
 
@@ -483,6 +545,8 @@ def cmd_discard(folder: Path, new_file: Path, old_source: Path, backup_dir: Path
         say(f"DISCARD {'WOULD REMOVE' if dry_run else 'REMOVE'} {path.name}")
         if not dry_run and not overwrite_and_remove(path, acl_script):
             stuck.append(path.name)
+    if not stuck:
+        remove_leftovers(backup_dir, order, dry_run, acl_script)
     if not dry_run and not stuck:
         (backup_dir / BACKUP_MARK).unlink(missing_ok=True)
     if not dry_run:
@@ -539,6 +603,7 @@ def cmd_cleanup(folder: Path, new_file: Path, old_source: Path, backup_dir: Path
         targets = [*targets, *backups]
     if backup_dir is not None and not dry_run:
         if not stuck:
+            remove_leftovers(backup_dir, TARGETS, False, acl_script)
             (backup_dir / BACKUP_MARK).unlink(missing_ok=True)
         try:
             backup_dir.rmdir()
@@ -589,7 +654,7 @@ def main(argv: list[str]) -> int:
         say(f"REFUSED {exc}")
         return 1
     except KeyboardInterrupt:
-        say("INTERRUPTED: if a rollback or discard was running, run it again (both are safe to repeat)")
+        say("INTERRUPTED: if an apply was running run rollback (the backup marker exists once the live files may be touched); if a rollback or discard was running run it again (both are safe to repeat)")
         return 130
     except OSError as exc:
         say(f"FAILED a file operation failed ({type(exc).__name__}); nothing secret is shown")

@@ -149,20 +149,24 @@ def plan_old(folder: Path) -> str:
     return old_of(decode(read_bytes(folder / PASSWORD_FILE), PASSWORD_FILE)[0]) or ""
 
 
-def restore(folder: Path, backup_dir: Path, replaced: list[str], acl_script: str | None) -> int:
+def restore(folder: Path, backup_dir: Path, replaced: list[str], acl_script: str | None, verified: dict[str, bytes] | None = None) -> int:
+    """Put the originals back. `verified` holds bytes already checked (digest, or the in-memory originals): they are used instead of re-reading the `.old` file."""
     bad = 0
     for name in replaced:
         try:
-            raw = (backup_dir / (name + ".old")).read_bytes()
+            raw = (verified or {})[name]  # only bytes that were verified (a digest, or the in-memory originals) are ever written back; a name without them is a bug and counts as a failure
             temp = folder / f".{name}.restore-{os.getpid()}"
             temp.write_bytes(b"")
             restrict(acl_script, temp, "Modify")
-            temp.write_bytes(raw)
+            with open(temp, "wb") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
             os.replace(temp, folder / name)
             restrict(acl_script, folder / name, "Modify")
             if (folder / name).read_bytes() != raw:
                 bad += 1
-        except (OSError, Refused):
+        except (OSError, Refused, KeyError):
             bad += 1
     for left in orphans(folder):
         remove_quietly(left)
@@ -182,13 +186,21 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
         say(f"NOTE pre-17b copies holding the old value (not rotated; dead after the database change): {', '.join(held)}")
     backup_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(backup_dir, 0o700)
+    base.acquire_lock(backup_dir)
+    if [p for p in backup_dir.iterdir() if p.name != base.LOCK_NAME]:
+        base.release_lock(backup_dir)
+        raise Refused("the backup folder is not empty; not overwriting")
+    if os.environ.get("ROT_TEST_HOLD_LOCK_SECONDS"):
+        import time
+
+        time.sleep(float(os.environ["ROT_TEST_HOLD_LOCK_SECONDS"]))  # test hook: keeps the lock long enough for a concurrent run to collide
     temps: list[Path] = []
     replaced: list[str] = []
     replacing = False  # once true every backup copy is complete and verified: restore ALL targets (idempotent), even one whose os.replace was interrupted
     try:
         for name, (raw, _, _) in result.items():
             base.write_backup_copy(backup_dir, name, raw, acl_script)
-        base.write_marker(backup_dir, {n: len(v[0]) for n, v in result.items()}, acl_script)  # only now may a rollback trust the copies
+        base.write_marker(backup_dir, {n: v[0] for n, v in result.items()}, acl_script)  # only now may a rollback trust the copies
         say(f"BACKUP {len(result)} original file(s) copied to the backup folder (owner-only); {', '.join(result)}")
         fail_at("temp")
         for name, (_, encoded, _) in result.items():
@@ -218,7 +230,7 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
         return 0
     except BaseException as exc:  # an interruption must restore the files too
         say(f"APPLY FAILED ({type(exc).__name__}: {exc if isinstance(exc, Refused) else 'file operation failed or interrupted'}); restoring")
-        bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script)
+        bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script, {n: v[0] for n, v in result.items()})
         say("ROLLBACK COMPLETE: every replaced file restored byte for byte" if bad == 0 else f"ROLLBACK INCOMPLETE: {bad} file(s) differ from their backup")
         if isinstance(exc, KeyboardInterrupt):
             return 130 if bad == 0 else 3
@@ -228,12 +240,14 @@ def cmd_apply(folder: Path, new_file: Path, backup_dir: Path, acl_script: str | 
     finally:
         for temp in temps:
             remove_quietly(temp)
+        base.release_lock(backup_dir)
 
 
 def cmd_rollback(folder: Path, backup_dir: Path, acl_script: str | None) -> int:
     require_acl(acl_script)
-    present = base.check_backup(backup_dir, TARGETS)
-    bad = restore(folder, backup_dir, present, acl_script)
+    contents = base.check_backup(backup_dir, TARGETS)
+    present = list(contents)
+    bad = restore(folder, backup_dir, present, acl_script, contents)
     say("ROLLBACK COMPLETE (orphan temporary files removed)" if bad == 0 else f"ROLLBACK INCOMPLETE: {bad} file(s)")
     return 0 if bad == 0 else 3
 
@@ -297,6 +311,8 @@ def cmd_discard(folder: Path, new_file: Path, old_source: Path, backup_dir: Path
         say(f"DISCARD {'WOULD REMOVE' if dry_run else 'REMOVE'} {path.name}")
         if not dry_run and not base.overwrite_and_remove(path, acl_script):
             stuck.append(path.name)
+    if not stuck:
+        base.remove_leftovers(backup_dir, TARGETS, dry_run, acl_script)
     if not dry_run and not stuck:
         (backup_dir / base.BACKUP_MARK).unlink(missing_ok=True)
     if not dry_run:
@@ -342,6 +358,9 @@ def main(argv: list[str]) -> int:
     except Refused as exc:
         say(f"REFUSED {exc}")
         return 1
+    except KeyboardInterrupt:
+        say("INTERRUPTED: if an apply was running run rollback (the backup marker exists once the live files may be touched); if a rollback or discard was running run it again (both are safe to repeat)")
+        return 130
     except OSError as exc:
         say(f"FAILED a file operation failed ({type(exc).__name__}); nothing secret is shown")
         return 1

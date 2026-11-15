@@ -340,7 +340,7 @@ def main() -> int:
         folder, nf, bk = fresh()
         run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
         check("a finished backup has the marker and no temporary copy", (bk / ".backup-complete").is_file() and not [p for p in bk.iterdir() if p.name.endswith(".tmp")])
-        check("the marker holds names and sizes only", all(len(line.split()) == 2 and line.split()[1].isdigit() for line in (bk / ".backup-complete").read_text().splitlines()) and OLD not in (bk / ".backup-complete").read_text())
+        check("the marker holds names, sizes and digests only", all(len(line.split()) == 3 and line.split()[1].isdigit() for line in (bk / ".backup-complete").read_text().splitlines()) and OLD not in (bk / ".backup-complete").read_text())
         code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
         check("discard removes the marker with the copies and the empty folder", code == 0 and not bk.exists())
         # review 2, minor 2: the file-level rollback material cannot be removed by accident
@@ -349,13 +349,97 @@ def main() -> int:
         code, out = run("cleanup", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--no-ack")
         check("a real cleanup is refused without the explicit acknowledgement flag and removes nothing", code == 1 and "--i-know-this-removes-the-only-file-rollback" in out and (folder / ".env.db.pre-17b").exists() and (bk / ".env.db.old").exists())
 
+        # hardening round of 17B.6: SHA-256 in the marker, atomic marker, lock, leftovers, hostile files
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        applied = snapshot(folder)
+        marker_text = (bk / ".backup-complete").read_text()
+        check("the marker holds name, size and a 64-hex SHA-256 per copy and no password", all(len(line.split()) == 3 and len(line.split()[2]) == 64 for line in marker_text.splitlines()) and OLD not in marker_text and NEW not in marker_text)
+        original = (bk / ".env.roles.old").read_bytes()
+        (bk / ".env.roles.old").write_bytes(bytes(reversed(original)))  # same size, other content
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("rollback refuses a .old replaced by other content of the SAME size and touches nothing", code == 1 and "changed" in out and snapshot(folder) == applied)
+        (bk / ".env.roles.old").write_bytes(original)
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("with the genuine copy back, the rollback works", code == 0 and "ROLLBACK COMPLETE" in out)
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        applied = snapshot(folder)
+        marker_lines = (bk / ".backup-complete").read_text().splitlines()
+        (bk / ".backup-complete").write_text(chr(10).join(marker_lines[:-1]) + chr(10))
+        code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+        check("rollback refuses a marker that lists only some of the copies present, and touches nothing", code == 1 and "does not list" in out and snapshot(folder) == applied)
+        for point, expected in (("marker", 1), ("markermid", 130)):
+            folder, nf, bk = fresh()
+            before = snapshot(folder)
+            code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk), env={"ROT_TEST_FAIL_AT": point})
+            check(f"apply interrupted while the marker is created ({point}) exits {expected}, touches no live file and leaves no marker", code == expected and snapshot(folder) == before and not (bk / ".backup-complete").exists())
+            code, out = run("rollback", str(folder), "--backup-dir", str(bk))
+            check(f"rollback refuses a folder whose marker was never completed ({point})", code == 1 and snapshot(folder) == before)
+            code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+            check(f"the half-used folder is refused for a new apply ({point}): a fresh folder is required", code == 1 and snapshot(folder) == before)
+        # leftovers of a killed apply are removed (the temporary copies hold the old value)
+        folder, nf, bk = fresh()
+        run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        (bk / "..env.db.old.tmp").write_bytes(OLD.encode())
+        (bk / ".backup-complete.tmp").write_bytes(b"x")
+        (bk / ".apply.lock").write_bytes(b"")
+        code, out = run("discard", str(folder), "--new-file", str(nf), "--old-from", str(bk / ".env.db.old"), "--backup-dir", str(bk))
+        check("discard also removes the hidden leftovers of a killed apply and the folder", code == 0 and not bk.exists() and "leftover ..env.db.old.tmp" in out)
+        # exclusive lock
+        import importlib.util
+        import time
+        spec = importlib.util.spec_from_file_location("rap_inproc", TOOL)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        lock_dir = Path(tempfile.mkdtemp(dir=tmp_root))
+        module.acquire_lock(lock_dir)
+        try:
+            module.acquire_lock(lock_dir)
+            check("the second acquisition of the apply lock is refused", False)
+        except module.Refused:
+            check("the second acquisition of the apply lock is refused", True)
+        module.release_lock(lock_dir)
+        module.acquire_lock(lock_dir)
+        check("the lock can be taken again once released", True)
+        folder, nf, bk = fresh()
+        first = subprocess.Popen([sys.executable, "-I", str(TOOL), "apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env={**os.environ, "ROT_TEST_NO_ACL": "1", "ROT_TEST_HOLD_LOCK_SECONDS": "4"})
+        time.sleep(1.5)
+        code, out = run("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk))
+        check("a concurrent apply on the same folder is refused", code == 1 and ("another apply" in out or "not empty" in out))
+        first_out, _ = first.communicate(timeout=120)
+        check("the first apply finishes OK, rotates once and releases the lock", first.returncode == 0 and (bk / ".backup-complete").exists() and not (bk / ".apply.lock").exists() and OLD not in first_out and NEW not in first_out)
+        # hostile files: every command, no secret, no traceback, a failed apply changes nothing
+        hostile = {
+            "NUL bytes and invalid UTF-8 around the password": lambda f: (f / ".env.db").write_bytes(b"POSTGRES_USER=asistente" + bytes([10]) + b"POSTGRES_PASSWORD=" + OLD.encode() + bytes([0, 255, 254, 10])),
+            "bracketed host (urlsplit error)": lambda f: (f / ".env.roles").write_text("ADMIN_DATABASE_URL=postgresql://asistente:" + quote(OLD, safe="") + "@[bad/db" + chr(10), encoding="utf-8"),
+            "one megabyte line": lambda f: (f / ".env.roles").write_text("ADMIN_DATABASE_URL=postgresql://asistente:" + quote(OLD, safe="") + "@db/x" + chr(10) + "X=" + "A" * 1_000_000 + chr(10), encoding="utf-8"),
+            "directory instead of .env.test": lambda f: ((f / ".env.test").unlink(), (f / ".env.test").mkdir()),
+            "non-ASCII host": lambda f: (f / ".env.test").write_text("TEST_DATABASE_URL=postgresql://asistente:" + quote(OLD, safe="") + "@h" + chr(0xFF03) + "ost/x" + chr(10), encoding="utf-8"),
+        }
+        for label, damage in hostile.items():
+            folder, nf, bk = fresh()
+            damage(folder)
+            before = snapshot(folder) if not (folder / ".env.test").is_dir() else None
+            outputs = []
+            for command in (("plan", str(folder), "--new-file", str(nf)), ("apply", str(folder), "--new-file", str(nf), "--backup-dir", str(bk)), ("verify", str(folder), "--new-file", str(nf), "--old-from", str(folder / ".env.db")), ("rollback", str(folder), "--backup-dir", str(bk))):
+                code, out = run(*command)
+                outputs.append((command[0], code, out))
+            joined = "".join(o for _, _, o in outputs)
+            check(f"hostile file ({label}): no password, no quoted password and no traceback in any command", OLD not in joined and NEW not in joined and quote(OLD, safe="") not in joined and "Traceback" not in joined)
+            apply_code = next(c for n, c, _ in outputs if n == "apply")
+            live_names = {".env.db", ".env.roles", ".env.test"}
+            leaked = [p.name for base_dir in (folder, bk) if base_dir.exists() for p in base_dir.rglob("*") if p.is_file() and NEW.encode() in p.read_bytes() and not (base_dir == folder and p.name in live_names)]
+            check(f"hostile file ({label}): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)", not leaked)
+            check(f"hostile file ({label}): a failed apply restored everything", apply_code == 0 or before is None or snapshot(folder) == before)
+
         # no secret in argv: the tool takes only paths
         check("the interface has no argument that could carry a password", "--password" not in REAL_TOOL.read_text(encoding="utf-8"))
 
         # mutation testing
         if TOOL == REAL_TOOL and os.environ.get("ROT_NO_MUTATION") != "1":
             mutants = [
-                ("rollback does not restore", "bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script)", "bad = 0"),
+                ("rollback does not restore", "bad = restore(folder, backup_dir, list(result) if replacing else replaced, acl_script, {n: v[0] for n, v in result.items()})", "bad = 0"),
                 ("the plan does not refuse a variable that would keep the old value", 'if holds_old(new_text, old):', "if False:"),
                 ("quoted URL accepted", 'if value[:1] in "\'\\"":', "if False:"),
                 ("different password accepted", "if unquote(parts.password or \"\") != old:", "if False:"),
@@ -371,6 +455,10 @@ def main() -> int:
                 ("discard skips the verification", 'problems = verify_state(folder, new_file, old_source)\n    if problems:\n        for problem in problems:\n            say(f"DISCARD REFUSED', 'problems = []\n    if problems:\n        for problem in problems:\n            say(f"DISCARD REFUSED'),
                 ("discard removes the --old-from source first", "order = (TEST_FILE, ROLES_FILE, ADMIN_FILE)", "order = (ADMIN_FILE, ROLES_FILE, TEST_FILE)"),
                 ("an .env.test with nothing to rotate is backed up (a zero-byte copy blocks every rollback)", "if name == TEST_FILE and not changed:", "if False:"),
+                ("the marker's SHA-256 is not checked", "if sha256_hex(data) != digest:", "if False:"),
+                ("a marker listing only some of the copies is accepted", 'if target not in verified and (backup_dir / (target + ".old")).exists():', "if False:"),
+                ("the apply lock is never taken", "os.close(os.open(backup_dir / LOCK_NAME, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))", "pass"),
+                ("discard leaves the hidden leftovers", "remove_leftovers(backup_dir, order, dry_run, acl_script)", "pass"),
                 ("rollback does not need the completeness marker", 'marker = backup_dir / BACKUP_MARK\n    if not marker.is_file() or marker.is_symlink():', 'marker = backup_dir / BACKUP_MARK\n    if False:'),
                 ("rollback does not compare the size of the copy", "or copy.stat().st_size != int(size):", "or False:"),
                 ("a real cleanup needs no acknowledgement", "if not args.dry_run and not args.ack_cleanup:", "if False:"),

@@ -1,4 +1,4 @@
-free RAM before Docker: 10.41 GB
+free RAM before Docker: 10.21 GB
   PASS disposable PostgreSQL is up
   PASS synthetic migrator role created
 == 1. baseline
