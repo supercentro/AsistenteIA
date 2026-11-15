@@ -102,7 +102,7 @@ Checked without running any suite:
 - **Privilege documentation:** the table of `docs/data-model.md` equals `backend/app/db_privileges.py` and the live catalog (task 18.1, 2026-11-15); the catalog snapshot was identical at the end of 19.1.
 - **Registers:** technical debt (task 18.2, TD-051 to TD-053 and the R1 to R10 table), lessons (task 18.3, L24 and L33 to L37) and `prompts.md` (task 18.4) are updated in this change.
 - **Links and paths:** 23 relative links in 20 documents (`docs/*.md`, `proposal.md`, `design.md`, `tasks.md`, the delta specs and `prompts.md`) and none is broken; the 7 explicit paths into the change folder resolve; the 29 report paths cited by `tasks.md` resolve (the two `YYYY-MM-DD` names are naming patterns followed by the real file name).
-- **Secrets and personal paths:** the range `main...HEAD` holds none of seven real secret values and no real env file; the low-severity items (synthetic fixtures with URL-shaped credentials, one baseline file with a user name) are left for 19.3 and are not part of this gate.
+- **Secrets and personal paths:** the range `main...HEAD` holds none of seven real secret values and no real env file; the low-severity items (synthetic fixtures with URL-shaped credentials, one baseline file whose `C:\Users\<user>` paths were first read as a user name: a false positive, corrected in section 8.8) are left for 19.3 and are not part of this gate.
 - **Known inaccuracies, left for 19.3 with the owner's authorisation:** TD-052 and the R4 row of the traceability table say R4 has no test, while `test_lock_table_is_possible_only_where_the_role_may_delete_a_documented_residual` exists (R7 has a partial one); task 14.1 omits the comment-only change of `frontend/e2e/real-backend.spec.ts`.
 
 ## 5. Disposable resources and comparison with the start
@@ -153,7 +153,7 @@ Scope of this section: the validations and reviews of task 19.2 under the owner'
 | `dnspython` | 2.9.0 | CVE-2026-128089 / GHSA-vvf4-9x63-8xvv | 2.9.2 | a crafted zone file with a WKS record exhausts memory and CPU (denial of service) | transitive, through `email-validator` | the only call is `validate_email(..., check_deliverability=False)` in `app/schemas/validators.py`: no DNS query and no zone-file parsing |
 | `opentelemetry-api` | 1.45.1 | CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg | 1.45.2 | ReDoS in `TraceContextTextMapPropagator.extract()` on a crafted `traceparent` value | transitive, through `fastapi` | the application does not use OpenTelemetry nor read a `traceparent` header |
 
-Counts: 2 vulnerabilities in 2 packages; `pip-audit` does not report a severity, both are denial-of-service classes. A fixed version exists for both. No technical-debt entry records them today (TD-015 only mentions that the audit is non-blocking). Updating either package means changing `backend/uv.lock`, which was not authorised here and needs a new CI run: a decision for 19.3 or a separate change.
+*Update of 2026-11-15 (19.3, stages B and C): TD-055 records both; `uv.lock` was updated by commit `9a95c0c`; see section 8.8.* Counts: 2 vulnerabilities in 2 packages; `pip-audit` does not report a severity, both are denial-of-service classes. A fixed version exists for both. No technical-debt entry records them today (TD-015 only mentions that the audit is non-blocking). Updating either package means changing `backend/uv.lock`, which was not authorised here and needs a new CI run: a decision for 19.3 or a separate change.
 
 **Frontend: `npm audit --json`** (515 dependencies audited): **0 vulnerabilities** (info 0, low 0, moderate 0, high 0, critical 0). `package.json` and `package-lock.json` were byte-identical before and after.
 
@@ -165,7 +165,7 @@ Counts: 2 vulnerabilities in 2 packages; `pip-audit` does not report a severity,
 | Real `.env*` files, dumps, `*.old`, `*.pre-17b`, private keys, cloud or CI tokens | none versioned |
 | URL-shaped credentials | 48 occurrences in 29 files outside the obvious placeholders, all in tests and tools with synthetic values (for example `test_ci_gate_scripts.py`, `make_migrator_fixture.py`, `test_rotate_admin_password.py`); in the 17 local commits only 5 (`make_migrator_fixture.py`, `test_rotate_role_password.py`). **Severity: low.** One 20-character synthetic password in `group-11/mutate_regression.py` does not match any real value |
 | 64-character hexadecimal strings | 111 in 29 files, image ids and SHA-256 of dumps in evidence files; none belongs to a credential file. **Informational** |
-| Personal path or user name | 4 occurrences in one file, `reports/group-3/windows-baseline.txt`. **Severity: low** (personal data, not a secret). None in the 17 local commits, none in `prompts.md` |
+| Personal path or user name | 4 lines of `reports/group-3/windows-baseline.txt` match `C:\Users\`. **Correction (2026-11-15, stage E): this row was inexact.** The segment after `Users` in the four lines is the literal placeholder `<user>` (the file was sanitized), not a real user name; the pattern flagged a false positive. No real personal path was found in the audited range. None in the 17 local commits, none in `prompts.md`. See section 8.8 |
 | `reports/spike/out/results.jsonl` | 186 valid JSON records with the fields `h`, `ok` and `msg`; no URL with credentials, key with a value, SCRAM verifier, token, e-mail, private key or personal path; the 9 records that mention password-like words describe behaviour and variable **names**. **No finding.** The file is a spike result, not a conversation |
 | `prompts.md` | the three literal prompts of section 16 were compared again with the user messages of the session transcript: 3 of 3 verbatim; no personal path |
 
@@ -225,7 +225,7 @@ Writing a finding down does not resolve it. Nothing below was fixed in 19.2; the
 | L-6 | the text of TD-053 (R8) is inaccurate about which path can log a failed statement | **open: documentary correction required** | rewrite TD-053 and the R8 row of the traceability table |
 | 19.1 findings | TD-052 and the R4 row say R4 has no test; task 14.1 omits a comment-only frontend change | **open: documentary correction required** | correct the three texts |
 | TD-052 | priority Low | **proposed by the AI, not formally accepted by the owner** | the owner's explicit acceptance or another priority |
-| Dependencies | `dnspython` 2.9.0 (fixed in 2.9.2) and `opentelemetry-api` 1.45.1 (fixed in 1.45.2) | **not corrected**; no lockfile or dependency was changed and no technical-debt entry records them yet | update `uv.lock` in a tested change, or record them as debt |
+| Dependencies | `dnspython` 2.9.0 (fixed in 2.9.2) and `opentelemetry-api` 1.45.1 (fixed in 1.45.2) | **At the end of 19.2: not corrected.** Since 19.3: recorded as TD-055 (stage B) and corrected in `uv.lock` by commit `9a95c0c` (stage C); the images of the persistent services are not updated (section 8.8) | rebuild the persistent images when the owner authorises it |
 | E2E of section 9.2 | the main-flow Playwright test | **pending for the final delivery** (TD-041); not met, not claimed | the change that builds the chat, or the quality-closure change |
 
 **Blockers: none.** The reviewer found no BLOCKER or HIGH, and my checks found no active credential and no failing mandatory gate.
@@ -237,10 +237,51 @@ Writing a finding down does not resolve it. Nothing below was fixed in 19.2; the
 2. How M-1 is closed: amend the requirement or implement the restore.
 3. Authorise the documentary corrections: the four texts of M-3, TD-053 and its R8 row (L-6), TD-052 and the R4 row, task 14.1; and decide the priority of TD-052.
 4. What to do with the two vulnerable transitive dependencies: a tested lock update or two debt entries.
-5. Whether the low-severity items of 8.3 (a personal path in `windows-baseline.txt`, the synthetic fixtures) are cleaned before publishing.
+5. Whether the low-severity item of 8.3 (the synthetic fixtures) is cleaned before publishing. (`windows-baseline.txt` was a false positive; see 8.8.)
 6. The confirmation that section 4.1 asks for: that the main-flow E2E is a requirement of the final delivery, not of this change.
 7. Unchanged and outside 19.2: TD-038 (`JWT_SECRET`), TD-039, TD-045 and the NO-GO on cleaning the `*.pre-17b` copies.
 
 ### 8.7 Result of 19.2
 
 OpenSpec: PASS (both validations, 18 of 18). Dependencies: `pip-audit` found 2 vulnerabilities (CVE-2026-128089 in `dnspython` 2.9.0, fixed in 2.9.2; CVE-2026-126360 in `opentelemetry-api` 1.45.1, fixed in 1.45.2), `npm audit` found 0; none was corrected. Secrets: no real credential in any versioned file or commit; low and informational items only. Adversarial review: **PASS WITH GAPS**, every finding verified against the repository and none remediated. E2E requirement: not mandatory for this change, not met, not declared met. The documentary closure of 19.2 (this section and the mark in `tasks.md`) was made on the owner's approval of 2026-11-15, with the OpenSpec validations repeated afterwards and no new network audit. Tasks 19.3 and 19.4 stay pending.
+
+### 8.8 Task 19.3, stages B, C and E: what changed after 19.2, and how it is known
+
+This section corrects and extends the text above. The statements of 19.2 are kept as they were written; where one is inexact or has been overtaken, it carries an inline note that points here. The sources are separated, because a result that was reported is not the same as one that was checked again.
+
+**Verified in stage E (2026-11-15, by commands run against the repository in that stage)**
+
+| Statement | How it was checked |
+|---|---|
+| `reports/group-3/windows-baseline.txt` is tracked, was sanitized, and its four `C:\Users\` lines read `C:\Users\<user>\...`: `<user>` is a placeholder, not a name | the four lines were read with the segment masked; the distinct value of the segment is the literal `<user>`; the file has one commit |
+| the user name of the machine appears 0 times in that file and 0 times in the added lines of `main..HEAD` | a case-insensitive search of the name, without printing it |
+| no real personal path was found in the audited range | the 19.2 audit plus the check above; the first count of 4 was a false positive of the pattern |
+| `dnspython` is 2.9.2 and `opentelemetry-api` is 1.45.2 in `backend/uv.lock`, and nothing else changed there | the diff of commit `9a95c0c`: 6 lines added and 6 removed, only those two package blocks |
+
+**Reported by stage C (2026-11-15, the run of that stage; its logs are in a scratch directory and are not versioned, so stage E did not repeat them)**
+
+| Statement | Reported value |
+|---|---|
+| `pip-audit` on the environment built from the updated lock | 98 packages, 0 vulnerabilities; CVE-2026-128089 and CVE-2026-126360 absent; no new identifier; a second audit of the exported lock also 0 |
+| `ruff check` (no cache), `ruff format --check`, `mypy --strict` | PASS (235 files formatted, 233 files typed) |
+| backend unit tests | 1377 passed, 12 skipped (git or repository metadata unavailable in the image, one needing `cryptography`), 0 failed |
+| backend integration tests (`not role_bound and not realmodel`) | 864 passed, 0 failed |
+| privilege gate in a disposable cluster | PASS: 149, 439 and 484 tests, 1072 privilege tests executed; `alembic check` without drift; `db-verify` without findings |
+| unit and integration combined | 2088 passed, 12 skipped; `app` coverage 84 %, `services/` and `repositories/` 99,6 %. The sum of the separate runs (1377 + 864) is 2241, not 2088: the combined run applied the marker filter `not role_bound and not realmodel` to the unit tests as well, and its 615 deselected tests equal 439 (integration, as in the separate run) + 23 (unit, as in the separate run) + 153 more; those 153 are inferred to be unit tests marked `role_bound`, which was not checked individually |
+| frontend | lint, format check, typecheck, API-types check and build PASS; 236 of 236 unit tests; coverage 97,68 % statements and 94,17 % branches; mocked E2E 11 passed and 6 skipped (the real-backend ones) |
+| persistent environment before and after | identical: revision 0006, counts 0/0/0/0/0/0, `db-verify` without findings, catalog snapshot, container ids, start times and images, volumes and networks |
+
+**Corrections to the text of 19.2 made since (each one in the commit named)**
+
+| Item | State now |
+|---|---|
+| M-3, the four stale OpenSpec texts | corrected in stage A (`443878b`) and A.1 (`d5e607c`) |
+| L-6, TD-053 and the R8 row; the R4 row and TD-052; task 14.1 | corrected in stages A and B (`443878b`, `81b4c3f`) |
+| dependencies | recorded as TD-055 (stage B) and corrected in the lockfile (stage C, `9a95c0c`) |
+| TD-052 and TD-053 status | `accepted` replaced by `open (pending owner acceptance)` in stage E: the entries were created as `accepted` in task 18.2 (from the residual risks of DD-13, which does not itself use that word), but the owner has not expressly accepted them; nothing was accepted or remediated on the owner's behalf. The priority `Low` of TD-052 is still the AI's proposal, not approved |
+
+**Limitations that remain**
+
+- The persistent `backend` and `worker` images still carry `dnspython` 2.9.0 and `opentelemetry-api` 1.45.1. Rebuilding or recreating the services was not authorised, so the persistent environment is **not** remediated; only the lockfile is.
+- The stage C results above are reported, not re-run in stage E, and the run used the Linux image of the worker with the two packages overlaid from the lock, not a rebuilt image.
+- M-1 and M-2 are documented and not remediated; L-1 to L-5 are open; the main-flow E2E of `base-standards.md` section 9.2 is pending for the final delivery (TD-041). Tasks 19.3 and 19.4 are not marked.
