@@ -167,6 +167,11 @@ Moving an existing database whose objects belong to the administrator to the mig
 - **WHEN** the adoption is requested while the API or the worker holds connections to the database
 - **THEN** it stops without changing anything and says which sessions block it
 
+#### Scenario: Sessions without an application name block adoption
+- **WHEN** the adoption is requested while a session of the administrator, or of any other role, is connected to the database with an empty `application_name` (as the connections of the API and the worker are), and no exclusion was requested
+- **THEN** it stops without changing anything and describes that session as having no application name; only sessions whose `application_name` was excluded explicitly are skipped, and an empty list of exclusions skips none
+- **Note (2026-11-15, task 19.3, finding P1 of the Codex review of PR #12):** the previous behaviour substituted a list holding the empty string when no exclusion was given, which skipped every unnamed session; the tests used a named stand-in and did not see it
+
 #### Scenario: Drift is reported, not repaired
 - **WHEN** the bootstrap finds a table owned by the administrator
 - **THEN** it reports the table and exits non-zero, and does not change the owner
@@ -181,6 +186,11 @@ The verifier command (`db-verify`) SHALL change nothing, SHALL compare the catal
 #### Scenario: Each kind of drift is detected
 - **WHEN** a test introduces a missing or an extra table or column privilege, a grant to `PUBLIC` or to an unknown role, a grant with grant option, a table or type owned by the administrator, a changed role attribute or membership or role-level setting, a changed password, a function, operator, trigger or type in `public` outside an extension, a row-level security object, a database that `PUBLIC` can connect to, or `log_statement` other than `none`
 - **THEN** `db-verify` exits non-zero and names the difference
+
+#### Scenario: Column privileges of unexpected grantees are detected
+- **WHEN** a privilege on a column (for example `SELECT` on `users.password_hash`) is granted to a role outside the four, or to `PUBLIC`
+- **THEN** `db-verify` exits non-zero and names the grantee (`PUBLIC` for the pseudo-role), the table and the column, without any value; it removes no privilege, and a column privilege that the matrix grants to a managed role is not reported
+- **Note (2026-11-15, task 19.3, finding P2 of the Codex review of PR #12):** the check of strangers read only the table ACL (`pg_class.relacl`), so column ACLs (`pg_attribute.attacl`) of roles outside the four were not seen. A grant option on a column (TD-043, L-4) and a grant to `PUBLIC` on a whole table remain separate, documented limits and are not part of this scenario
 
 #### Scenario: Run with the least privileges it needs
 - **WHEN** `db-verify` runs as the migrator
