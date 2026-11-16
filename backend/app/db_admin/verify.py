@@ -12,8 +12,10 @@ from typing import Any
 
 import psycopg
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from app.db_admin.connection import check_identity, connect, tls_parameters
+from app.db_admin.errors import DbAdminError
 from app.db_admin.names import (
     CONNECTION_LIMITS,
     DEFAULT_NAMES,
@@ -456,7 +458,10 @@ def _default_privilege_and_extension_checks(
 
 def _login_probe(migrator_url: str, passwords: RolePasswords, names: RoleNames) -> list[Finding]:
     findings: list[Finding] = []
-    parts = make_url(migrator_url)
+    try:
+        parts = make_url(migrator_url)
+    except (ArgumentError, ValueError):  # the text of the parser can carry part of the value
+        raise DbAdminError("the database URL is not valid") from None
     for logical in _LOGICAL:
         role = getattr(names, logical)
         try:

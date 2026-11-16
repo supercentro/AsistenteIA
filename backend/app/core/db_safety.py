@@ -21,7 +21,7 @@ def assert_safe_test_database(test_url: str, app_url: str | None, app_env: str) 
 
     try:
         test = make_url(test_url)
-    except ArgumentError:
+    except (ArgumentError, ValueError):  # a ValueError of the parser can carry part of the value
         raise UnsafeTestDatabaseError("TEST_DATABASE_URL is not a valid database URL") from None
 
     if not test.database or not test.database.endswith(TEST_DATABASE_SUFFIX):
@@ -33,7 +33,7 @@ def assert_safe_test_database(test_url: str, app_url: str | None, app_env: str) 
     if app_url:
         try:
             app = make_url(app_url)
-        except ArgumentError:
+        except (ArgumentError, ValueError):  # same: nothing of the value in the message
             raise UnsafeTestDatabaseError("DATABASE_URL is not a valid database URL") from None
         # Same name is rejected even if hosts differ ("db" and "127.0.0.1" can be one server).
         if app.database == test.database:

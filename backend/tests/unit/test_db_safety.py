@@ -81,3 +81,53 @@ def test_require_test_database_url_rejects_unsafe_url(monkeypatch: pytest.Monkey
 
     with pytest.raises(UnsafeTestDatabaseError):
         require_test_database_url()
+
+
+# --- Finding P2 of the Codex review of 6e85470 (task 19.3.4): malformed URLs ---
+
+FRAGMENT = "Zq9-frag-secret"
+MALFORMED = {
+    "unescaped-at-in-password": f"postgresql+psycopg://app_user:pre@part:{FRAGMENT}@db/app",
+    "malformed-port": "postgresql+psycopg://app_user:Pw-long-enough-123@db:notaport/app",
+}
+FORBIDDEN = (FRAGMENT, "Pw-long-enough-123", "notaport", "invalid literal", "int()", "app_user")
+
+
+def assert_value_free(error: BaseException, url: str) -> None:
+    """Nothing of the value, and no chained exception that a traceback would print."""
+    message = str(error)
+    assert url not in message
+    for forbidden in FORBIDDEN:
+        assert forbidden not in message, "the message holds part of the value or an internal text"
+    assert error.__cause__ is None and error.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("case", list(MALFORMED))
+def test_guard_rejects_a_malformed_test_url_without_leaking_any_part_of_it(case: str) -> None:
+    with pytest.raises(UnsafeTestDatabaseError) as caught:
+        assert_safe_test_database(MALFORMED[case], APP_URL, "development")
+
+    assert str(caught.value).startswith("TEST_DATABASE_URL")
+    assert_value_free(caught.value, MALFORMED[case])
+
+
+@pytest.mark.parametrize("case", list(MALFORMED))
+def test_guard_rejects_a_malformed_application_url_without_leaking_any_part_of_it(
+    case: str,
+) -> None:
+    with pytest.raises(UnsafeTestDatabaseError) as caught:
+        assert_safe_test_database(TEST_URL, MALFORMED[case], "development")
+
+    assert str(caught.value).startswith("DATABASE_URL")
+    assert_value_free(caught.value, MALFORMED[case])
+
+
+@pytest.mark.parametrize("which", ["test", "application"])
+def test_guard_keeps_its_safe_rejection_of_an_unparsable_url(which: str) -> None:
+    test_url, app_url = ("this is not a url", APP_URL) if which == "test" else (TEST_URL, "no url")
+
+    with pytest.raises(UnsafeTestDatabaseError) as caught:
+        assert_safe_test_database(test_url, app_url, "development")
+
+    assert "is not a valid database URL" in str(caught.value)
+    assert_value_free(caught.value, "this is not a url")

@@ -37,7 +37,7 @@ def connect(
     """
     try:
         parts = make_url(url)
-    except ArgumentError:
+    except (ArgumentError, ValueError):  # a ValueError of the parser can carry part of the value
         raise DbAdminError("the database URL is not valid") from None
     options = ["-c search_path=pg_catalog"]
     if read_only:

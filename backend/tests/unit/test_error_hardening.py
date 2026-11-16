@@ -77,3 +77,40 @@ def test_database_outage_is_a_generic_503_on_any_endpoint(
     assert response.json()["code"] == "SERVICE_UNAVAILABLE"
     assert "10.0.0.5" not in response.text + caplog.text
     assert "connection refused" not in response.text
+
+
+# --- Finding P2 of the Codex review of 6e85470 (task 19.3.4): API and worker start-up ---
+
+FRAGMENT = "Zq9-frag-secret"
+MALFORMED = {
+    "unescaped-at-in-password": f"postgresql+psycopg://app_user:pre@part:{FRAGMENT}@db/app",
+    "malformed-port": "postgresql+psycopg://app_user:Pw-long-enough-123@db:notaport/app",
+}
+FORBIDDEN = (FRAGMENT, "Pw-long-enough-123", "notaport", "invalid literal", "int()", "app_user")
+
+
+def assert_value_free(error: BaseException, url: str) -> None:
+    """Nothing of the value, and no chained exception that a traceback would print."""
+    message = str(error)
+    assert url not in message
+    for forbidden in FORBIDDEN:
+        assert forbidden not in message, "the message holds part of the value or an internal text"
+    assert error.__cause__ is None and error.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("case", [*MALFORMED, "not-a-url"])
+def test_the_engine_rejects_a_malformed_url_without_leaking_any_part_of_it(case: str) -> None:
+    url = MALFORMED.get(case, "this is not a url")
+
+    with pytest.raises(ValueError) as caught:
+        create_db_engine(url)
+
+    assert_value_free(caught.value, url)
+
+
+def test_the_engine_still_opens_for_a_valid_url_and_reports_operational_errors() -> None:
+    engine = create_db_engine("postgresql+psycopg://u:p@127.0.0.1:1/x_test", 1)
+
+    with pytest.raises(OperationalError):
+        engine.connect()
+    engine.dispose()

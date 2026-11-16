@@ -1,8 +1,8 @@
 """Synchronous SQLAlchemy engine, session factory and declarative base."""
 
 from sqlalchemy import MetaData, create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.exc import ArgumentError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 NAMING_CONVENTION = {
@@ -43,8 +43,14 @@ def create_db_engine(
         )
     if options:
         connect_args["options"] = " ".join(options)
+    try:
+        url = make_url(database_url)
+    except (ArgumentError, ValueError):
+        # The parser's own message can carry a part of the value (a password with an unescaped
+        # "@" leaves a segment read as the port), and a traceback would print it at start-up.
+        raise ValueError("the database URL is not valid") from None
     return create_engine(
-        database_url,
+        url,
         pool_pre_ping=True,
         hide_parameters=True,  # never render bound parameters (emails, hashes) in error text
         connect_args=connect_args,

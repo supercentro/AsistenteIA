@@ -168,3 +168,62 @@ def test_the_steps_run_in_order_and_are_counted() -> None:
 
     assert connection.run_steps(fake, steps) == 2  # type: ignore[arg-type]
     assert fake.executed == ["SELECT 1", "SELECT 2"]
+
+
+# --- Finding P2 of the Codex review of 6e85470 (task 19.3.4): malformed URLs ---
+
+FRAGMENT = "Zq9-frag-secret"
+MALFORMED = {
+    "unescaped-at-in-password": f"postgresql+psycopg://app_user:pre@part:{FRAGMENT}@db/app",
+    "malformed-port": "postgresql+psycopg://app_user:Pw-long-enough-123@db:notaport/app",
+}
+FORBIDDEN = (FRAGMENT, "Pw-long-enough-123", "notaport", "invalid literal", "int()", "app_user")
+
+
+def assert_value_free(error: BaseException, url: str) -> None:
+    """Nothing of the value, and no chained exception that a traceback would print."""
+    message = str(error)
+    assert url not in message
+    for forbidden in FORBIDDEN:
+        assert forbidden not in message, "the message holds part of the value or an internal text"
+    assert error.__cause__ is None and error.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("case", list(MALFORMED))
+def test_connect_rejects_a_malformed_url_without_leaking_any_part_of_it(
+    monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    monkeypatch.setattr(psycopg, "connect", lambda **_: pytest.fail("no connection may be tried"))
+
+    with pytest.raises(DbAdminError) as caught:
+        connection.connect(MALFORMED[case])
+
+    assert_value_free(caught.value, MALFORMED[case])
+
+
+def test_connect_keeps_its_safe_rejection_of_an_unparsable_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(psycopg, "connect", lambda **_: pytest.fail("no connection may be tried"))
+
+    with pytest.raises(DbAdminError) as caught:
+        connection.connect("this is not a url")
+
+    assert_value_free(caught.value, "this is not a url")
+
+
+@pytest.mark.parametrize("case", [*MALFORMED, "not-a-url"])
+def test_the_login_probe_rejects_a_malformed_url_without_leaking_any_part_of_it(
+    monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    from app.db_admin.names import DEFAULT_NAMES, RolePasswords
+    from app.db_admin.verify import _login_probe
+
+    monkeypatch.setattr(psycopg, "connect", lambda **_: pytest.fail("no connection may be tried"))
+    url = MALFORMED.get(case, "this is not a url")
+    passwords = RolePasswords(migrator="a" * 20, app="b" * 20, worker="c" * 20, cli="d" * 20)
+
+    with pytest.raises(DbAdminError) as caught:
+        _login_probe(url, passwords, DEFAULT_NAMES)
+
+    assert_value_free(caught.value, url)
