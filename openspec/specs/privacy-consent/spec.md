@@ -6,7 +6,7 @@ Records, per user, acceptance of the current privacy policy as verifiable eviden
 ## Requirements
 
 ### Requirement: Consent to the current policy version is recorded
-`POST /api/v1/users/me/consent` SHALL accept only the privacy-policy version currently configured in the system, store it with the server-side acceptance time for the authenticated user, and return 200 with the updated profile.
+`POST /api/v1/users/me/consent` SHALL accept only the privacy-policy version currently configured in the system, store it with the server-side acceptance time for the authenticated user, and return 200 with the updated profile. The write SHALL be committed before the response is sent, so a database refusal (for example a missing privilege) yields an error response and never a success without stored evidence.
 
 #### Scenario: Accept the current version
 - **WHEN** an authenticated user sends the configured current version
@@ -15,6 +15,14 @@ Records, per user, acceptance of the current privacy policy as verifiable eviden
 #### Scenario: Any role may consent
 - **WHEN** a teacher sends the current version
 - **THEN** the response is 200
+
+#### Scenario: Evidence is persisted before the answer
+- **WHEN** the response is 200
+- **THEN** a separate database session reads the same `consent_version` and `consent_accepted_at` for that user
+
+#### Scenario: The database refuses the write
+- **WHEN** the database refuses the consent update (insufficient privilege or any database error)
+- **THEN** the response is an error response (HTTP 500 with the standard error body, as for any unexpected database failure) and no consent evidence is stored
 
 ### Requirement: Other versions are rejected
 A version different from the configured one SHALL be answered with 422, code `INVALID_CONSENT_VERSION` and `details.current_version`; an empty or over-long value SHALL be answered with 422 `VALIDATION_ERROR`. Stored consent MUST NOT change in either case.
