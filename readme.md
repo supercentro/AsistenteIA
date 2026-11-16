@@ -64,7 +64,7 @@ Pendiente: esta es la Entrega 1 (documentación técnica, sin código todavía).
 
 ### **1.4. Instrucciones de instalación:**
 
-Pendiente: las instrucciones de instalación se documentarán a partir de la Entrega 2, cuando exista código de backend, frontend y base de datos para poner en marcha en local.
+Las instrucciones para poner en marcha el proyecto en local (Docker Compose con PostgreSQL 15 y pgvector, archivos de entorno con valores de ejemplo, comandos de calidad y procedimientos de la base de datos) viven en [`docs/development_guide.md`](docs/development_guide.md). El flujo completo de `docker compose up` con los servicios de un solo uso (`bootstrap` y `migrate`) no se ha ejercitado todavía sobre la base de desarrollo persistente, y el proyecto aún no está desplegado: no se debe ejecutar el *bootstrap* de la base de datos fuera de un clúster dedicado (ver 2.5).
 
 ---
 
@@ -171,7 +171,7 @@ flowchart LR
 **Componentes de infraestructura:**
 - **Frontend:** desplegado en **Vercel**, con integración directa al repositorio (deploy automático en cada push a la rama principal).
 - **Backend:** desplegado en **Render** o **Railway** como contenedor (Docker), a partir de la carpeta `backend/`.
-- **Base de datos:** **Supabase Postgres**, que incluye la extensión `pgvector` habilitada por defecto, evitando gestionar infraestructura de base de datos propia.
+- **Base de datos:** **Supabase Postgres**, que incluye la extensión `pgvector` habilitada por defecto, evitando gestionar infraestructura de base de datos propia. Es el plan de despliegue; el modelo de roles de PostgreSQL descrito en 2.5 se implementó y validó solo sobre un PostgreSQL 15 con pgvector dedicado (desarrollo), de modo que adaptarlo a un servicio gestionado como Supabase requiere una decisión y una revisión antes de desplegar (`docs/technical-debt.md`, TD-044). Fusionar código en `main` no es desplegarlo.
 - **CI/CD:** **GitHub Actions**, con un workflow simple que ejecuta build y tests en cada push/PR antes de habilitar el despliegue automático.
 - **Secretos:** claves de API (Gemini) y credenciales de base de datos gestionadas como variables de entorno en cada plataforma (Vercel/Render), nunca versionadas en el repositorio.
 
@@ -180,6 +180,7 @@ Esta combinación se eligió por ser gestionada (sin necesidad de administrar se
 ### **2.5. Seguridad**
 
 - **Autenticación y roles:** acceso diferenciado por rol (docente/estudiante) mediante JWT con expiración corta y contraseñas con hash argon2; un docente solo gestiona el material de sus propias asignaturas, y un estudiante solo consulta asignaturas en las que está inscrito y accede a su propio historial. El registro público crea solo estudiantes; los docentes se crean por seed/CLI.
+- **Mínimo privilegio en la base de datos:** la aplicación no usa el superusuario de PostgreSQL. Hay cinco identidades (administrador, migrador, aplicación, *worker* y CLI), cada una con los privilegios mínimos de una matriz declarativa (`backend/app/db_privileges.py`, documentada en [`docs/data-model.md`](docs/data-model.md)); el API y el *worker* se niegan a arrancar como superusuario, las tablas pertenecen al migrador, `PUBLIC` queda sin acceso a las bases y al esquema, y `db-verify` compara el catálogo con la matriz. Los comandos `db-bootstrap` y `db-adopt` son de un solo uso, **no se ejecutan automáticamente** y `db-bootstrap` cierra `PUBLIC` en todas las bases del clúster, por lo que solo se usa en un clúster dedicado. Las limitaciones conocidas están en `docs/technical-debt.md` y la guía en [`docs/development_guide.md`](docs/development_guide.md).
 - **Aislamiento de datos:** la recuperación vectorial siempre se restringe a la asignatura consultada, y una conversación debe pertenecer al usuario y a la asignatura de la petición. Los recursos de otros usuarios responden 404.
 - **Protección frente a prompt injection:** los documentos subidos y las preguntas se tratan como datos no confiables: el prompt delimita el contexto recuperado, instruye responder solo con él, el modelo no recibe herramientas y no se registran contenidos en logs.
 - **Protección de datos (GDPR):**
