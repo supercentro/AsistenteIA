@@ -1,0 +1,218 @@
+........................................................................ [  5%]
+........................................................................ [ 10%]
+........................................................................ [ 16%]
+........................................................................ [ 21%]
+........................................................................ [ 27%]
+........................................................................ [ 32%]
+........................................................................ [ 38%]
+........................................................................ [ 43%]
+..........................................................ssssssssssss.. [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+................................................................ssssssss [ 65%]
+ssssssssssssssssssssssssssss................s..sssssssssssssssssssssssss [ 70%]
+ssssssssssssssssssssssssssssssssss..ss.................................. [ 76%]
+........................................................................ [ 81%]
+........................................................................ [ 87%]
+........................................................................ [ 92%]
+...................................................F.................... [ 98%]
+....................FF...                                                [100%]
+================================== FAILURES ===================================
+_____________ test_the_defaults_leave_room_for_the_beat_interval ______________
+
+    def test_the_defaults_leave_room_for_the_beat_interval() -> None:
+        assert HEALTH_MAX_AGE_SECONDS >= 30
+        # writable by the non-root user and outside /app
+>       assert str(HEALTH_FILE).startswith("/tmp/")  # noqa: S108
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x0000026E35750670>('/tmp/')
+E        +    where <built-in method startswith of str object at 0x0000026E35750670> = '\\tmp\\ingestion-worker.health'.startswith
+E        +      where '\\tmp\\ingestion-worker.health' = str(WindowsPath('/tmp/ingestion-worker.health'))
+
+tests\unit\test_worker_health.py:194: AssertionError
+___ test_a_fresh_worker_process_loads_its_settings_without_any_api_variable ___
+
+    def test_a_fresh_worker_process_loads_its_settings_without_any_api_variable() -> None:
+        code = (
+            "from app.worker import load_worker_settings\n"
+            "s = load_worker_settings(env_file=None)\n"
+            "assert not hasattr(s, 'jwt_secret')\n"
+            "print('ok', s.log_level)\n"
+        )
+    
+        result = run_python(code, {"DATABASE_URL": DB_URL})
+    
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E           File "<repo>\backend\app\worker.py", line 19, in <module>
+E             from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
+E           File "<repo>\backend\app\core\config.py", line 25, in <module>
+E             from limits import parse as parse_rate_limit
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\__init__.py", line 7, in <module>
+E             from . import _version, aio, storage, strategies
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\__init__.py", line 3, in <module>
+E             from . import storage, strategies
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\storage\__init__.py", line 8, in <module>
+E             from .base import MovingWindowSupport, SlidingWindowCounterSupport, Storage
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\storage\base.py", line 6, in <module>
+E             from deprecated.sphinx import versionadded
+E           File "<repo>\backend\.venv\Lib\site-packages\deprecated\__init__.py", line 14, in <module>
+E             from deprecated.classic import deprecated
+E           File "<repo>\backend\.venv\Lib\site-packages\deprecated\classic.py", line 23, in <module>
+E             import wrapt
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\__init__.py", line 27, in <module>
+E             from .caching import lru_cache
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\caching.py", line 14, in <module>
+E             from .synchronization import synchronized
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\synchronization.py", line 9, in <module>
+E             import asyncio
+E           File "<home>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\__init__.py", line 43, in <module>
+E             from .windows_events import *
+E           File "<home>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py", line 8, in <module>
+E             import _overlapped
+E         OSError: [WinError 10106] The requested service provider could not be loaded or initialized
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['<repo>\...    import _overlapped\nOSError: [WinError 10106] The requested service provider could not be loaded or initialized\n').returncode
+
+tests\unit\test_worker_settings.py:238: AssertionError
+_____________ test_importing_the_worker_does_not_pull_in_the_api ______________
+
+    def test_importing_the_worker_does_not_pull_in_the_api() -> None:
+        code = (
+            "import sys\n"
+            "import app.worker\n"
+            "bad = [m for m in ('app.main', 'app.core.security', 'app.api.deps', 'fastapi')"
+            " if m in sys.modules]\n"
+            "print(','.join(bad))\n"
+        )
+    
+        result = run_python(code, {"DATABASE_URL": DB_URL})
+    
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 2, in <module>
+E           File "<repo>\backend\app\worker.py", line 19, in <module>
+E             from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
+E           File "<repo>\backend\app\core\config.py", line 25, in <module>
+E             from limits import parse as parse_rate_limit
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\__init__.py", line 7, in <module>
+E             from . import _version, aio, storage, strategies
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\__init__.py", line 3, in <module>
+E             from . import storage, strategies
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\storage\__init__.py", line 8, in <module>
+E             from .base import MovingWindowSupport, SlidingWindowCounterSupport, Storage
+E           File "<repo>\backend\.venv\Lib\site-packages\limits\aio\storage\base.py", line 6, in <module>
+E             from deprecated.sphinx import versionadded
+E           File "<repo>\backend\.venv\Lib\site-packages\deprecated\__init__.py", line 14, in <module>
+E             from deprecated.classic import deprecated
+E           File "<repo>\backend\.venv\Lib\site-packages\deprecated\classic.py", line 23, in <module>
+E             import wrapt
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\__init__.py", line 27, in <module>
+E             from .caching import lru_cache
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\caching.py", line 14, in <module>
+E             from .synchronization import synchronized
+E           File "<repo>\backend\.venv\Lib\site-packages\wrapt\synchronization.py", line 9, in <module>
+E             import asyncio
+E           File "<home>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\__init__.py", line 43, in <module>
+E             from .windows_events import *
+E           File "<home>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py", line 8, in <module>
+E             import _overlapped
+E         OSError: [WinError 10106] The requested service provider could not be loaded or initialized
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['<repo>\...    import _overlapped\nOSError: [WinError 10106] The requested service provider could not be loaded or initialized\n').returncode
+
+tests\unit\test_worker_settings.py:253: AssertionError
+============================== warnings summary ===============================
+tests/unit/test_security.py::test_decode_rejects_other_hmac_algorithms
+  <repo>\backend\.venv\Lib\site-packages\jwt\api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 48 bytes for SHA384. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/unit/test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval
+FAILED tests/unit/test_worker_settings.py::test_a_fresh_worker_process_loads_its_settings_without_any_api_variable
+FAILED tests/unit/test_worker_settings.py::test_importing_the_worker_does_not_pull_in_the_api
+SKIPPED [1] tests\unit\test_loader_leaks.py:103: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:114: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:122: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:132: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:141: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:154: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:168: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:187: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:203: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:217: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:235: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_loader_leaks.py:245: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_child.py:56: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:65: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:70: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:75: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:80: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:87: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [4] tests\unit\test_pdf_child.py:92: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:96: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:101: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:106: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:114: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:119: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:124: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:134: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:139: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:144: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:151: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:158: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:163: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:171: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:179: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:186: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:195: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:207: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:216: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:219: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:222: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:288: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:293: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:302: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:308: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:313: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child.py:318: the PDF child applies Linux resource limits; run in the Linux container or CI
+SKIPPED [1] tests\unit\test_pdf_child_unit.py:221: resource limits exist on Linux only
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:56: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:67: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:75: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:83: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:91: the PDF child runs on Linux only (resource limits)
+SKIPPED [5] tests\unit\test_pdf_wrapper.py:98: the PDF child runs on Linux only (resource limits)
+SKIPPED [5] tests\unit\test_pdf_wrapper.py:119: the PDF child runs on Linux only (resource limits)
+SKIPPED [17] tests\unit\test_pdf_wrapper.py:130: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:161: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:168: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:178: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:187: the PDF child runs on Linux only (resource limits)
+SKIPPED [4] tests\unit\test_pdf_wrapper.py:201: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:227: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:237: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:248: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:260: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:272: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:282: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:292: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:302: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:313: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:341: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:360: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:380: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:397: the PDF child runs on Linux only (resource limits)
+SKIPPED [2] tests\unit\test_pdf_wrapper.py:404: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:426: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:448: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:458: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:470: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:526: the PDF child runs on Linux only (resource limits)
+SKIPPED [1] tests\unit\test_pdf_wrapper.py:533: the PDF child runs on Linux only (resource limits)
+3 failed, 1208 passed, 110 skipped, 23 deselected, 1 warning in 18.89s

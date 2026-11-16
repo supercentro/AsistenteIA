@@ -1,0 +1,57 @@
+H13 run 2026-11-12T18:33:07Z | free host RAM before: 6.06 GB
+repo HEAD: 3b312e4; compose file untouched: 0 changes
+--- config checks
+config valid: 0 errors | published ports in the rendered config: 0 | rendered references to real env files (backend/.env*): 0
+services: backend bootstrap db migrate worker  | frontend profile-excluded: 0
+=== A1 cold start from nothing (no container, no volume)
+up -d rc=0 | dependency lines: Container g27h13-db-1 Waiting ;Container g27h13-db-1 Healthy ;Container g27h13-bootstrap-1 Waiting ;Container g27h13-bootstrap-1 Exited ;Container g27h13-db-1 Waiting ;Container g27h13-db-1 Waiting ;Container g27h13-migrate-1 Waiting ;Container g27h13-migrate-1 Waiting ;Container g27h13-db-1 Healthy ;Container g27h13-db-1 Healthy ;Container g27h13-migrate-1 Exited ;Container g27h13-migrate-1 Exite
+backend healthy: 0  (0 = yes)
+worker healthy: 0  (0 = yes)
+state: backend running exit=0;bootstrap exited exit=0;db running exit=0;migrate exited exit=0;worker running exit=0;
+bootstrap: bootstrap done: 3 roles (CREATE); closed databases: 4
+migrate:   alembic rc 0 INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_|grants applied in one transaction: 14|
+database sessions by role (api and worker): asistente_app=1, asistente_worker=1
+alembic revision: 0005
+role attributes: asistente_app:minimal, asistente_migrator:minimal, asistente_worker:minimal
+other databases closed to PUBLIC: 0  (0 = all closed)
+--- A2 real API write under the application role, with persisted-state check
+POST /auth/register -> HTTP 201 ; rows stored: 1 ; role stored: student
+--- A3 worker polls for 20 s with its role
+worker log lines mentioning an error or a permission problem: 0
+--- A4 secrets exposure (variable NAMES only; values are searched, never printed)
+db | names: POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER  | holds admin password: 1, migrator: 0, app: 0, worker: 0 (counts of matching lines)
+bootstrap | names: EMBEDDING_MODEL_PATH POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER PW_APP PW_MIG PW_WORKER  | holds admin password: 1, migrator: 1, app: 1, worker: 1 (counts of matching lines)
+migrate | names: APP_ENV DATABASE_URL JWT_SECRET  | holds admin password: 0, migrator: 1, app: 0, worker: 0 (counts of matching lines)
+backend | names: APP_ENV CORS_ORIGINS DATABASE_URL JWT_SECRET  | holds admin password: 0, migrator: 0, app: 1, worker: 0 (counts of matching lines)
+worker | names: APP_ENV DATABASE_URL EMBEDDING_MODEL_PATH  | holds admin password: 0, migrator: 0, app: 0, worker: 1 (counts of matching lines)
+--- A5 second 'up -d' on the existing stack
+up -d rc=0
+bootstrap started again: yes ; second run output: bootstrap done: 3 roles (ALTER); closed databases: 4 ; catalog/ACL fingerprint equal: yes ; backend container unchanged: yes ; worker container unchanged: yes
+--- A6 'restart' keeps the old environment, 'up -d' applies a changed environment
+after 'docker compose restart worker': LOG_LEVEL=INFO (old value expected)
+after plain 'docker compose up -d': LOG_LEVEL=DEBUG ; worker container recreated by compose: yes
+--- A7 credential rotation of the worker role through the environment files
+worker healthy with the new password: 0 (0 = yes)
+worker recreated: yes ; bootstrap applied the new password: bootstrap done: 3 roles (ALTER); closed databases: 4
+login with the OLD password: psql: error: connection to server at "db" (172.25.0.2), port 5432 failed: FATAL:  password
+login with the NEW password: asistente_worker
+teardown: containers left=0 volumes left=0 networks left=0
+=== B migrate fails (wrong migrator password): api and worker must not start
+up -d rc=1 (non-zero expected) | message:  Container g27h13-bootstrap-1 Exited ; Container g27h13-migrate-1 Error service "migrate" didn't complete successfully: exit 1;
+state: backend created exit=0;bootstrap exited exit=0;db running exit=0;migrate exited exit=1;worker created exit=0;
+backend/worker containers created: 1/1 running: 0/0
+after fixing the password, up -d rc=0
+backend healthy after recovery: 0 (0 = yes)
+worker healthy after recovery: 0 (0 = yes)
+teardown: containers left=0 volumes left=0 networks left=0
+=== C bootstrap in a Compose profile that is not active
+config without profile: compose file "<scratch>" is invali
+config with --profile admin: 1 errors
+=== D second cold start from nothing (repeatability)
+up -d rc=0
+backend healthy: 0
+worker healthy: 0
+state: backend running exit=0;bootstrap exited exit=0;db running exit=0;migrate exited exit=0;worker running exit=0;
+database sessions by role: asistente_app=1, asistente_worker=1
+teardown: containers left=0 volumes left=0 networks left=0
+H13 finished 2026-11-12T18:35:55Z | free host RAM after: 4.59 GB

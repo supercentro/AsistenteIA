@@ -1,0 +1,5 @@
+$ pytest tests/integration/test_least_privilege_coverage.py   (task 9.1, before the scenarios exist)
+ImportError while importing test module 'C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\tests\integration\test_least_privilege_coverage.py'.
+E   ImportError: cannot import name 'test_db_roles_api_routes' from 'tests.integration' (C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\tests\integratio
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.23s

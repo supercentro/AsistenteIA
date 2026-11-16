@@ -1,0 +1,10 @@
+SET
+database|asistenteia_test
+server|15.19 (Debian 15.19-1.pgdg12+2)
+database_owner|asistente
+database_acl|(default)
+extension|plpgsql 1.0 owner=asistente schema=pg_catalog
+revision|(no alembic_version)
+schema_public|pg_database_owner acl={pg_database_owner=UC/pg_database_owner,=U/pg_database_owner}
+foreign_objects|0
+sessions_on_this_database|0

@@ -1,0 +1,81 @@
+H13 with the real commands 2026-11-13T02:27:58Z | free host RAM before: 6.85 GB
+repo HEAD: e2daa25 | docker-compose.yml is the branch version, not modified by this run
+config valid: 0 errors | published ports: 0 | references to real env files (backend/.env*): 0 | services: backend bootstrap db migrate worker 
+=== A1 cold start from nothing
+up -d rc=0 | Container g28h13-db-1 Started ;Container g28h13-db-1 Waiting ;Container g28h13-db-1 Healthy ;Container g28h13-bootstrap-1 Started ;Container g28h13-bootstrap-1 Waiting ;Container g28h13-bootstrap-1 Exited ;Container g28h13-migrate-1 Started ;Container g28h13-db-1 Waiting ;Container g28h13-migrate-1 Waiting ;Container g28h13-migrate-1 Waiting ;Container g28h13-db-1 Waiting ;Container g28h13-db-1 Healthy ;Container g28
+backend healthy: rc=0 (0 = yes)
+worker healthy: rc=0 (0 = yes)
+states: backend=running(0) bootstrap=exited(0) db=running(0) migrate=exited(0) worker=running(0) 
+roles: asistente_app:false:20 asistente_cli:false:3 asistente_migrator:false:5 asistente_worker:false:10
+alembic revision: 0005
+test database asistenteia_test present (created by docker/db-init): 1
+sessions by role: asistente_app=1 asistente_worker=1
+owners of public tables: asistente_migrator
+db-verify: no findings: the database matches the design
+--- A2 secrets by container (variable names only)
+db: POSTGRES_DB POSTGRES_PASSWORD POSTGRES_USER 
+bootstrap: ADMIN_DATABASE_URL DB_APP_PASSWORD DB_CLI_PASSWORD DB_MIGRATOR_PASSWORD DB_WORKER_PASSWORD 
+migrate: MIGRATION_DATABASE_URL 
+backend: CORS_ORIGINS DATABASE_URL JWT_SECRET 
+worker: DATABASE_URL DB_CONNECT_TIMEOUT_SECONDS DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS DB_STATEMENT_TIMEOUT_WORKER_SECONDS EMBEDDING_MODEL_PATH MAX_PDF_PAGES 
+published ports of the project: 0
+--- A3 /health through the container network
+health: 200
+--- A4 second up -d (idempotent)
+up -d rc=0
+bootstrap ran again: yes | migrate ran again: yes
+fingerprint equal: yes | backend container unchanged: yes | worker container unchanged: yes
+states: backend=running(0) bootstrap=exited(0) db=running(0) migrate=exited(0) worker=running(0) 
+db-verify: no findings: the database matches the design
+--- A5 restart keeps the old environment, up -d applies a changed one
+after restart: LOG_LEVEL=INFO
+after up -d: LOG_LEVEL=DEBUG | worker recreated: yes
+--- A6 credential rotation of the worker password
+up -d rc=0
+worker healthy after rotation: rc=0 (0 = yes)
+old password: refused (expected: refused)
+new password: accepted as asistente_worker (expected: accepted as asistente_worker)
+db-verify: no findings: the database matches the design
+teardown: containers left=0 volumes left=0 networks left=0
+=== B bootstrap fails (wrong administrator password), from nothing
+up -d rc=1 (non-zero expected)
+states: backend=created(0) bootstrap=exited(1) db=running(0) migrate=created(0) worker=created(0) 
+bootstrap log: bootstrap-1  | Error: cannot connect to db:5432 as asistente (SQLSTATE none, OperationalError)|
+dependants not running: backend=created worker=created migrate=created
+recovery up -d rc=0
+backend healthy: rc=0
+worker healthy: rc=0
+states: backend=running(0) bootstrap=exited(0) db=running(0) migrate=exited(0) worker=running(0) 
+teardown: containers left=0 volumes left=0 networks left=0
+=== C migrate fails (wrong migrator password), from nothing
+up -d rc=1 (non-zero expected)
+states: backend=created(0) bootstrap=exited(0) db=running(0) migrate=exited(1) worker=created(0) 
+migrate log: migrate-1  | Error: OperationalError (SQLSTATE none)|
+dependants not running: backend=created worker=created
+recovery up -d rc=0
+backend healthy: rc=0
+worker healthy: rc=0
+states: backend=running(0) bootstrap=exited(0) db=running(0) migrate=exited(0) worker=running(0) 
+alembic revision: 0005
+teardown: containers left=0 volumes left=0 networks left=0
+=== E bootstrap and migrate started WITHOUT their env files (the real optional paths backend/.env.roles and backend/.env.migrate do not exist)
+config valid with the files missing: 0 errors
+up -d rc=1 (non-zero expected)
+states: backend=created(0) bootstrap=exited(1) db=running(0) migrate=created(0) worker=created(0) 
+bootstrap log: bootstrap-1  | Error: Invalid configuration - ADMIN_DATABASE_URL: Field required; DB_MIGRATOR_PASSWORD: Field required; DB_APP_PASSWORD: Field required; DB_WORKER_PASSWORD: Field required; DB_CLI_PASS|
+dependants not running: migrate=created backend=created worker=created
+teardown: containers left=0 volumes left=0
+=== D cold start from nothing
+up -d rc=0 | Container g28h13-db-1 Started ;Container g28h13-db-1 Waiting ;Container g28h13-db-1 Healthy ;Container g28h13-bootstrap-1 Started ;Container g28h13-bootstrap-1 Waiting ;Container g28h13-bootstrap-1 Exited ;Container g28h13-migrate-1 Started ;Container g28h13-migrate-1 Waiting ;Container g28h13-db-1 Waiting ;Container g28h13-db-1 Waiting ;Container g28h13-migrate-1 Waiting ;Container g28h13-db-1 Healthy ;Container g28
+backend healthy: rc=0 (0 = yes)
+worker healthy: rc=0 (0 = yes)
+states: backend=running(0) bootstrap=exited(0) db=running(0) migrate=exited(0) worker=running(0) 
+roles: asistente_app:false:20 asistente_cli:false:3 asistente_migrator:false:5 asistente_worker:false:10
+alembic revision: 0005
+test database asistenteia_test present (created by docker/db-init): 1
+sessions by role: asistente_app=1 asistente_worker=1
+owners of public tables: asistente_migrator
+db-verify: no findings: the database matches the design
+teardown: containers left=0 volumes left=0 networks left=0
+other containers before/after identical: yes
+run finished; environment files of the run deleted

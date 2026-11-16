@@ -1,0 +1,25 @@
+# group 12 test run 2026-11-13T17:06:36Z | free RAM before: 10.06 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/integration --least-privilege -m least_privilege -p no:cacheprovider -rs
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+....................................................                     [100%]
+=============================== warnings summary ===============================
+tests/integration/test_users_me.py::test_me_rejects_every_kind_of_invalid_token_with_the_same_generic_401
+  /opt/venv/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 48 bytes for SHA384. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+484 passed, 790 deselected, 1 warning in 125.39s (0:02:05)
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

@@ -1,0 +1,48 @@
+free RAM before Docker: 10.21 GB
+  PASS disposable PostgreSQL is up
+  PASS synthetic migrator role created
+== 1. baseline
+  PASS old password accepted over the network
+  PASS the CURRENT password read from .env.roles is accepted
+  PASS new password not yet accepted
+  PASS probe 'reject' on the VALID password fails
+  PASS new password rejected before the change
+  PASS the administrator is accepted (control)
+== 2. files: dry run
+  PASS plan (exit 0)
+== 3. SQL: ALTER ROLE through standard input with a client-side SCRAM verifier
+  PASS alter (exit 0)
+  PASS new password accepted over the network
+  PASS old password rejected over the network
+  PASS the administrator password is unchanged
+  PASS no secret in the output of the tools
+  PASS no secret in any docker argument (shim log)
+  PASS no probe passes the password as a docker environment argument
+  PASS standard input holds a SCRAM verifier and not the cleartext
+== 4. partial failure: ALTER ROLE done, the files fail half way
+  PASS apply fails (exit 1)
+  PASS both files restored: the old value is back in .env.roles and .env.migrate
+  -- recovery A (revert): put the OLD password back in the database from the backup copy
+  PASS revert (exit 0)
+  PASS old accepted again
+  PASS new rejected again
+  -- recovery B (forward): alter again, retry the files
+  PASS alter again (exit 0)
+  PASS apply (exit 0)
+  PASS no secret in the apply output
+  PASS verify (exit 0)
+== 5. the credentials the tools wrote are the ones that work
+  PASS password read from the NEW .env.roles is accepted
+  PASS the password inside the NEW MIGRATION_DATABASE_URL equals the new password
+  PASS no server restart was needed: the same container answers with the new password
+== 6. discard the backup copies (they hold the dead old value)
+  PASS discard (exit 0)
+  PASS backup folder gone, *.pre-17b untouched
+  PASS the old value is in no file under the fixture (except the owner's old.txt)
+  PASS no secret in the verify and discard output
+== 7. refusals
+  PASS unknown container -> exit 3
+  PASS malformed password file -> refused (exit 1)
+  PASS role name that is not an identifier -> refused (exit 1)
+  PASS the new password is still the valid one at the end
+PASS=37 FAIL=0

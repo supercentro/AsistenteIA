@@ -29,6 +29,7 @@ import pytest
 from app.models.user import UserRole
 from tests.constants import TEST_JWT_SECRET
 from tests.integration.helpers import DEFAULT_PASSWORD, insert_subject, insert_user
+from tests.least_privilege import superuser_exception
 from tests.sql_support import count
 from tests.upload_support import BOUNDARY, MULTIPART, NOTHING, TEXT, multipart_body, part, stored
 
@@ -88,6 +89,7 @@ def server(migrated_db: str) -> Iterator[Server]:
             UPLOAD_RATE_LIMIT="10000/minute",
             LOGIN_RATE_LIMIT="10000/minute",
             TMPDIR=str(temp_dir),
+            **superuser_exception(),
             PYTHONUNBUFFERED="1",
         )
         with log.open("wb") as sink:

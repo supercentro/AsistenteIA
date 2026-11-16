@@ -1,0 +1,52 @@
+=== group 17 backup 2026-11-14T04:11:22Z; repo HEAD 85fd6ea; source container g17esrc591
+=== 1 identity of the server, the database and the revision (read only)
+  image: pgvector/pgvector:0.8.7-pg15
+  state: running health=none
+  compose_project: g17synthetic
+  connected_database: asistenteia
+  connected_user: asistente
+  read_only_session: on
+  databases: asistenteia,asistenteia_test,postgres,template0,template1
+  free_disk_gb_where_the_output_goes: 678
+  free_ram_gb: 8.42
+    open_transactions_older_than_1_min|0
+    idle_in_transaction|0
+    prepared_transactions|0
+    ungranted_locks|0
+    login_roles_other_than_the_administrator|(none)
+    long_running_queries_over_30s|0
+    revision|0005
+  [1] PASS connected to the source database as the original administrator, read only | expected asistenteia|asistente|on, obtained asistenteia|asistente|on
+  [2] PASS the container is the expected one (compose project g17synthetic) | expected g17synthetic, obtained g17synthetic
+  [3] PASS revision 0005 | expected revision|0005, obtained revision|0005
+  [4] PASS no open transaction, no idle in transaction, no prepared transaction, no ungranted lock | expected 0|0|0|0, obtained 0|0|0|0
+  [5] PASS GATE D: the catalog of the source database equals the expected baseline of 0005 | expected IDENTICAL, obtained IDENTICAL
+  [6] PASS GATE D: the cluster (roles, databases, ACLs) equals the expected baseline | expected IDENTICAL, obtained IDENTICAL
+  [7] PASS asistenteia_test equals the expected baseline (informative: its public schema owner differs after the fixtures) | expected IDENTICAL, obtained IDENTICAL
+  rows of the source database: alembic_version=1 document_chunks=0 documents=0 enrollments=0 ingestion_jobs=0 subjects=0 users=0 
+=== 2 the destination folders: policy verified, nothing overwritten
+  FOLDER ACL OK copy-a: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+  FOLDER ACL OK copy-b: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+  [8] PASS the pre-existing backups are untouched (their hashes equal the recorded ones) | expected 1, obtained 1
+=== 3 the dump (a read) inside the container, two copies, integrity files, permissions
+  dump taken and copied in 1088 ms; size 17394 bytes; pg_restore --list lines: 57
+  [9] PASS sha256 outside equals sha256 inside the container | expected a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0, obtained a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0
+  [10] PASS the second, independent copy has the same sha256 | expected a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0, obtained a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0
+  MANIFEST OK asistenteia_pre_17b_20261114T041127Z.dump (copy primary): written; size 17394; sha256 a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0
+  [11] PASS the integrity files of the primary copy were written | expected MANIFEST OK, obtained MANIFEST OK
+  MANIFEST OK asistenteia_pre_17b_20261114T041127Z.dump (copy second): written; size 17394; sha256 a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0
+  [12] PASS the integrity files of the second copy were written | expected MANIFEST OK, obtained MANIFEST OK
+  MANIFEST OK asistenteia_pre_17b_20261114T041127Z.dump (copy primary): size 17394; sha256 a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0; .sha256 and manifest consistent
+  [13] PASS the primary copy verifies against its own .sha256 and manifest | expected MANIFEST OK, obtained MANIFEST OK
+  MANIFEST OK asistenteia_pre_17b_20261114T041127Z.dump (copy second): size 17394; sha256 a06d5d2590a2db25a604867e53265d7cd7eadc8573c9bf12bde73fa6d4bdbfb0; .sha256 and manifest consistent
+  [14] PASS the second copy verifies against its own .sha256 and manifest | expected MANIFEST OK, obtained MANIFEST OK
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump.sha256: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump.manifest.txt: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump.sha256: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  ACL OK asistenteia_pre_17b_20261114T041127Z.dump.manifest.txt: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+  [15] PASS the six backup files (both copies) carry the verified restrictive descriptor | expected 6, obtained 6
+  (test hook: acl_done)
+cleanup: the 6 file(s) created by this run were NOT verified and have been removed (exit code 7)
+after cleanup: containers left=0 networks left=0; new files left=0

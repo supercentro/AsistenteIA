@@ -1,0 +1,67 @@
+# CI gate local run 2026-11-13T15:50:04Z | scenario: new-table | free RAM before: 10.24 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow1722: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests1722: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::add-mask::VNfkVRyTXLLKJrGoW_DgqRmnpA7JhuX4
+::add-mask::Uv60fa2NxGqwdgme0Q3R85qsd6ttlNnO
+::add-mask::G-Gz408u-rBb12zP72nYbzikJiviRXBg
+::add-mask::VPVHfA_mr1SXSAX2Wdlq-ak3tP3KQHVS
+prerequisites present; four ephemeral role credentials generated and masked
+::endgroup::
+STEP prerequisites exit code 0
+::group::clusters
+flow: pgflow:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+the two clusters are different servers
+::endgroup::
+STEP clusters exit code 0
+::group::flow
+roles created: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+roles updated: none
+databases closed to PUBLIC: 3
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+INFO  [alembic.runtime.migration] Running upgrade 0006 -> 0007, A table without a privilege decision (scenario).
+migrated to head and applied the privilege grants
+[tables] table undecided_things has no decision in the matrix
+::endgroup::
+STEP flow exit code 1
+::group::drift-selfcheck (skipped: an earlier step failed)
+::endgroup::
+::group::privilege-unit (skipped: an earlier step failed)
+::endgroup::
+::group::role-suites (skipped: an earlier step failed)
+::endgroup::
+::group::roles-mode (skipped: an earlier step failed)
+::endgroup::
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+
+Privilege tests executed in total: **0**
+
+Problems:
+- privilege unit tests: the report unit.xml is missing (the step did not run)
+- role-bound suites: the report role-suites.xml is missing (the step did not run)
+- roles mode: the report roles-mode.xml is missing (the step did not run)
+
+::error::privilege unit tests: the report unit.xml is missing (the step did not run)
+::error::role-bound suites: the report role-suites.xml is missing (the step did not run)
+::error::roles mode: the report roles-mode.xml is missing (the step did not run)
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step flow
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)

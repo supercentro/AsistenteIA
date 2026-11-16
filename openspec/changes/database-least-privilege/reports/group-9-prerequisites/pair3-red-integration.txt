@@ -1,0 +1,234 @@
+# group 5 test run 2026-11-13T12:38:54Z | free RAM before: 10.18 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: tests/integration/test_orm_insert_sql.py tests/integration/test_db_roles_paths.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+.....FFF.............FFF.................................                [100%]
+=================================== FAILURES ===================================
+__________ test_a_registration_insert_omits_the_consent_and_the_role ___________
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_bac15104_test'
+
+    def test_a_registration_insert_omits_the_consent_and_the_role(
+        cluster: Cluster, own_database: str
+    ) -> None:
+        with app_session(cluster, own_database) as (session, statements):
+            user = new_user(0)
+            session.add(user)
+            session.flush()
+            session.commit()
+            assert user.consent_version is None and user.consent_accepted_at is None
+            assert user.role is UserRole.STUDENT
+    
+        (statement,) = statements
+>       assert inserted_columns(statement) == USER_COLUMNS  # no consent columns, no role
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert {'consent_acc...assword_hash'} == {'email', 'na...assword_hash'}
+E         
+E         Extra items in the left set:
+E         'consent_accepted_at'
+E         'consent_version'
+E         Use -v to get more diff
+
+tests/integration/test_orm_insert_sql.py:215: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+______ test_a_batch_of_users_keeps_the_same_columns_and_stores_every_row _______
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_51f16770_test'
+
+    def test_a_batch_of_users_keeps_the_same_columns_and_stores_every_row(
+        cluster: Cluster, own_database: str
+    ) -> None:
+        with app_session(cluster, own_database) as (session, statements):
+            session.add_all([new_user(number) for number in range(3)])
+            session.flush()
+            session.commit()
+    
+        assert statements
+        for statement in statements:
+>           assert inserted_columns(statement) == USER_COLUMNS
+E           AssertionError: assert {'consent_acc...assword_hash'} == {'email', 'na...assword_hash'}
+E             
+E             Extra items in the left set:
+E             'consent_accepted_at'
+E             'consent_version'
+E             Use -v to get more diff
+
+tests/integration/test_orm_insert_sql.py:234: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+_______ test_the_cli_role_inserts_a_teacher_without_the_consent_columns ________
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_b92ab6ba_test'
+
+    def test_the_cli_role_inserts_a_teacher_without_the_consent_columns(
+        cluster: Cluster, own_database: str
+    ) -> None:
+        engine: Engine = create_db_engine(cluster.role_url("cli", own_database))
+        statements: list[str] = []
+    
+        @event.listens_for(engine, "before_cursor_execute")
+        def capture(_conn: Any, _cursor: Any, statement: str, *_rest: Any) -> None:
+            if statement.lstrip().upper().startswith("INSERT"):
+                statements.append(statement)
+    
+        try:
+            with Session(engine) as session:
+                session.add(
+                    User(name="T", email="cli.t@example.com", password_hash="h", role=UserRole.TEACHER)
+                )
+                session.flush()
+                session.commit()
+        finally:
+            engine.dispose()
+    
+        (statement,) = statements
+>       assert inserted_columns(statement) == USER_COLUMNS | {"role"}
+E       AssertionError: assert {'consent_acc...hash', 'role'} == {'email', 'na...hash', 'role'}
+E         
+E         Extra items in the left set:
+E         'consent_accepted_at'
+E         'consent_version'
+E         Use -v to get more diff
+
+tests/integration/test_orm_insert_sql.py:266: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+_ test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[app: INSERT INTO users (name, email, password_hash, c0] _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_a4c032b6_test', logical = 'app'
+sql = "INSERT INTO users (name, email, password_hash, consent_version) VALUES ('c', 'c@example.com', 'h', '2026-10-v1')"
+
+    @pytest.mark.parametrize(
+        ("logical", "sql"), UNGRANTED, ids=[f"{r}: {s[:48]}" for r, s in UNGRANTED]
+    )
+    def test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing(
+        cluster: Cluster, own_database: str, logical: str, sql: str
+    ) -> None:
+        from tests.db_roles_support import as_role, sqlstate_of
+    
+        before = counts(cluster, own_database)
+        with as_role(cluster, logical, own_database) as conn:
+>           assert sqlstate_of(conn, sql) == "42501", sql
+E           AssertionError: INSERT INTO users (name, email, password_hash, consent_version) VALUES ('c', 'c@example.com', 'h', '2026-10-v1')
+E           assert None == '42501'
+E            +  where None = <function sqlstate_of at 0x763e02356340>(<psycopg.Connection [IDLE] (host=pgdb user=tstrole_app database=tstdb_a4c032b6_test) at 0x763e011c6390>, "INSERT INTO users (name, email, password_hash, consent_version) VALUES ('c', 'c@example.com', 'h', '2026-10-v1')")
+
+tests/integration/test_db_roles_paths.py:255: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+_ test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[app: INSERT INTO users (name, email, password_hash, c1] _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_e8b54e91_test', logical = 'app'
+sql = "INSERT INTO users (name, email, password_hash, consent_accepted_at) VALUES ('c', 'c2@example.com', 'h', now())"
+
+    @pytest.mark.parametrize(
+        ("logical", "sql"), UNGRANTED, ids=[f"{r}: {s[:48]}" for r, s in UNGRANTED]
+    )
+    def test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing(
+        cluster: Cluster, own_database: str, logical: str, sql: str
+    ) -> None:
+        from tests.db_roles_support import as_role, sqlstate_of
+    
+        before = counts(cluster, own_database)
+        with as_role(cluster, logical, own_database) as conn:
+>           assert sqlstate_of(conn, sql) == "42501", sql
+E           AssertionError: INSERT INTO users (name, email, password_hash, consent_accepted_at) VALUES ('c', 'c2@example.com', 'h', now())
+E           assert None == '42501'
+E            +  where None = <function sqlstate_of at 0x763e02356340>(<psycopg.Connection [IDLE] (host=pgdb user=tstrole_app database=tstdb_e8b54e91_test) at 0x763e01032300>, "INSERT INTO users (name, email, password_hash, consent_accepted_at) VALUES ('c', 'c2@example.com', 'h', now())")
+
+tests/integration/test_db_roles_paths.py:255: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+_ test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[cli: INSERT INTO users (name, email, password_hash, r] _
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+own_database = 'tstdb_f9dba39c_test', logical = 'cli'
+sql = "INSERT INTO users (name, email, password_hash, role, consent_version) VALUES ('c', 'c3@example.com', 'h', 'teacher', '2026-10-v1')"
+
+    @pytest.mark.parametrize(
+        ("logical", "sql"), UNGRANTED, ids=[f"{r}: {s[:48]}" for r, s in UNGRANTED]
+    )
+    def test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing(
+        cluster: Cluster, own_database: str, logical: str, sql: str
+    ) -> None:
+        from tests.db_roles_support import as_role, sqlstate_of
+    
+        before = counts(cluster, own_database)
+        with as_role(cluster, logical, own_database) as conn:
+>           assert sqlstate_of(conn, sql) == "42501", sql
+E           AssertionError: INSERT INTO users (name, email, password_hash, role, consent_version) VALUES ('c', 'c3@example.com', 'h', 'teacher', '2026-10-v1')
+E           assert None == '42501'
+E            +  where None = <function sqlstate_of at 0x763e02356340>(<psycopg.Connection [IDLE] (host=pgdb user=tstrole_cli database=tstdb_f9dba39c_test) at 0x763e01191370>, "INSERT INTO users (name, email, password_hash, role, consent_version) VALUES ('c', 'c3@example.com', 'h', 'teacher', '2026-10-v1')")
+
+tests/integration/test_db_roles_paths.py:255: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+=============================== warnings summary ===============================
+../../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_orm_insert_sql.py::test_a_registration_insert_omits_the_consent_and_the_role
+FAILED tests/integration/test_orm_insert_sql.py::test_a_batch_of_users_keeps_the_same_columns_and_stores_every_row
+FAILED tests/integration/test_orm_insert_sql.py::test_the_cli_role_inserts_a_teacher_without_the_consent_columns
+FAILED tests/integration/test_db_roles_paths.py::test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[app: INSERT INTO users (name, email, password_hash, c0]
+FAILED tests/integration/test_db_roles_paths.py::test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[app: INSERT INTO users (name, email, password_hash, c1]
+FAILED tests/integration/test_db_roles_paths.py::test_columns_and_operations_that_are_not_granted_are_refused_and_change_nothing[cli: INSERT INTO users (name, email, password_hash, r]
+6 failed, 51 passed, 1 warning in 17.38s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

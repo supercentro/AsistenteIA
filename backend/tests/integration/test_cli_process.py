@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 from app.core.database import create_db_engine
 from app.models.user import UserRole
-from tests.constants import TEST_JWT_SECRET
 from tests.integration.helpers import MakeUser
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -30,6 +30,7 @@ def run_cli(
     args: list[str],
     *,
     extra_env: dict[str, str] | None = None,
+    drop_env: tuple[str, ...] = (),
     stdin: str = "",
 ) -> subprocess.CompletedProcess[str]:
     """Run the CLI in an empty working directory so no backend/.env file can leak in."""
@@ -41,12 +42,13 @@ def run_cli(
     env.update(
         {
             "PYTHONPATH": str(BACKEND_DIR),
-            "DATABASE_URL": database_url,
-            "JWT_SECRET": TEST_JWT_SECRET,
+            "CLI_DATABASE_URL": database_url,
             "APP_ENV": "test",
         }
     )
     env.update(extra_env or {})
+    for name in drop_env:  # variables that must be ABSENT, not merely empty
+        env.pop(name, None)
     return subprocess.run(  # noqa: S603 - fixed arguments, test-only
         [sys.executable, "-m", "app.cli", *args],
         input=stdin,
@@ -173,4 +175,25 @@ def test_a_password_argument_is_refused_by_the_real_process(
 
     assert result.returncode == 2
     assert TEACHER_PASSWORD not in all_output(result)
+    assert accounts(clean_db) == {}
+
+
+def test_the_command_refuses_the_api_credentials_and_creates_nothing(
+    clean_db: str, tmp_path: Path
+) -> None:
+    """The administrative command reads CLI_DATABASE_URL only: the API URL and the JWT secret that
+    the process used to need are no longer a way in (change `database-least-privilege`, group 8)."""
+    result = run_cli(
+        clean_db,
+        tmp_path,
+        ["create-teacher", "--email", "api.only@example.com", "--password-stdin"],
+        stdin="a-strong-password-1\n",
+        extra_env={"DATABASE_URL": clean_db, "JWT_SECRET": "j" * 48},
+        drop_env=("CLI_DATABASE_URL",),
+    )
+
+    assert result.returncode == 1
+    assert "CLI_DATABASE_URL" in all_output(result)
+    password = make_url(clean_db).password
+    assert password and password not in all_output(result)
     assert accounts(clean_db) == {}

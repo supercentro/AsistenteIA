@@ -1,0 +1,19 @@
+PASS a fresh folder inherits its rules from the profile (the state to replace)
+PASS apply succeeds and reports FOLDER ACL OK
+PASS the output names the folder only
+PASS independent reading: inheritance disabled and exactly 3 explicit rules
+PASS SYSTEM and Administrators keep Full Control with inheritance to subfolders and files
+PASS the current user has Modify + DeleteSubdirectoriesAndFiles, not Full Control
+PASS verify-only passes on the applied policy
+PASS a copy can be created in the folder
+PASS the copy can be restricted to Read with secure_file_acl.ps1
+PASS the restricted copy is still readable
+PASS the restricted copy cannot be overwritten by its owner
+PASS the restricted copy CAN be deleted in a controlled way through the folder's delete-child right
+PASS verify-only fails (exit 1) when Everyone has a rule
+PASS apply removes the foreign rule
+PASS verify-only fails when the current user is raised to Full Control
+PASS verify-only fails when inheritance is enabled again
+PASS a file instead of a folder is refused (exit 2)
+PASS a missing folder is exit 2
+0 failure(s)

@@ -1,0 +1,231 @@
+=== 0 preflight 2026-11-13T21:48:03Z
+free host RAM before: 11.14 GB (8 needed)
+repo HEAD: 502cdb9
+  [1] PASS the base backup has the recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+=== images: OLD = the images of main that the development stack runs; NEW = built from this branch
+built asistenteia-backend:g17a-new and asistenteia-worker:g17a-new; tagged asistenteia-backend:g17a-old and asistenteia-worker:g17a-old from main-f455234
+=== 1 the replica of the development stack, OLD code and OLD files (everything as the administrator)
+  [compose up db (old spec)] rc=0 (837 ms)
+      |  Network g17arep_default Created 
+      |  Network g17arep_default Created 
+      |  Container g17arep-db-1 Creating 
+      |  Container g17arep-db-1 Created 
+      |  Container g17arep-db-1 Starting 
+      |  Container g17arep-db-1 Started 
+  db health: healthy | databases: asistenteia,asistenteia_test,postgres,template0,template1
+  [restore the 0004 dump into asistenteia] rc=0 (351 ms)
+  [alembic upgrade 0005 as the administrator] rc=0 (1244 ms)
+      | INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+      | INFO  [alembic.runtime.migration] Will assume transactional DDL.
+      | INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+  [2] PASS the replica database is at 0005 like the development database | expected 0005, obtained 0005
+  [compose up backend worker (old spec, old images)] rc=0 (1251 ms)
+      |  Container g17arep-db-1 Healthy 
+      |  Container g17arep-worker-1 Starting 
+      |  Container g17arep-db-1 Healthy 
+      |  Container g17arep-backend-1 Starting 
+      |  Container g17arep-worker-1 Started 
+      |  Container g17arep-backend-1 Started 
+  [3] PASS old API answers | expected 200, obtained 200
+  [4] PASS old worker healthy | expected healthy, obtained healthy
+  [5] PASS POST /auth/register | expected 201, obtained 201
+  [6] PASS a student written by the OLD stack exists | expected 1, obtained 1
+  sessions by user in the old stack: asistente=3
+  S0 (state of the replica before 17B): 115 + 12 + 12 lines; revision revision|0005; rows: 
+=== 2 step 17B.1 preflight with the read-only tool, the backup procedure and the proof that it restores
+  [preflight_readonly.sh] rc=0 (1982 ms)
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/activity.txt:open_transactions_older_than_1_min|0
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/activity.txt:idle_in_transaction|0
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/activity.txt:prepared_transactions|0
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/activity.txt:ungranted_locks|0
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/activity.txt:long_running_queries_over_30s|0
+      |   <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/preflight-before/snapshot-db.txt:revision|0005
+  [show identity] rc=0 (76 ms)
+      | template parsing error: template: :7:30: executing "" at <.Name>: map has no entry for key "Name"
+      | connected_database|asistenteia
+      | connected_user|asistente
+      | server_port|
+      | postmaster_start|2026-11-13 21:48:11.45738+00
+      | system_identifier|7707776184964730918
+      | server|PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+      | read_only_session|on
+      | databases|asistenteia,asistenteia_test,postgres,template0,template1
+      | free_ram_gb|10.12
+  [7] FAIL preflight snapshot of the database equals S0 (the tool is read only and complete) | expected IDENTICAL, obtained 
+  [8] PASS preflight snapshot of the cluster equals S0 | expected IDENTICAL, obtained IDENTICAL
+  [9] PASS no open transaction, no idle-in-transaction session, no prepared transaction | expected 0|0|0, obtained 0|0|0
+  backup procedure (the commands planned for 17B.1, run on the replica)
+  [pg_dump inside the container] rc=0 (321 ms)
+  [pg_restore --list inside] rc=0 (242 ms)
+      | 57
+  [10] PASS the copy outside the container has the same sha256 as inside | expected 04834a4bd285a14ef521a0b16297cccaa75d5c8accb754514d69cd30837cd3d4, obtained 04834a4bd285a14ef521a0b16297cccaa75d5c8accb754514d69cd30837cd3d4
+  [11] PASS the second copy has the same sha256 | expected 04834a4bd285a14ef521a0b16297cccaa75d5c8accb754514d69cd30837cd3d4, obtained 04834a4bd285a14ef521a0b16297cccaa75d5c8accb754514d69cd30837cd3d4
+  backup taken and verified in 1522 ms
+  [pg_restore into the disposable cluster] rc=0 (283 ms)
+  restore took 381 ms
+  [12] PASS the restored copy is identical to the source (catalog, revision, owners, ACLs, grants, constraints, defaults, row counts) | expected IDENTICAL, obtained IDENTICAL
+=== 3 step 17B.2: stop the services, prepare the files with the tool, bootstrap, adopt, migrate, verify, switch
+  [compose stop backend worker (old spec)] rc=0 (1334 ms)
+      |  Container g17arep-backend-1 Stopping 
+      |  Container g17arep-worker-1 Stopping 
+      |  Container g17arep-backend-1 Stopped 
+      |  Container g17arep-worker-1 Stopped 
+  [prepare_env_files.py --dry-run] rc=2 (207 ms)
+      | <home>\AppData\Local\Microsoft\WindowsApps\python.exe: can't open file '<repo>\\openspec\\changes\\database-least-privileg
+  [13] PASS dry run writes nothing | expected 0, obtained 0
+  [prepare_env_files.py] rc=2 (215 ms)
+      | <home>\AppData\Local\Microsoft\WindowsApps\python.exe: can't open file '<repo>\\openspec\\changes\\database-least-privileg
+  [14] FAIL the tool succeeded | expected 0, obtained 2
+  [15] PASS the tool printed no value (no password, no URL) | expected 0, obtained 0
+  [prepare_env_files.py again must refuse] rc=2 (209 ms)
+      | <home>\AppData\Local\Microsoft\WindowsApps\python.exe: can't open file '<repo>\\openspec\\changes\\database-least-privileg
+  [16] FAIL a second run refuses (nothing is overwritten) | expected 1, obtained 2
+  [17] FAIL the new files exist and the backups too | expected 6, obtained 0
+  [18] FAIL only the user and password of DATABASE_URL changed in .env (the other lines are byte for byte) | expected 0, obtained 5
+  [19] FAIL API file now names the application role, worker file the worker role | expected asistente_app|asistente_worker, obtained asistente|asistente
+  [bootstrap (compose one-shot, first run)] rc=1 (262 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  [20] PASS the first bootstrap reports the drift of the old tables with exit 1 | expected 1, obtained 1
+  [db-adopt dry run] rc=1 (325 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  [21] FAIL the dry run exits 0 | expected 0, obtained 1
+  [db-adopt --apply] rc=1 (285 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  [22] FAIL adoption applied | expected 0, obtained 1
+  [migrate (compose one-shot: db-migrate)] rc=1 (288 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  [23] FAIL migration 0006 and grants | expected 0, obtained 1
+  [24] FAIL revision 0006 and users.role default | expected 0006|'student'::user_role, obtained 0005|
+  [db-verify] rc=125 (210 ms)
+      | docker: --env-file: open <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.migrate: The system cannot find the file specified.
+      | 
+      | Run 'docker run --help' for more information
+  [25] FAIL db-verify has no findings | expected 0, obtained 125
+  [up -d --no-deps --force-recreate backend worker (new spec)] rc=1 (343 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  services back in 562206 ms after the switch; forward procedure (without the backup) 569720 ms
+  [26] FAIL new API answers | expected 200, obtained 000
+  [27] FAIL new worker healthy | expected healthy, obtained unhealthy
+  who is who (SELECT current_user per session): asistente=1
+  [28] FAIL the application and the worker connect as their own roles, nobody as the administrator | expected asistente_app,asistente_worker, obtained asistente
+  [29] PASS the new API process refuses the administrator URL (the code of 15.2) | expected 1, obtained 1
+=== 4 step 17B.3 functional validation with synthetic data under the roles
+  [30] FAIL POST /auth/login | expected 200, obtained 000
+  [31] FAIL GET /users/me | expected 200, obtained 000
+  [32] FAIL POST /auth/register | expected 201, obtained 000
+  [33] FAIL the new student is a student | expected student, obtained 
+  [34] FAIL teacher created by the CLI role | expected teacher, obtained 
+  [35] FAIL POST /auth/login | expected 200, obtained 000
+  [36] FAIL POST /subjects | expected 403, obtained 000
+  [37] FAIL POST /subjects | expected 201, obtained 000
+  [38] FAIL POST /subjects/e5ea621d-5868-40c2-bcac-269dce9e2e2a/enrollments | expected 201, obtained 000
+  [39] FAIL POST /subjects/e5ea621d-5868-40c2-bcac-269dce9e2e2a/documents (upload notes.txt) | expected 202, obtained 000
+  [40] FAIL the worker role processed the upload | expected ready, obtained timeout
+  [41] FAIL GET /subjects/e5ea621d-5868-40c2-bcac-269dce9e2e2a | expected 200, obtained 000
+  [42] FAIL API role cannot create a teacher | expected permission denied, obtained 
+  [43] FAIL worker role cannot read users | expected permission denied, obtained 
+  [db-verify after the functional run] rc=125 (207 ms)
+      | docker: --env-file: open <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.migrate: The system cannot find the file specified.
+      | 
+      | Run 'docker run --help' for more information
+  [44] FAIL no drift after the functional run | expected 0, obtained 125
+=== 5 rotation of the administrator password (TD-038 and the incident of 2026-11-13)
+  [recreate the db container only (new environment)] rc=0 (886 ms)
+      |  Container g17arep-db-1 Recreate 
+      |  Container g17arep-db-1 Recreated 
+      |  Container g17arep-db-1 Starting 
+      |  Container g17arep-db-1 Started 
+  rotation including the recreation of the database container took 8302 ms (the services were running and reconnected)
+  [45] PASS the OLD password is refused over TCP | expected 1, obtained 1
+  [46] PASS the NEW password is accepted over TCP | expected 1, obtained 1
+  [47] FAIL the API survived the recreation of the database (pool reconnects) | expected 200, obtained 000
+  [48] FAIL POST /auth/login | expected 200, obtained 000
+  [bootstrap again with the new administrator password] rc=1 (264 ms)
+      | env file <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles not found: GetFileAttributesEx <home>/AppData/Local/Temp/claude/8216f42c
+  [49] FAIL idempotent bootstrap after the rotation (exit 0) | expected 0, obtained 1
+  [50] FAIL the old password is not in any file of the replica environment any more | expected 0, obtained 2
+  [51] FAIL the .pre-17b copies still hold it: they must be destroyed after the acceptance (documented step) | expected 3, obtained 0
+=== 6 THE FULL ROLLBACK (scenario: everything done, data written under the roles, administrator password rotated)
+  [R1 stop and remove the new services] rc=0 (393 ms)
+      |  Container g17arep-worker-1 Removed 
+      |  Container g17arep-backend-1 Removed 
+  [R2 db-migrate --downgrade 0005] rc=125 (244 ms)
+      | docker: --env-file: open <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.migrate: The system cannot find the file specified.
+      | 
+      | Run 'docker run --help' for more information
+  [52] PASS downgraded | expected 0005, obtained 0005
+  [R3 db-adopt --rollback --remove-roles --apply] rc=125 (215 ms)
+      | docker: --env-file: open <home>/AppData/Local/Temp/claude/8216f42c53299745/37b9475e-8000-414a-a563-2a3020e73979/scratchpad/g17a_run1/env/.env.roles: The system cannot find the file specified.
+      | 
+      | Run 'docker run --help' for more information
+  [53] FAIL ownership returned and roles removed (exit 0) | expected 0, obtained 125
+  [54] PASS only the administrator is left | expected asistente, obtained asistente
+  database ACL of asistenteia after the rollback of the roles (PUBLIC closed, not restored yet): (default)
+  [R4a restore_public_cluster.sql] rc=0 (297 ms)
+      | DO
+  [R4b restore_public_schema.sql] rc=0 (310 ms)
+      | GRANT
+  [55] PASS after the restore PUBLIC can connect again (explicit ACL equivalent to the default one) | expected 1, obtained 1
+  [R5 restore the old files (administrator URL with the CURRENT administrator password)] rc=2 (191 ms)
+      | <home>\AppData\Local\Microsoft\WindowsApps\python.exe: can't open file '<repo>\\openspec\\changes\\database-least-privileg
+  [56] FAIL the rollback of the files succeeded | expected 0, obtained 2
+  [57] PASS the old API file names the administrator again | expected asistente, obtained asistente
+  [58] FAIL the restored files carry the rotated password, not the exposed one | expected 0, obtained 2
+  [59] PASS the new roles files are gone from the active names | expected 0, obtained 0
+  [R6 up -d --no-deps backend worker with the OLD compose file, OLD images and OLD code] rc=0 (706 ms)
+      |  Container g17arep-backend-1 Starting 
+      |  Container g17arep-worker-1 Starting 
+      |  Container g17arep-backend-1 Started 
+      |  Container g17arep-worker-1 Started 
+  services available again 125101 ms after starting them; the whole rollback took 129433 ms
+  [60] FAIL API answers (old image) | expected 200, obtained 503
+  [61] PASS worker healthy (old image) | expected healthy, obtained healthy
+  [62] PASS the services run the OLD images | expected asistenteia-backend:g17a-old|asistenteia-worker:g17a-old, obtained asistenteia-backend:g17a-old|asistenteia-worker:g17a-old
+  [63] FAIL the services connect as the administrator again | expected asistente, obtained 
+  [64] FAIL POST /auth/login | expected 200, obtained 503
+  [65] FAIL GET /users/me | expected 200, obtained 401
+  [66] FAIL POST /auth/register | expected 201, obtained 503
+  [67] FAIL POST /auth/login | expected 200, obtained 503
+  [68] FAIL GET /subjects/e5ea621d-5868-40c2-bcac-269dce9e2e2a/documents | expected 200, obtained 401
+  [69] FAIL the data written under the roles survived the rollback | expected 4|1|1, obtained 1|0|0
+  [70] FAIL POST /subjects/e5ea621d-5868-40c2-bcac-269dce9e2e2a/documents (upload notes.txt) | expected 202, obtained 401
+  [71] FAIL the OLD worker processes an upload on the rolled-back database | expected ready, obtained timeout
+=== state after the rollback against S0 (rows are ignored here, the services wrote some)
+  database asistenteia vs S0: 2 differing line(s)
+      | 4c4
+      | < database_acl|(default)
+      | ---
+      | > database_acl|{=Tc/asistente,asistente=CTc/asistente}
+  database asistenteia_test vs S0: 2 differing line(s)
+      | 4c4
+      | < database_acl|(default)
+      | ---
+      | > database_acl|{=Tc/asistente,asistente=CTc/asistente}
+  cluster vs S0: 6 differing line(s)
+      | 3,5c3,5
+      | < database|asistenteia owner=asistente allowconn=true istemplate=false acl=(default)
+      | < database|asistenteia_test owner=asistente allowconn=true istemplate=false acl=(default)
+      | < database|postgres owner=asistente allowconn=true istemplate=false acl=(default)
+      | ---
+      | > database|asistenteia owner=asistente allowconn=true istemplate=false acl={=Tc/asistente,asistente=CTc/asistente}
+      | > database|asistenteia_test owner=asistente allowconn=true istemplate=false acl={=Tc/asistente,asistente=CTc/asistente}
+      | > database|postgres owner=asistente allowconn=true istemplate=false acl={=Tc/asistente,asistente=CTc/asistente}
+=== 7 cleanup of the synthetic data and the last resort: recovery from the dump
+  [stop the old services] rc=0 (1417 ms)
+      |  Container g17arep-backend-1 Stopped 
+      |  Container g17arep-worker-1 Stopped 
+  [72] PASS after the cleanup the rows are those of S0 | expected , obtained 
+  [73] PASS the rolled-back database equals S0 completely except the documented differences (see the diff files) | expected 2, obtained 2
+  [pg_restore from the verified dump over a dropped database] rc=0 (309 ms)
+  recovery from the dump took 1066 ms
+  [74] PASS the recovered database is identical to S0 (the whole catalog, ACLs, owners, constraints, defaults and rows) | expected IDENTICAL, obtained IDENTICAL
+=== result: 27 checks passed, 47 failed (of 74)
+--- identity of every resource of this replica, before removal
+containers: g17arep-worker-1 g17arep-backend-1 g17arep-db-1 
+networks:   g17arep_default 
+volumes:    g17arep_db_data 
+names outside the g17a scheme among them (must be empty): 
+after removal: containers left=0 networks left=0 volumes left=0
+temporary image tags left: 0
+other containers (the real stack and other projects) before and after identical: yes
+original backup untouched: sha equal

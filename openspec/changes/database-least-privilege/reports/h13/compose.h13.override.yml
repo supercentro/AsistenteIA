@@ -1,0 +1,77 @@
+# Scratch override used ONLY by run_h13.sh, on top of the real docker-compose.yml (which is read, never modified).
+# Project name g27h13: its own network, its own named volume, no published port, no real env file.
+# The bootstrap and migrate services stand in for the planned commands (db-bootstrap, db-migrate), which do not exist yet.
+services:
+  db:
+    ports: !reset []
+    env_file: !override
+      - ${H13_DIR}/db.env
+    cpus: 1
+    mem_limit: 1g
+
+  bootstrap:
+    image: asistenteia-worker:latest
+    pull_policy: never
+    entrypoint: ["python", "/h13/bootstrap_standin.py"]
+    env_file:
+      - ${H13_DIR}/roles.env
+    volumes:
+      - type: bind
+        source: ./openspec/changes/database-least-privilege/reports/h13
+        target: /h13
+        read_only: true
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    image: asistenteia-backend:latest
+    pull_policy: never
+    entrypoint: ["python", "/h13/migrate_standin.py"]
+    env_file:
+      - ${H13_DIR}/migrate.env
+    volumes:
+      - type: bind
+        source: ./openspec/changes/database-least-privilege/reports/h13
+        target: /h13
+        read_only: true
+    working_dir: /app
+    restart: "no"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
+  backend:
+    image: asistenteia-backend:latest
+    pull_policy: never
+    ports: !reset []
+    env_file: !override
+      - ${H13_DIR}/api.env
+    volumes: !override []
+    command: !override ["uvicorn", "app.main:app_factory", "--factory", "--no-proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on: !override
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    image: asistenteia-worker:latest
+    pull_policy: never
+    env_file: !override
+      - ${H13_DIR}/worker.env
+    volumes: !override []
+    depends_on: !override
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    profiles: ["h13-excluded"]

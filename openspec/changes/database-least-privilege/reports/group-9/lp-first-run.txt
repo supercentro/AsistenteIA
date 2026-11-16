@@ -1,0 +1,95 @@
+# group 5 test run 2026-11-13T13:27:48Z | free RAM before: 12.43 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/integration --least-privilege -m least_privilege -p no:cacheprovider
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+.......................F....F......................                      [100%]
+=================================== FAILURES ===================================
+__ test_concurrent_identical_creations_yield_one_subject_and_no_server_error ___
+
+client = <starlette.testclient.TestClient object at 0x788a62ef6f90>
+teacher = TestUser(id='0c652622-aefb-42b6-ae53-59191b5f7289', email='teacher@example.com', password='a-very-long-password', role=<UserRole.TEACHER: 'teacher'>)
+db_session = <sqlalchemy.orm.session.Session object at 0x788a62deed80>
+
+    def test_concurrent_identical_creations_yield_one_subject_and_no_server_error(
+        client: TestClient, teacher: TestUser, db_session: Session
+    ) -> None:
+        auth = headers(client, teacher)
+    
+        def attempt(_: int) -> int:
+            status: int = client.post(SUBJECTS, json={"name": "Racing"}, headers=auth).status_code
+            return status
+    
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = sorted(pool.map(attempt, range(8)))
+    
+>       assert statuses == [201, *([409] * 7)]
+E       assert [201, 409, 40...409, 409, ...] == [201, 409, 40...409, 409, ...]
+E         
+E         At index 7 diff: 503 != 409
+E         Use -v to get more diff
+
+tests/integration/test_subjects_api.py:246: AssertionError
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.handlers] database unavailable type=OperationalError method=POST path=/api/v1/subjects
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.handlers:handlers.py:64 database unavailable type=OperationalError method=POST path=/api/v1/subjects
+_____________ test_owner_and_enrolled_student_can_get_the_subject ______________
+
+client = <starlette.testclient.TestClient object at 0x788a62b01d30>
+clean_db = 'postgresql+psycopg://tstadmin:<password>@pgdb:5432/tstdb_guard_test'
+teacher = TestUser(id='0f09b10f-b4e6-44f1-8f25-16616a41968a', email='teacher@example.com', password='a-very-long-password', role=<UserRole.TEACHER: 'teacher'>)
+student = TestUser(id='6c55d36e-9186-4db6-81f6-84ed6e04feb6', email='student@example.com', password='a-very-long-password', role=<UserRole.STUDENT: 'student'>)
+
+    def test_owner_and_enrolled_student_can_get_the_subject(
+        client: TestClient, clean_db: str, teacher: TestUser, student: TestUser
+    ) -> None:
+        subject_id = insert_subject(clean_db, teacher.id)
+        insert_enrollment(clean_db, subject_id, student.id)
+    
+>       as_teacher = client.get(f"{SUBJECTS}/{subject_id}", headers=headers(client, teacher))
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/integration/test_subjects_api.py:301: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_subjects_api.py:45: in headers
+    return bearer(login_token(client, user.email))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x788a62b01d30>
+email = 'teacher@example.com', password = 'a-very-long-password'
+
+    def login_token(client: TestClient, email: str, password: str = DEFAULT_PASSWORD) -> str:
+        response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+>       assert response.status_code == 200, response.text
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: {"code":"SERVICE_UNAVAILABLE","message":"Service unavailable"}
+
+tests/integration/helpers.py:90: AssertionError
+----------------------------- Captured stderr call -----------------------------
+ERROR [app.core.handlers] database unavailable type=OperationalError method=POST path=/api/v1/auth/login
+------------------------------ Captured log call -------------------------------
+ERROR    app.core.handlers:handlers.py:64 database unavailable type=OperationalError method=POST path=/api/v1/auth/login
+=============================== warnings summary ===============================
+tests/integration/test_users_me.py::test_me_rejects_every_kind_of_invalid_token_with_the_same_generic_401
+  /opt/venv/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 48 bytes for SHA384. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_subjects_api.py::test_concurrent_identical_creations_yield_one_subject_and_no_server_error
+FAILED tests/integration/test_subjects_api.py::test_owner_and_enrolled_student_can_get_the_subject
+2 failed, 481 passed, 789 deselected, 1 warning in 90.74s (0:01:30)
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

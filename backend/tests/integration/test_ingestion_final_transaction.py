@@ -143,7 +143,7 @@ class TestSuccess:
         actor = SearchActor(user_id=scene.teacher, role=UserRole.TEACHER)
 
         def search() -> list[uuid.UUID]:
-            with session_for(scene.url) as session:
+            with session_for(scene.url, role="app") as session:
                 hits = ChunkRepository(session).find_similar(actor, scene.subject, vector(0), 5)
                 return [hit.document_id for hit in hits]
 

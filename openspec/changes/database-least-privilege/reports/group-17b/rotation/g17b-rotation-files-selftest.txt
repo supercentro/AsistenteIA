@@ -1,0 +1,147 @@
+PASS plan succeeds (exit 0)
+PASS plan prints no password (old, new, or quoted old)
+PASS plan names the variables it would update
+PASS plan writes nothing
+PASS apply succeeds (exit 0)
+PASS apply output holds no password
+PASS no temporary file left
+PASS .env.db carries the new value, the comment and the other lines
+PASS .env.roles: URL carries the new value, other variables and the comment are identical
+PASS .env.test: both administrator URLs updated, the segregated user's URL untouched
+PASS the old value (raw and quoted) is in no live env file
+PASS the pre-17b copies were not touched by apply
+PASS backups are byte-identical to the originals
+PASS the migrator password in .env.roles is untouched byte for byte (the administrator rotation never resets it)
+PASS apply notes the recovery copies that keep the old value
+PASS verify OK after apply
+PASS verify reports the pre-17b copies still present
+PASS a second apply is refused (new equals current)
+PASS verify fails if another env file still holds the old value
+PASS rollback restores the originals byte for byte
+PASS rollback without backups is refused
+PASS failure at temp: exit 1 and every file identical to before
+PASS failure at temp: no temp file, no secret in the output
+PASS failure at replace1: exit 1 and every file identical to before
+PASS failure at replace1: no temp file, no secret in the output
+PASS failure at replace2: exit 1 and every file identical to before
+PASS failure at replace2: no temp file, no secret in the output
+PASS failure at replace3: exit 1 and every file identical to before
+PASS failure at replace3: no temp file, no secret in the output
+PASS failure at verify: exit 1 and every file identical to before
+PASS failure at verify: no temp file, no secret in the output
+PASS refused: new password too short
+PASS refused: new password bad characters
+PASS refused: new password placeholder
+PASS refused: new password two lines
+PASS refused: new password equals the old one
+PASS refused: new-password file inside a Git repository
+PASS refused: backup folder inside the env folder
+PASS refused: backup folder not empty
+PASS refused: plan with a missing new-password file
+PASS refused: a quoted administrator URL
+PASS refused: an administrator URL with a different password
+PASS refused: missing .env.roles
+PASS a missing folder is exit 2
+PASS the old value left in an unrelated variable is refused before anything is written
+PASS another env file holding the old value (lower-case percent-encoding) is refused BEFORE any write
+PASS plan refuses when the old value would remain in a variable that is not rotated
+PASS a leftover temporary file of an interrupted run blocks apply
+PASS rollback also removes the orphan temporary files
+PASS an interruption (KeyboardInterrupt) between replacements restores every file (exit 130)
+PASS new-password file UTF-16: refused without a traceback
+PASS new-password file empty: refused without a traceback
+PASS new-password file only a newline: refused without a traceback
+PASS verify with an empty new-password file: exit 1 without a traceback
+PASS a new-password file inside the env folder is refused
+PASS apply with the real owner-only ACL script succeeds
+PASS ALL THREE targets, including .env.db, carry the owner-only descriptor after the replacement
+PASS the backup copies carry the owner-only Read descriptor
+PASS no temporary file left
+PASS cleanup removes the Read-only backup copies and the pre-17b copies without a traceback
+PASS a file that cannot be deleted is reported, not a traceback; the others are still removed (exit 1)
+PASS the backup copies are kept so that the clean-up can run again
+PASS after fixing the permission the clean-up completes and removes the backups last
+PASS works without .env.test
+PASS CRLF and BOM are preserved
+PASS cleanup dry run lists the exact names and removes nothing
+PASS cleanup removes the five exact 17B names
+PASS cleanup keeps every decoy (no wildcard)
+PASS cleanup removes the backup copies and the backup folder
+PASS cleanup output holds no password
+PASS the live env files are untouched by cleanup
+PASS cleanup before the rotation is refused (exit 1) and removes nothing
+PASS a directory named like a target is refused, nothing removed
+PASS a pre-17b file that does not hold the old value is kept
+PASS a non-ASCII URL never produces a traceback or an echo of the value (M1, plan)
+PASS apply with that URL changes nothing and leaks nothing (M1, apply)
+PASS on Windows apply refuses without --acl-script and writes nothing (M2)
+PASS an interruption between os.replace and its bookkeeping still restores that file (minor 2)
+PASS an empty .env.test is left alone and gets no (zero-byte) backup copy
+PASS rollback still works after such an apply
+PASS discard --dry-run lists the three .old copies, .env.db.old last, and removes nothing
+PASS discard removes only the .old copies and the empty folder; *.pre-17b untouched
+PASS discard output holds no password
+PASS discard is refused while the live files still hold the old value, and keeps the copies
+PASS a stuck copy leaves .env.db.old (the --old-from source) so that the discard can be repeated
+PASS rollback refuses an empty .old without a marker and leaves every live file untouched (N1)
+PASS rollback refuses when a listed .old is empty or of another size and touches nothing (N1)
+PASS a finished backup has the marker and no temporary copy
+PASS the marker holds names, sizes and digests only
+PASS discard removes the marker with the copies and the empty folder
+PASS a real cleanup is refused without the explicit acknowledgement flag and removes nothing
+PASS the marker holds name, size and a 64-hex SHA-256 per copy and no password
+PASS rollback refuses a .old replaced by other content of the SAME size and touches nothing
+PASS with the genuine copy back, the rollback works
+PASS rollback refuses a marker that lists only some of the copies present, and touches nothing
+PASS apply interrupted while the marker is created (marker) exits 1, touches no live file and leaves no marker
+PASS rollback refuses a folder whose marker was never completed (marker)
+PASS the half-used folder is refused for a new apply (marker): a fresh folder is required
+PASS apply interrupted while the marker is created (markermid) exits 130, touches no live file and leaves no marker
+PASS rollback refuses a folder whose marker was never completed (markermid)
+PASS the half-used folder is refused for a new apply (markermid): a fresh folder is required
+PASS discard also removes the hidden leftovers of a killed apply and the folder
+PASS the second acquisition of the apply lock is refused
+PASS the lock can be taken again once released
+PASS a concurrent apply on the same folder is refused
+PASS the first apply finishes OK, rotates once and releases the lock
+PASS hostile file (NUL bytes and invalid UTF-8 around the password): no password, no quoted password and no traceback in any command
+PASS hostile file (NUL bytes and invalid UTF-8 around the password): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)
+PASS hostile file (NUL bytes and invalid UTF-8 around the password): a failed apply restored everything
+PASS hostile file (bracketed host (urlsplit error)): no password, no quoted password and no traceback in any command
+PASS hostile file (bracketed host (urlsplit error)): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)
+PASS hostile file (bracketed host (urlsplit error)): a failed apply restored everything
+PASS hostile file (one megabyte line): no password, no quoted password and no traceback in any command
+PASS hostile file (one megabyte line): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)
+PASS hostile file (one megabyte line): a failed apply restored everything
+PASS hostile file (directory instead of .env.test): no password, no quoted password and no traceback in any command
+PASS hostile file (directory instead of .env.test): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)
+PASS hostile file (directory instead of .env.test): a failed apply restored everything
+PASS hostile file (non-ASCII host): no password, no quoted password and no traceback in any command
+PASS hostile file (non-ASCII host): the new password is written nowhere except the three live files (not in the backup folder, not in a temporary file)
+PASS hostile file (non-ASCII host): a failed apply restored everything
+PASS the interface has no argument that could carry a password
+PASS mutation 'rollback does not restore' is detected (5 check(s) fail)
+PASS mutation 'the plan does not refuse a variable that would keep the old value' is detected (2 check(s) fail)
+PASS mutation 'quoted URL accepted' is detected (1 check(s) fail)
+PASS mutation 'different password accepted' is detected (1 check(s) fail)
+PASS mutation 'cleanup uses a wildcard' is detected (2 check(s) fail)
+PASS mutation 'output leaks the new value' is detected (4 check(s) fail)
+PASS mutation 'the owner-only descriptors are not applied' is detected (2 check(s) fail)
+PASS mutation 'an interruption does not restore' is detected (2 check(s) fail)
+PASS mutation 'other env files are not scanned for the old value' is detected (1 check(s) fail)
+PASS mutation 'cleanup does not tolerate an undeletable file' is detected (2 check(s) fail)
+PASS mutation 'an unexpected parser error is not caught (traceback may echo a URL)' is detected (4 check(s) fail)
+PASS mutation 'apply restores only the files already replaced' is detected (1 check(s) fail)
+PASS mutation 'Windows apply without --acl-script is allowed' is detected (1 check(s) fail)
+PASS mutation 'discard skips the verification' is detected (1 check(s) fail)
+PASS mutation 'discard removes the --old-from source first' is detected (2 check(s) fail)
+PASS mutation 'an .env.test with nothing to rotate is backed up (a zero-byte copy blocks every rollback)' is detected (2 check(s) fail)
+PASS mutation 'the marker's SHA-256 is not checked' is detected (1 check(s) fail)
+PASS mutation 'a marker listing only some of the copies is accepted' is detected (1 check(s) fail)
+PASS mutation 'the apply lock is never taken' is detected (2 check(s) fail)
+PASS mutation 'discard leaves the hidden leftovers' is detected (1 check(s) fail)
+PASS mutation 'rollback does not need the completeness marker' is detected (1 check(s) fail)
+PASS mutation 'rollback does not compare the size of the copy' is detected (1 check(s) fail)
+PASS mutation 'a real cleanup needs no acknowledgement' is detected (1 check(s) fail)
+PASS mutation 'temporary files are never removed' is detected (10 check(s) fail)
+0 failure(s)

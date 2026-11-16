@@ -890,3 +890,79 @@ Autorizo exclusivamente investigar y corregir la intermitencia del test test_no_
 - Abiertos y aceptados para el MVP controlado: TD-030 (aislamiento de PDF y privilegios, no es un sandbox), TD-034 (ocupación del worker, incluido T-01, y sin equidad entre asignaturas), TD-035 (limitador de subidas en memoria), TD-037 (pruebas sensibles al reloj y a lecturas de transacciones de todas las sesiones), TD-029, TD-031, TD-032 y TD-033.
 - No extrapolar estas aceptaciones a un despliegue público ni a usuarios no confiables.
 - Lecciones aprendidas de este cambio: L18 a L28 en `docs/lessons-learned.md` (cache de lint, equivalencia Windows/Linux, orden de bloqueos, fencing por lease, `bytea` borrado, límites de la mutación, `commit` antes del `202`, edición tardía tras los gates, archivos sin test y semillas de prueba, tareas de verificación sin escribir en desarrollo, y sondas de test acotadas al sistema bajo prueba).
+
+
+## 16. Mínimo privilegio en la base de datos (`database-least-privilege`, cambio OpenSpec independiente)
+
+**Herramienta y modelo:** Claude Code (CLI) con el flujo OpenSpec 1.15.0 del repositorio. Según la transcripción de la sesión, el modelo es `claude-sonnet-5-5` en casi todos los turnos de la IA; en 121 turnos consecutivos del 14/11/2026 (líneas 47291 a 48199, el cierre de los bloqueos 17C) el modelo registrado es `claude-fable-5-1`. El contexto lo daban `CLAUDE.md` → `docs/base-standards.md`, `docs/backend-standards.md`, `docs/lessons-learned.md` y `docs/technical-debt.md`. El cambio sale de TD-030 (la parte de base de datos) y no forma parte de la numeración 1 a 13. Esta sección se agregó con la autorización explícita del usuario (mensaje de la transcripción, línea 58470, 2026-11-15). Los informes citados están en `openspec/changes/database-least-privilege/reports/` (abreviado `DL/`; la carpeta pasa a `openspec/changes/archive/` cuando el cambio se archive).
+
+**Skills y subagentes usados:**
+- Skills `adversarial-review` (revisiones independientes) y `update-docs` (grupo 18).
+- **Subagentes de Claude Code de contexto limpio y solo lectura** como revisores independientes, según los informes: dos revisiones del diseño (`DL/2026-11-12-independent-reviews.md`), tres revisores de la tarea 15.1 y una revisión focalizada de la 15.2 (`DL/2026-11-13-step-15-adversarial-review.md`, `DL/2026-11-13-step-15-2-corrections.md`), una de la preparación 17A (`DL/2026-11-13-step-17a-preparation.md`), las del orquestador de la intervención (`DL/2026-11-14-step-17b1-continuation.md`), una del preflight final (`DL/2026-11-14-step-17-final-preflight.md`), una del cierre de bloqueos (`DL/2026-11-14-step-17c-blockers-closure.md`), una de TD-049 (`DL/2026-11-14-td-049-backup-hardening.md`), dos de SEC-17B-01 y cinco de 17B.6 (`DL/2026-11-14-sec-17b-01-migrator-password-exposure.md`, `DL/2026-11-14-td-038-17b6-preparation.md`). La IA les dio el alcance, las áreas a atacar y las restricciones; cada hallazgo se comprobó contra el código o con una prueba antes de aceptarse. No se afirma aquí el uso de otros subagentes: los informes no lo documentan.
+
+**Formato de esta sección:** los bloques marcados *(fragmento textual)* son frases literales de mensajes del usuario, comprobadas con una búsqueda exacta contra la transcripción de la sesión (`~/.claude/projects/<proyecto>/37b9475e-8000-414a-a563-2a3020e73979.jsonl`, fuera del repositorio), con su número de línea y su fecha local (UTC-3). La transcripción **no se adjunta**: contiene valores de credenciales que ya fueron rotados e invalidados (TD-050, TD-038). No se reconstruyó ninguna conversación ni se completó ningún mensaje. En cada etapa real el usuario autorizó una sola operación, la IA informó y se detuvo a esperar la aprobación siguiente; la lista es una selección de tres, no el registro completo.
+
+### 16.1 Prompts y decisiones del usuario
+
+**Prompt 1 — validación funcional sobre la base real (transcripción, línea 53327, 2026-11-14; fragmento textual):**
+
+```
+Autorizo exclusivamente la validación funcional 17B.5 sobre el entorno PostgreSQL de DESARROLLO.
+Autorizo exclusivamente crear registros de prueba identificables mediante un identificador único de ejecución g17b.
+```
+
+**Prompt 2 — rotación real del rol del migrador (transcripción, línea 54567, 2026-11-14; fragmento textual):**
+
+```
+Autorizo exclusivamente la rotación real de la contraseña de asistente_migrator en PostgreSQL de DESARROLLO.
+Si falla cualquier control: NO-GO y detenerse sin escrituras.
+```
+
+**Prompt 3 — rotación administrativa, fase 1 (transcripción, línea 56867, 2026-11-15; fragmento textual):**
+
+```
+Autorizo exclusivamente rotar la contraseña administrativa de PostgreSQL de DESARROLLO y sincronizar los tres archivos de configuración correspondientes.
+NO autorizo todavía recrear el contenedor db.
+Si no confirmo los tres puntos, detenerse sin ejecutar ALTER ROLE.
+```
+
+**Prompts de la IA a los subagentes revisores (resumidos, no textuales):** alcance del diff y de los informes; fuentes a leer (artefactos OpenSpec, `backend/app`, migraciones, Compose, CI, deuda técnica); áreas a atacar (privilegios de PostgreSQL, transacciones HTTP, adopción y reversión, orquestador, herramientas de rotación y de respaldo); prohibición de editar el repositorio, de leer o imprimir valores de archivos `.env` reales y de tocar la base de desarrollo; recursos desechables propios; y un formato de informe con hallazgos clasificados por severidad y veredicto.
+
+### 16.2 Decisiones técnicas y controles humanos
+- **Decisiones técnicas (`design.md`, DD-1 a DD-16):** cinco identidades PostgreSQL (administrador, migrador, aplicación, worker y CLI); una matriz de privilegios declarativa (`backend/app/db_privileges.py`) verificada contra el catálogo; comandos `db-bootstrap`, `db-adopt`, `db-migrate`, `db-grants` y `db-verify`; servicios one-shot en Compose; separación de la creación de profesores en la base (DD-9, opción A, migración `0006`); commit explícito antes de responder (DD-10, DD-15); herramientas de rotación de contraseñas probadas en recursos desechables.
+- **Controles humanos registrados:**
+  - Las operaciones reales sobre la base de desarrollo requirieron una autorización explícita por etapa del usuario; la IA se detuvo tras cada una. Los mensajes de los subagentes no se trataron como autorización.
+  - Las intervenciones tuvieron ventanas definidas por el usuario: 14/11/2026 18:30-20:00 (adopción, migración 0006 y validación funcional), 14/11 20:10-22:00 (rotación del migrador) y 15/11 08:50-22:00 (rotación administrativa, recreación del contenedor de la base y descarte de las copias).
+  - Las decisiones de rollback, de aceptación de riesgos y de qué hacer con las copias y las transcripciones permanecieron bajo responsabilidad del usuario; la IA no ejecutó ninguna recuperación con escrituras por su cuenta. La prioridad Low de TD-052 es una propuesta de la IA que el usuario no aceptó expresamente.
+  - Las revisiones independientes tuvieron alcance limitado y solo lectura y no sustituyeron las pruebas: los hallazgos se comprobaron y las correcciones se volvieron a probar.
+  - No se autorizó ninguna modificación de producción: no existe un entorno de producción y todo lo anterior se refiere a la base de desarrollo de una máquina.
+
+### 16.3 Correcciones, desviaciones y hallazgos
+Los siete ejemplos siguientes están demostrados en los informes y las lecciones citadas; ningún control se presenta como implementado si solo se propuso.
+1. **Privilegios efectivos distintos de los declarados.** La primera subida real bajo el rol de la aplicación falló con `permission denied` porque el ORM envía como `NULL` cada columna sin valor por defecto (seis columnas de `INSERT` más, luego acotadas con `FetchedValue()`, DD-14); un `REVOKE` por columna no quita un grant a nivel de tabla; la revisión del diseño halló que faltaba el `UPDATE` de las columnas de consentimiento. `DL/group-5/group-5-report.md`, `DL/group-6/orm-insert-columns-analysis.md`, `DL/2026-11-12-spike-summary.md` (H12), `DL/2026-11-12-independent-reviews.md` (A-01); lección L33.
+2. **Operaciones HTTP exitosas sin persistencia.** Con un rol sin el privilegio, `POST /users/me/consent` respondía `200` y no guardaba nada porque el commit llegaba después de la respuesta (N-1); los demás endpoints de escritura tenían la misma exposición (TD-039). Hoy confirman con `commit_or_rollback` antes de responder, y los tests leen el estado persistido desde otra sesión. `DL/2026-11-12-spike-summary.md` (N-1), `DL/group-9/group-9-report.md` (mutación 0); extensión de L24.
+3. **Comportamiento de los servicios one-shot en Compose.** En el arranque en frío desechable, un segundo `up -d` volvió a ejecutar el `bootstrap` ya terminado, `restart` conservó una variable vieja, un `migrate` fallido dejó `backend` y `worker` creados sin arrancar y un perfil inactivo invalidó el proyecto. El flujo completo de `docker compose up` no se ejercitó sobre la base real: se recrearon solo `backend` y `worker`, y luego solo el contenedor de la base. `DL/2026-11-12-task-1-h13-cold-start.md`, `DL/2026-11-13-step-17a-preparation.md`; lección L34.
+4. **Exposición de una credencial mediante un traceback (SEC-17B-01).** Un script ad hoc escrito por la IA imprimió la contraseña del rol del migrador en una excepción del controlador durante la validación 17B.5; se rotó y se cerró (TD-050), y la transcripción conserva el valor ya inválido. `DL/2026-11-14-sec-17b-01-migrator-password-exposure.md`; lección L36.
+5. **Riesgo de restaurar copias de configuración incompletas.** La segunda revisión de 17B.6 halló que un proceso muerto mientras se escribía una copia `.old` podía dejar un archivo vacío que `rollback` restauraría sobre el `.env` vivo. Se corrigió con copias atómicas, un marcador con SHA-256 y un bloqueo exclusivo, validado con pruebas en recursos desechables; el marcador se ejercitó en la rotación administrativa real y el `rollback` nunca se ejecutó en el entorno real. `DL/2026-11-14-td-038-17b6-preparation.md` (secciones 5, 6 y 8); lección L37.
+6. **Contraseña administrativa nueva igual a la del migrador.** El control de distintividad del preflight del 15/11 detectó que el archivo de la contraseña nueva tenía el mismo valor que el del migrador, y la rotación se detuvo antes de cualquier escritura hasta que el usuario lo reemplazó. Es un control manual del procedimiento: la herramienta no lo exige. `DL/2026-11-14-td-038-17b6-preparation.md` (sección 8); lección L35.
+7. **Necesidad de validar el estado efectivo con PostgreSQL y con pruebas reales.** La matriz documentada se comparó con el código y con el catálogo vivo de la base de desarrollo el 15/11 (tarea 18.1), y la identidad de cada proceso se leyó con `SELECT current_user` dentro de los contenedores en ejecución (tarea 17.2), después de que el usuario hiciera una reserva sobre la evidencia anterior, que solo mostraba los usuarios de sesión. Lección L33.
+
+**Incidentes de herramientas y de proceso (reconocidos por la IA):**
+- El primer script de la rotación del migrador se detuvo en su propio preflight por un error de formato en la comprobación de ventana de la IA; no se escribió nada (`DL/2026-11-14-sec-17b-01-migrator-password-exposure.md`, sección 11).
+- El script con puertas de 17B.6 se detuvo una vez por un error de conteo del propio script; las tres sondas habían dado el resultado esperado y no se escribió nada; se corrigió y se repitió desde el preflight (`DL/2026-11-14-td-038-17b6-preparation.md`, sección 8).
+- La ACL heredada de `backend/.env.db` bloqueó el preflight de la rotación administrativa; el usuario autorizó corregirla con el script versionado y el contenido no cambió (misma sección).
+- La IA marcó 17.1 a 17.3 con una anotación de desviación; el usuario pidió la comprobación literal de `SELECT current_user`, que se hizo y quedó registrada en `tasks.md`.
+- En una verificación del 15/11 la IA imprimió una vez los ocho primeros caracteres del hash de un archivo de credenciales, contra la instrucción del usuario; lo informó en el mismo turno. Solo consta en la transcripción.
+
+### 16.4 Resultados de validación
+- **Intervención real del 14/11/2026:** adopción de los 9 objetos por el migrador, migración 0005 a 0006 con los grants, `db-verify` sin hallazgos y 25 de 25 comprobaciones funcionales, con los datos de prueba eliminados y los recuentos 0/0/0/0/0/0 (`DL/2026-11-14-step-17b-window-closure.md`, `DL/2026-11-14-step-17b5-functional-closure.md`).
+- **Rotaciones:** migrador el 14/11 y administrador el 15/11, ambas con la contraseña nueva aceptada y la anterior rechazada, sin ninguna recuperación; la base se recreó sola en unos 8 s conservando el volumen (`DL/2026-11-14-td-038-17b6-preparation.md`, sección 8).
+- **Ensayo previo:** 209 de 209 comprobaciones sobre una copia restaurada del respaldo real (grupo 16). **CI:** el job `privileges` se ejecutó en GitHub Actions con 1.072 pruebas de privilegios (149 unitarias, 439 con roles, 484 en modo roles), 0 fallos y 0 omitidas (TD-045).
+- **Mutaciones y pruebas de las herramientas:** 22 mutaciones detectadas en las correcciones de 15.2; la herramienta de archivos de la rotación administrativa tiene 146 comprobaciones y 24 mutantes, todos detectados (`DL/2026-11-13-step-15-2-corrections.md`, `DL/2026-11-14-td-038-17b6-preparation.md`, sección 5).
+- `openspec validate --all --strict`: 18 de 18. Tareas de los grupos 0 a 18 completadas; el grupo 19 (verificación final) sigue pendiente.
+
+### 16.5 Riesgos residuales
+- Abiertos: TD-030 (aislamiento de PDF y endurecimiento del contenedor), TD-039 (endpoints de borrado del contrato sin código), TD-045 (la protección de ramas no está disponible), TD-052 y TD-053 (riesgos residuales de los roles y operativos, registrados en la tarea 18.2) y la rotación de `JWT_SECRET` (TD-038).
+- La limpieza de las copias `*.pre-17b` no está autorizada; esas copias y la transcripción conservan la contraseña administrativa anterior, ya inválida.
+- No extrapolar nada de esto a un entorno de producción o compartido: se repetiría el bootstrap, la adopción y `db-verify` en el cambio de despliegue.
+- Lecciones aprendidas de este cambio: L30 a L37 y la extensión de L24 en `docs/lessons-learned.md` (contrato y tipos derivados, valores de archivos secretos, ejemplos con la identidad más segura, privilegios efectivos, servicios one-shot, rotación parcial, secretos en excepciones y copias de rollback).

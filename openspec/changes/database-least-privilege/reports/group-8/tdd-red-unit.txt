@@ -1,0 +1,24 @@
+$ pytest tests/unit --continue-on-collection-errors  (before implementation; the 3 known Windows baseline failures excluded from the list)
+ERROR tests/unit/test_teacher_provisioning.py
+FAILED tests/unit/test_compose_database_flow.py::test_each_identity_has_its_own_environment_file
+FAILED tests/unit/test_compose_database_flow.py::test_the_cli_is_a_profiled_one_shot_with_its_own_identity
+FAILED tests/unit/test_compose_database_flow.py::test_only_the_cli_holds_the_cli_credential
+FAILED tests/unit/test_db_privileges_matrix.py::test_no_known_gap_remains_after_task_8_4
+FAILED tests/unit/test_deployment_files.py::test_compose_has_the_seven_services
+FAILED tests/unit/test_environment_files.py::test_every_example_exists[cli]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[ADMIN_DATABASE_URL-roles]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[CLI_DATABASE_URL-cli]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_APP_PASSWORD-roles]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_CLI_PASSWORD-roles]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_MIGRATOR_PASSWORD-roles]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[DB_WORKER_PASSWORD-roles]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[JWT_SECRET-api]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[MIGRATION_DATABASE_URL-migrate]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_DB-db]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_PASSWORD-db]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[POSTGRES_USER-db]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[TEST_ADMIN_DATABASE_URL-test]
+FAILED tests/unit/test_environment_files.py::test_each_secret_variable_is_declared_in_exactly_one_example[TEST_DATABASE_URL-test]
+FAILED tests/unit/test_environment_files.py::test_the_cli_example_holds_exactly_the_cli_url_for_the_cli_role
+FAILED tests/unit/test_environment_files.py::test_the_new_examples_hold_only_placeholders[cli]
+24 failed, 1102 passed, 110 skipped, 23 deselected, 1 warning, 1 error in 17.30s

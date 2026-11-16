@@ -1,0 +1,5 @@
+PASS mutation 'the cleartext password is sent instead of the verifier' is detected (1 check(s) fail)
+PASS mutation 'the password goes in an argument of docker exec' is detected (4 check(s) fail)
+PASS mutation 'probe always succeeds' is detected (1 check(s) fail)
+PASS mutation 'role name not validated' is detected (1 check(s) fail)
+mutation problems: 0

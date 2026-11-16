@@ -1,0 +1,8 @@
+open_transactions_older_than_1_min|0
+idle_in_transaction|0
+prepared_transactions|0
+ungranted_locks|0
+sessions_by_user|asistente on asistenteia x1
+clients_by_address_and_application|172.24.0.2/32 / (no name) x1
+login_roles_other_than_the_administrator|(none)
+long_running_queries_over_30s|0

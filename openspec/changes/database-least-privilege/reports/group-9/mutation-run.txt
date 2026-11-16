@@ -1,0 +1,17 @@
+# group 9 mutation run 2026-11-13T14:06:10Z | free RAM before: 11.08 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+11 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | the consent UPDATE privilege is removed AND the commit moves after the answer: the endpoint answers 200 and the persisted-state assertion is the only thing that fails | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_api_routes.py::test_registration_login_profile_and_consent_are_persiste
+[1] CAUGHT | the consent UPDATE privilege is removed (the endpoint answers 500 instead) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_api_routes.py::test_registration_login_profile_and_consent_are_persiste
+[2] CAUGHT | the worker loses UPDATE on documents | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_api_routes.py::test_text_and_markdown_are_uploaded_processed_retrieved_
+[3] CAUGHT | the application role loses DELETE on documents | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_api_routes.py::test_text_and_markdown_are_uploaded_processed_retrieved_
+[4] CAUGHT | a route loses its role-bound scenario | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_least_privilege_coverage.py::test_every_api_operation_has_a_role_bound_scenario
+[5] CAUGHT | the roles mode silently connects as the owner again | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_least_privilege_mode.py::test_the_code_under_test_connects_as_its_production_rol
+[6] CAUGHT | the CLI role loses INSERT on users.role (the CLI scenario must fail) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_teacher.py::test_the_cli_role_creates_a_teacher_and_prints_no_secret
+[7] CAUGHT | a CLI subcommand loses its role-bound scenario | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_least_privilege_coverage.py::test_every_cli_subcommand_has_a_role_bound_scenario
+[8] CAUGHT | a worker repository method loses its role-bound scenario | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_least_privilege_coverage.py::test_every_public_method_of_the_worker_repository_h
+[9] CAUGHT | a scenario stops calling its route (the enrollment removal request disappears) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_least_privilege_coverage.py::test_every_route_is_really_called_by_the_scenarios
+[10] CAUGHT | the worker role loses UPDATE on ingestion_jobs (erase and fail paths must fail) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_paths.py::test_the_worker_erases_a_payload_and_clears_the_lease_under_i
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)

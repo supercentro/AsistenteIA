@@ -1,0 +1,46 @@
+$ npm run lint
+
+> asistenteia-frontend@0.0.0 lint
+> eslint .
+
+exit: 0
+
+$ npm run format:check
+
+> asistenteia-frontend@0.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+exit: 0
+
+$ npm run typecheck
+
+> asistenteia-frontend@0.0.0 typecheck
+> tsc -b --noEmit
+
+exit: 0
+
+$ npm run check:api-types
+
+> asistenteia-frontend@0.0.0 check:api-types
+> node scripts/api-types.mjs --check
+
+API types are up to date.
+exit: 0
+
+$ npm run test:coverage
+ src/pages         |      94 |     87.5 |     100 |      94 |                   
+  LoginPage.tsx    |      95 |       90 |     100 |      95 | 29                
+  RegisterPage.tsx |   83.33 |       75 |     100 |   83.33 | 16,30             
+  SubjectsPage.tsx |     100 |       90 |     100 |     100 | 12,26             
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 97.68% ( 296/303 )
+Branches     : 94.17% ( 210/223 )
+Functions    : 100% ( 83/83 )
+Lines        : 97.58% ( 283/290 )
+================================================================================
+exit: 0
+

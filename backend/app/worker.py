@@ -17,7 +17,12 @@ from types import FrameType
 from typing import Protocol
 
 from app.core.config import ConfigurationError, WorkerSettings, load_worker_settings
-from app.core.database import create_db_engine, create_session_factory
+from app.core.database import (
+    SuperuserConnectionError,
+    assert_restricted_database_role,
+    create_db_engine,
+    create_session_factory,
+)
 from app.core.logging import configure_logging
 from app.rag.embedder import (
     EmbedderConfigurationError,
@@ -141,24 +146,35 @@ def run_worker(
     stop: threading.Event | None = None,
     handle_signals: bool = False,
     health_file: Path = HEALTH_FILE,
+    enforce_database_identity: bool = False,
 ) -> int:
     """Start-up checks, then the loop until `stop`; returns the process exit code."""
     stop = stop if stop is not None else threading.Event()
     clear(health_file)  # the file of a previous run must not make this one look healthy
-    try:
-        ensure_supported_platform(platform)
-        embedder = build_embedder(settings)
-        startup_check(embedder)
-    except (UnsupportedPlatformError, EmbedderConfigurationError, EmbedderStartupError) as error:
-        logger.error("worker refused to start: %s", _REFUSAL_REASONS[type(error)])
-        return EXIT_REFUSED
-
     engine = create_db_engine(
         settings.database_url,
         settings.db_connect_timeout_seconds,
         statement_timeout_seconds=settings.db_statement_timeout_worker_seconds,
         idle_in_transaction_timeout_seconds=settings.db_idle_in_transaction_timeout_seconds,
     )
+    # The identity comes first: under a restart policy a refused worker must not load the model
+    # on every attempt (review R1).
+    if enforce_database_identity and not settings.allow_superuser_database_role:
+        try:
+            assert_restricted_database_role(engine)
+        except SuperuserConnectionError as error:
+            logger.error("worker refused to start: %s", error)
+            engine.dispose()
+            return EXIT_REFUSED
+    try:
+        ensure_supported_platform(platform)
+        embedder = build_embedder(settings)
+        startup_check(embedder)
+    except (UnsupportedPlatformError, EmbedderConfigurationError, EmbedderStartupError) as error:
+        logger.error("worker refused to start: %s", _REFUSAL_REASONS[type(error)])
+        engine.dispose()
+        return EXIT_REFUSED
+
     service = IngestionService(
         create_session_factory(engine), embedder, IngestionLimits.from_settings(settings)
     )
@@ -187,7 +203,7 @@ def main() -> int:
         logger.error("worker refused to start: %s", _REFUSAL_REASONS[ConfigurationError])
         return EXIT_REFUSED
     configure_logging(settings.log_level)
-    return run_worker(settings, handle_signals=True)
+    return run_worker(settings, handle_signals=True, enforce_database_identity=True)
 
 
 if __name__ == "__main__":

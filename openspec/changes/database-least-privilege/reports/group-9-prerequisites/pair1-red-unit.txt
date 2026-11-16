@@ -1,0 +1,6 @@
+$ pytest tests/unit/test_fetched_value_columns.py   (pair 1, before the model change)
+FAILED tests/unit/test_fetched_value_columns.py::test_the_column_is_a_fetched_server_value[ingestion_jobs-columns0]
+FAILED tests/unit/test_fetched_value_columns.py::test_the_job_mapper_does_not_ask_for_the_server_values_back
+FAILED tests/unit/test_fetched_value_columns.py::test_the_api_inventory_needs_no_insert_on_the_pair_of_ingestion_jobs
+FAILED tests/unit/test_fetched_value_columns.py::test_the_matrix_grants_the_application_role_only_what_the_job_insert_sets
+4 failed in 0.59s

@@ -32,6 +32,7 @@ from app.api.document_deps import (
     authorize_upload,
     get_document_service,
 )
+from app.api.transaction import commit_or_rollback
 from app.core.config import Settings
 from app.core.errors import (
     AppError,
@@ -229,7 +230,13 @@ def list_documents(teacher: Teacher, subject_id: SubjectId, service: Service) ->
     "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a document and its chunks (owner teacher)",
-    responses=_ACCESS_ERRORS,
+    responses={
+        **_ACCESS_ERRORS,
+        500: _error("The deletion was refused when it was committed (nothing was removed)"),
+        503: _error(
+            "The database was unreachable or the connection was lost; outcome may be unknown"
+        ),
+    },
     openapi_extra={"parameters": [_SUBJECT_PARAMETER, _DOCUMENT_PARAMETER]},
 )
 def delete_document(
@@ -240,5 +247,5 @@ def delete_document(
     db: DbSession,
 ) -> Response:
     service.delete(teacher.id, subject_id, document_id)
-    db.commit()  # the deletion is durable before the 204 is built
+    commit_or_rollback(db)  # the deletion is durable before the 204 is built (TD-039)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.core.database import create_db_engine, create_session_factory
+from tests.least_privilege import role_url
 from tests.sql_support import insert_subject, insert_user, run, scalar
 
 PDF_BYTES = b"%PDF-1.7 test payload"
@@ -37,9 +38,13 @@ def add_subject(url: str, teacher: uuid.UUID, name: str) -> uuid.UUID:
 
 
 @contextmanager
-def session_for(url: str) -> Iterator[Session]:
-    """A short-lived session on its own engine (so threads never share a connection)."""
-    engine = create_db_engine(url)
+def session_for(url: str, role: str = "worker") -> Iterator[Session]:
+    """A short-lived session on its own engine (so threads never share a connection).
+
+    It is the session of the code under test: in the roles mode (`--least-privilege`) it connects as
+    `role` (the worker by default, `app` for the retrieval code), otherwise with `url` itself.
+    """
+    engine = create_db_engine(role_url(role, url))
     session = create_session_factory(engine)()
     try:
         yield session

@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.config import CliSettings, ConfigurationError, load_cli_settings
 from app.core.database import create_db_engine, create_session_factory
 from app.core.errors import ConflictError
 from app.core.security import PasswordService
@@ -70,6 +70,18 @@ class SafeArgumentParser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: error: {message}\n")
 
 
+# Database administration commands (change `database-least-privilege`, implemented in
+# `app/db_admin`). They never load the API settings.
+DATABASE_COMMANDS = ("db-bootstrap", "db-adopt", "db-migrate", "db-grants", "db-verify")
+DATABASE_HELP = {
+    "db-bootstrap": "create the database roles and close access (administrator)",
+    "db-adopt": "change ownership of an existing database; a dry run unless --apply",
+    "db-migrate": "run Alembic as the migrator, then the privilege grants",
+    "db-grants": "apply the privilege matrix in one transaction (migrator)",
+    "db-verify": "compare the live database with the design; exit 1 on any difference",
+}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = SafeArgumentParser(prog="python -m app.cli", allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -91,6 +103,22 @@ def build_parser() -> argparse.ArgumentParser:
         "(development and test only)",
         allow_abbrev=False,
     )
+    for name in DATABASE_COMMANDS:
+        sub = commands.add_parser(name, help=DATABASE_HELP[name], allow_abbrev=False)
+        if name in {"db-bootstrap", "db-adopt"}:
+            sub.add_argument("--database", default="asistenteia", help="application database")
+        if name == "db-adopt":
+            sub.add_argument("--apply", action="store_true", help="really change ownership")
+            sub.add_argument("--rollback", action="store_true", help="give the objects back")
+            sub.add_argument(
+                "--remove-roles",
+                action="store_true",
+                help="with --rollback: also drop the four roles (refused while they own anything)",
+            )
+        if name == "db-migrate":
+            sub.add_argument(
+                "--downgrade", metavar="REVISION", help="downgrade instead (no grants)"
+            )
     return parser
 
 
@@ -131,7 +159,7 @@ def _create_teacher(
 
 
 def _seed(
-    settings: Settings,
+    settings: CliSettings,
     session: Session,
     passwords: PasswordService,
     env: Mapping[str, str],
@@ -173,7 +201,7 @@ def _seed(
 def run(
     argv: list[str],
     *,
-    settings: Settings,
+    settings: CliSettings,
     session_factory: sessionmaker[Session],
     passwords: PasswordService,
     env: Mapping[str, str],
@@ -199,19 +227,29 @@ def run(
         session.close()
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    arguments = sys.argv[1:] if argv is None else argv
+    command = build_parser().parse_args(arguments).command
+    if command in DATABASE_COMMANDS:
+        from app.db_admin.commands import run_database_command
+
+        args = build_parser().parse_args(arguments)
+        return run_database_command(args, print, lambda message: print(message, file=sys.stderr))
     try:
-        settings = load_settings()
+        settings = load_cli_settings()
     except ConfigurationError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    # Values from backend/.env sit below the real environment, like for the application settings.
+    # Seed variables: backend/.env (host use) below backend/.env.cli, both below the environment.
     env = {k: v for k, v in dotenv_values(".env").items() if v is not None}
+    env.update({k: v for k, v in dotenv_values(".env.cli").items() if v is not None})
     env.update(os.environ)
-    engine = create_db_engine(settings.database_url, settings.db_connect_timeout_seconds)
+    engine = create_db_engine(
+        settings.cli_database_url.get_secret_value(), settings.db_connect_timeout_seconds
+    )
     try:
         return run(
-            sys.argv[1:],
+            arguments,
             settings=settings,
             session_factory=create_session_factory(engine),
             passwords=PasswordService(),

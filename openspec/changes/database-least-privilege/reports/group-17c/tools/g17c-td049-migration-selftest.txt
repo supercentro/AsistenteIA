@@ -1,0 +1,77 @@
+PASS write with a custom suffix succeeds
+PASS verify with the same suffix passes
+PASS verify without the suffix fails closed (manifest missing)
+PASS verify with another copy label fails
+PASS a malformed suffix is refused
+PASS migration succeeds (exit 0)
+PASS output holds no path or user name
+PASS independent verify of primary
+PASS primary .sha256 has two relative lines, no path
+PASS independent verify of second
+PASS second .sha256 has two relative lines, no path
+PASS dumps byte-identical
+PASS legacy manifests untouched
+PASS legacy sha256 kept in the stash, byte-identical to the original
+PASS stage folders removed
+PASS new .sha256 restricted to Read (verified)
+PASS manifest taken from the other folder is rejected
+PASS absolute path in .sha256 is rejected
+PASS failure at stage:primary -> exit 1, rolled back, files identical to before
+PASS failure at stage:primary -> no new manifest left
+PASS failure at stage:primary -> legacy .sha256 Read-only descriptor restored
+PASS failure at stage:primary -> legacy .sha256 of the second folder also restricted
+PASS failure at stage:second -> exit 1, rolled back, files identical to before
+PASS failure at stage:second -> no new manifest left
+PASS failure at stage:second -> legacy .sha256 Read-only descriptor restored
+PASS failure at stage:second -> legacy .sha256 of the second folder also restricted
+PASS failure at after_manifest:primary -> exit 1, rolled back, files identical to before
+PASS failure at after_manifest:primary -> no new manifest left
+PASS failure at after_manifest:primary -> legacy .sha256 Read-only descriptor restored
+PASS failure at after_manifest:primary -> legacy .sha256 of the second folder also restricted
+PASS failure at after_manifest:second -> exit 1, rolled back, files identical to before
+PASS failure at after_manifest:second -> no new manifest left
+PASS failure at after_manifest:second -> legacy .sha256 Read-only descriptor restored
+PASS failure at after_manifest:second -> legacy .sha256 of the second folder also restricted
+PASS failure at after_sha:primary -> exit 1, rolled back, files identical to before
+PASS failure at after_sha:primary -> no new manifest left
+PASS failure at after_sha:primary -> legacy .sha256 Read-only descriptor restored
+PASS failure at after_sha:primary -> legacy .sha256 of the second folder also restricted
+PASS failure at after_sha:second -> exit 1, rolled back, files identical to before
+PASS failure at after_sha:second -> no new manifest left
+PASS failure at after_sha:second -> legacy .sha256 Read-only descriptor restored
+PASS failure at after_sha:second -> legacy .sha256 of the second folder also restricted
+PASS failure at verify:primary -> exit 1, rolled back, files identical to before
+PASS failure at verify:primary -> no new manifest left
+PASS failure at verify:primary -> legacy .sha256 Read-only descriptor restored
+PASS failure at verify:primary -> legacy .sha256 of the second folder also restricted
+PASS failure at verify:second -> exit 1, rolled back, files identical to before
+PASS failure at verify:second -> no new manifest left
+PASS failure at verify:second -> legacy .sha256 Read-only descriptor restored
+PASS failure at verify:second -> legacy .sha256 of the second folder also restricted
+PASS failure at acl:primary -> exit 1, rolled back, files identical to before
+PASS failure at acl:primary -> no new manifest left
+PASS failure at acl:primary -> legacy .sha256 Read-only descriptor restored
+PASS failure at acl:primary -> legacy .sha256 of the second folder also restricted
+PASS failure at acl:second -> exit 1, rolled back, files identical to before
+PASS failure at acl:second -> no new manifest left
+PASS failure at acl:second -> legacy .sha256 Read-only descriptor restored
+PASS failure at acl:second -> legacy .sha256 of the second folder also restricted
+PASS wrong expected hash is refused before any change
+PASS dry run writes nothing
+PASS existing new manifest -> refused, legacy intact
+PASS legacy .sha256 not holding the dump hash -> refused
+PASS descriptor export
+PASS export never overwrites
+PASS compare detects a changed folder descriptor
+PASS restore brings every descriptor back (re-read identical)
+PASS restored folder satisfies the policy again
+0 failure(s)
+=== MUTATION: rollback no longer restores the legacy .sha256 ===
+FAIL failure at after_manifest:second -> exit 1, rolled back, files identical to before
+FAIL failure at after_sha:primary -> exit 1, rolled back, files identical to before
+FAIL failure at after_sha:second -> exit 1, rolled back, files identical to before
+FAIL failure at verify:primary -> exit 1, rolled back, files identical to before
+FAIL failure at verify:second -> exit 1, rolled back, files identical to before
+FAIL failure at acl:primary -> exit 1, rolled back, files identical to before
+FAIL failure at acl:second -> exit 1, rolled back, files identical to before
+7 failure(s)

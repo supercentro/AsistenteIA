@@ -1,0 +1,55 @@
+17:01:11 === S10 preflight (profile real)
+17:01:11 free RAM 8.41 GB (need 8), free disk 674 GB (need 15)
+17:01:13 cluster identity recorded (container, project, database, PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), system id 7701436764267716646)
+    |   clients_by_address_and_application|172.24.0.2/32 / (no name) x1
+    |   login_roles_other_than_the_administrator|(none)
+    |   long_running_queries_over_30s|0
+    |   revision|0005
+    | IDENTICAL (118 lines compared)
+    | IDENTICAL (9 lines compared)
+17:01:17 services seen: db=running api=exited worker=running/healthy/restarts=0
+17:01:17 S10 ok: nothing was written
+17:01:18 === S11 backup_validate (profile real)
+17:01:19 cluster identity unchanged since S10 (system id 7701436764267716646)
+    | MANIFEST OK asistenteia_pre_17b_20261114T013150Z.dump (copy primary): size 17437; sha256 d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9; .sha256 and manifest consistent
+    | FOLDER ACL OK AsistenteIA: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.sha256: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.integrity.txt: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+    | MANIFEST OK asistenteia_pre_17b_20261114T013150Z.dump (copy second): size 17437; sha256 d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9; .sha256 and manifest consistent
+    | FOLDER ACL OK AsistenteIA-second: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.sha256: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+    | ACL OK asistenteia_pre_17b_20261114T013150Z.dump.integrity.txt: verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+17:01:25 backup: both copies verified (hash, size, independent manifests, ACLs)
+    | IDENTICAL (118 lines compared)
+17:01:26 S11 ok: the existing backup is valid and equals the real state; it can be reused
+17:01:27 === S12 images (profile real)
+17:01:28 free RAM 8.43 GB (need 8), free disk 674 GB (need 15)
+17:01:29 cluster identity unchanged since S10 (system id 7701436764267716646)
+17:01:35 rollback reference asistenteia-backend:pre-17b -> sha256:5647fb807a28
+17:01:36 rollback reference asistenteia-worker:pre-17b -> sha256:4a2f25143e21
+17:01:36 building the five images (the stack stays up; nothing is started)
+    |  Image asistenteia-migrate Built 
+    |  Image asistenteia-cli Built 
+    |  Image asistenteia-backend Built 
+    |  Image asistenteia-worker Built 
+17:01:48 image asistenteia-bootstrap:latest sha256:d927d2a23f0d
+17:01:49 image asistenteia-migrate:latest sha256:3c6feb1f98e3
+17:01:49 image asistenteia-cli:latest sha256:b6dbeb11297f
+17:01:49 image asistenteia-backend:latest sha256:f5f5d207ce86
+17:01:49 image asistenteia-worker:latest sha256:d5e24bc898b2
+    | asistenteia-migrate
+    | asistenteia-backend
+    | asistenteia-worker
+    | asistenteia-frontend
+17:01:50 S12 ok: images built; old images kept under the pre-17b tags; no container, volume or network touched
+17:01:51 finished: last completed stage S12
+17:02:08 === S13 settings_load (profile real)
+17:02:09 cluster identity unchanged since S10 (system id 7701436764267716646)
+    | compose backend: 9 names resolved, 9 in .env; values equal: True; differing: none; only in compose: none
+    | compose worker: 21 names resolved, 21 in .env.worker; values equal: True; differing: none; only in compose: none
+    | OK   api-asis     settings load; 9 variables received; legacy administrator/test variables present: 4
+    | OK   worker-asis  settings load; 21 variables received; legacy administrator/test variables present: 0
+17:02:12 S13 ok: the API and worker settings of the CURRENT files load in the new images from the environment Compose resolves (the post-transformation files are covered by run_s13_validation.sh; nothing secret printed)
+17:02:13 finished: last completed stage S13

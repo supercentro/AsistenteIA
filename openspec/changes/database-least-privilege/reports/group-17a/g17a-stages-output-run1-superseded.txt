@@ -1,0 +1,59 @@
+=== rollback from each stage 2026-11-13T22:34:28Z
+free RAM 9.58 GB (8 needed); repo HEAD 502cdb9
+  [1] PASS the backup has its recorded sha256 | expected e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6, obtained e6f5bb7574894fc9dad6313ecad8d54e2f9c913e575e210aad970005acaba8c6
+cluster PostgreSQL 15.19 (Debian 15.19-1.pgdg12+, published ports [], mounts 0
+=== stage after-bootstrap: forward up to step 1, then the full rollback
+  [2] FAIL after-bootstrap: at 0005 before the stage | expected 0005, obtained psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "stage_after-bootstrap" does not exist
+  [after-bootstrap: bootstrap] rc=1 (1280 ms)
+      | Error: an identifier (21 characters) is not a lowercase [a-z0-9_] name
+  forward to step 1 took 1516 ms
+  [after-bootstrap: rollback --remove-roles] rc=1 (1261 ms)
+      | Error: an identifier (21 characters) is not a lowercase [a-z0-9_] name
+  [3] FAIL after-bootstrap: rollback succeeded | expected 0, obtained 1
+  rollback took 1985 ms
+  [4] PASS after-bootstrap: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
+  [5] PASS after-bootstrap: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
+  [6] PASS after-bootstrap: only the original administrator exists again | expected asistente, obtained asistente
+=== stage after-adoption: forward up to step 2, then the full rollback
+  [7] FAIL after-adoption: at 0005 before the stage | expected 0005, obtained psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "stage_after-adoption" does not exist
+  [after-adoption: bootstrap] rc=1 (1308 ms)
+      | Error: an identifier (20 characters) is not a lowercase [a-z0-9_] name
+  [after-adoption: adopt --apply] rc=1 (1705 ms)
+      | Error: an identifier (20 characters) is not a lowercase [a-z0-9_] name
+  [8] FAIL after-adoption: adoption applied | expected 0, obtained 1
+  forward to step 2 took 3462 ms
+  [after-adoption: rollback --remove-roles] rc=1 (1522 ms)
+      | Error: an identifier (20 characters) is not a lowercase [a-z0-9_] name
+  [9] FAIL after-adoption: rollback succeeded | expected 0, obtained 1
+  rollback took 2232 ms
+  [10] PASS after-adoption: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
+  [11] PASS after-adoption: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
+  [12] PASS after-adoption: only the original administrator exists again | expected asistente, obtained asistente
+=== stage after-migration: forward up to step 3, then the full rollback
+  [13] FAIL after-migration: at 0005 before the stage | expected 0005, obtained psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "stage_after-migration" does not exist
+  [after-migration: bootstrap] rc=1 (1293 ms)
+      | Error: an identifier (21 characters) is not a lowercase [a-z0-9_] name
+  [after-migration: adopt --apply] rc=1 (1581 ms)
+      | Error: an identifier (21 characters) is not a lowercase [a-z0-9_] name
+  [14] FAIL after-migration: adoption applied | expected 0, obtained 1
+  [after-migration: migrate] rc=1 (1835 ms)
+      | Error: cannot connect to db:5432 as asistente_migrator (SQLSTATE none, OperationalError)
+  [15] FAIL after-migration: migration and grants | expected 0, obtained 1
+  [after-migration: verify] rc=1 (1367 ms)
+      | Error: cannot connect to db:5432 as asistente_migrator (SQLSTATE none, OperationalError)
+    (verify exit 1: the only findings can be the CONNECT of the roles to the databases of earlier stages: none remain, they were removed)
+  forward to step 3 took 7122 ms
+  [after-migration: downgrade 0005] rc=1 (1573 ms)
+      | Error: cannot connect to db:5432 as asistente_migrator (SQLSTATE none, OperationalError)
+  [16] FAIL after-migration: downgraded | expected 0, obtained 1
+  [after-migration: rollback --remove-roles] rc=1 (1456 ms)
+      | Error: an identifier (21 characters) is not a lowercase [a-z0-9_] name
+  [17] FAIL after-migration: rollback succeeded | expected 0, obtained 1
+  rollback took 4022 ms
+  [18] PASS after-migration: database identical to S0 (ownership, grants, defaults, rows; default ACL representation normalised) | expected IDENTICAL, obtained IDENTICAL
+  [19] PASS after-migration: cluster identical to S0 (roles, memberships, settings, database owners) | expected IDENTICAL, obtained IDENTICAL
+  [20] PASS after-migration: only the original administrator exists again | expected asistente, obtained asistente
+=== result: 10 checks passed, 10 failed (of 20)
+--- identity before removal: containers [g17stpg4259 ] networks [g17stnet4259 ]; outside the scheme: []
+after removal: containers left=0 networks left=0 image tags left=0
+original backup untouched: sha equal

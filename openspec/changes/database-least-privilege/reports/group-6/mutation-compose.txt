@@ -1,0 +1,16 @@
+unmutated file: exit 0 (55 passed in 0.62s)
+CAUGHT    migrate loses its dependency on bootstrap | test_the_order_is_database_then_bootstrap_then_migrate
+CAUGHT    backend no longer waits for migrate | test_the_api_and_the_worker_wait_for_a_migration_that_finished_successfully
+CAUGHT    bootstrap restarts after exit | test_the_one_shots_run_once_and_leave
+CAUGHT    bootstrap publishes a port | test_the_one_shots_publish_nothing
+CAUGHT    the worker becomes privileged | test_no_service_asks_for_more_than_it_needs_from_the_host
+CAUGHT    the backend joins the host network | test_only_the_existing_loopback_ports_are_published
+CAUGHT    the worker mounts the docker socket | test_the_worker_keeps_its_restart_policy_resources_and_healthcheck
+CAUGHT    migrate receives the API file | test_a_missing_one_shot_file_fails_the_service_not_the_compose_tooling
+CAUGHT    bootstrap receives the migrator file | test_each_identity_has_its_own_environment_file
+CAUGHT    migrate mounts the working tree | test_the_one_shots_run_the_code_of_the_image_not_the_working_tree
+CAUGHT    bootstrap moves to an inactive profile | test_the_one_shots_exist_and_are_in_the_default_profile
+CAUGHT    worker loses its dependency on migrate | test_the_api_and_the_worker_wait_for_a_migration_that_finished_successfully
+CAUGHT    a secret is passed inline to the worker | test_no_test_file_and_no_inline_secret_reaches_any_service
+CAUGHT    the database port is published on all interfaces | test_only_the_existing_loopback_ports_are_published
+mutations: 14, caught: 14

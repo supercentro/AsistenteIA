@@ -1,0 +1,183 @@
+# CI gate local run 2026-11-13T15:54:57Z | scenario: too-few-tests | free RAM before: 11.03 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1, pyyaml 6.0.3
+# g10flow2151: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+# g10tests2151: PostgreSQL 15.19 (Debian 15.19-1.pgdg12+ | published ports: 0
+::group::prerequisites
+::add-mask::cAYZZUjn6uFnt3mW8Ok2YxpPBiuHJArZ
+::add-mask::DsAWjDIBG1lFQEwyH3CcsblUP4LofWsj
+::add-mask::Svdv53HxmSDBqvuku4kHXMoG0WqQiYX8
+::add-mask::xD_2P4pEkJ5mq3h4tVSJUxWlXqPMjkj0
+prerequisites present; four ephemeral role credentials generated and masked
+::endgroup::
+STEP prerequisites exit code 0
+::group::clusters
+flow: pgflow:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+the two clusters are different servers
+::endgroup::
+STEP clusters exit code 0
+::group::flow
+roles created: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+roles updated: none
+databases closed to PUBLIC: 3
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+revision in the database: 0006; head of the migrations: 0006
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+No new upgrade operations detected.
+alembic check: no drift between the models and the migrations
+second pass: bootstrap, migrate and verify are idempotent
+roles created: none
+roles updated: asistente_migrator, asistente_app, asistente_worker, asistente_cli
+databases closed to PUBLIC: 4
+ownership: no drift
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+migrated to head and applied the privilege grants
+no findings: the database matches the design
+::endgroup::
+STEP flow exit code 0
+::group::drift-selfcheck
+[privileges] asistente_app has UPDATE (role) on users that the matrix does not grant
+drift detected as expected; healing it with db-grants
+applied 52 grant statement(s) in one transaction
+no findings: the database matches the design
+::endgroup::
+STEP drift-selfcheck exit code 0
+::group::privilege-unit
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /repo/backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collected 149 items
+
+tests/unit/test_db_privileges_matrix.py ...................              [ 12%]
+tests/unit/test_db_privileges_inventory.py .............                 [ 21%]
+tests/unit/test_db_admin_sql.py ........................................ [ 48%]
+................                                                         [ 59%]
+tests/unit/test_fetched_value_columns.py ..........                      [ 65%]
+tests/unit/test_ci_workflow.py .....................                     [ 79%]
+tests/unit/test_ci_gate_scripts.py ..............................        [100%]
+
+------------- generated xml file: /tmp/privilege-reports/unit.xml --------------
+============================= 149 passed in 2.77s ==============================
+::endgroup::
+STEP privilege-unit exit code 0
+::group::role-suites
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /repo/backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collected 1038 items / 863 deselected / 175 selected
+
+tests/integration/test_consent_persistence.py .....                      [  2%]
+tests/integration/test_db_admin_adopt.py ...................             [ 13%]
+tests/integration/test_db_admin_bootstrap.py ............                [ 20%]
+tests/integration/test_db_admin_grants.py ..........                     [ 26%]
+tests/integration/test_db_admin_verify.py .............................. [ 43%]
+.....                                                                    [ 46%]
+tests/integration/test_db_roles_api_routes.py ....                       [ 48%]
+tests/integration/test_db_roles_effective.py ..                          [ 49%]
+tests/integration/test_db_roles_lifecycle.py ...........                 [ 56%]
+tests/integration/test_db_roles_paths.py ............................... [ 73%]
+...................                                                      [ 84%]
+tests/integration/test_db_roles_teacher.py ........                      [ 89%]
+tests/integration/test_endpoint_commit_persistence.py ......             [ 92%]
+tests/integration/test_least_privilege_coverage.py ....                  [ 94%]
+tests/integration/test_orm_insert_columns.py .                           [ 95%]
+tests/integration/test_orm_insert_sql.py ........                        [100%]
+
+---------- generated xml file: /tmp/privilege-reports/role-suites.xml ----------
+===================== 175 passed, 863 deselected in 53.00s =====================
+::endgroup::
+STEP role-suites exit code 0
+::group::roles-mode
+tests: pgtests:5432 PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2), pgvector 0.8.7, databases ['postgres', 'template0', 'template1'], roles ['ci_admin'], superuser True
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /repo/backend
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collected 1038 items / 554 deselected / 484 selected
+
+tests/integration/test_adversarial_probes.py .............               [  2%]
+tests/integration/test_auth_logging.py ..                                [  3%]
+tests/integration/test_auth_login.py ........                            [  4%]
+tests/integration/test_auth_register.py ............                     [  7%]
+tests/integration/test_consent.py ..........                             [  9%]
+tests/integration/test_documents_api.py ................................ [ 15%]
+......................................................................   [ 30%]
+tests/integration/test_documents_leaks.py ..................             [ 34%]
+tests/integration/test_email_ascii.py ..............                     [ 36%]
+tests/integration/test_enrollments_api.py .............................  [ 42%]
+tests/integration/test_error_text_exposure.py ........                   [ 44%]
+tests/integration/test_health.py .....                                   [ 45%]
+tests/integration/test_ingestion_end_to_end.py ...                       [ 46%]
+tests/integration/test_ingestion_final_transaction.py .................. [ 50%]
+.........                                                                [ 51%]
+tests/integration/test_ingestion_heartbeat.py .........                  [ 53%]
+tests/integration/test_ingestion_job_repository.py ..................... [ 58%]
+.....................                                                    [ 62%]
+tests/integration/test_ingestion_lease_fencing.py ...................... [ 66%]
+...............                                                          [ 70%]
+tests/integration/test_ingestion_service.py ............................ [ 75%]
+.............................                                            [ 81%]
+tests/integration/test_least_privilege_mode.py .                         [ 82%]
+tests/integration/test_review_hardening.py ....................          [ 86%]
+tests/integration/test_role_guards.py ......                             [ 87%]
+tests/integration/test_subjects_api.py ................................. [ 94%]
+.............                                                            [ 96%]
+tests/integration/test_transaction.py ..                                 [ 97%]
+tests/integration/test_users_me.py .............                         [100%]
+
+=============================== warnings summary ===============================
+tests/integration/test_users_me.py::test_me_rejects_every_kind_of_invalid_token_with_the_same_generic_401
+  /opt/venv/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 40 bytes long, which is below the minimum recommended length of 48 bytes for SHA384. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---------- generated xml file: /tmp/privilege-reports/roles-mode.xml -----------
+========== 484 passed, 554 deselected, 1 warning in 124.42s (0:02:04) ==========
+::endgroup::
+STEP roles-mode exit code 0
+::group::summary
+| Suite | Executed | Failed | Errors | Skipped |
+|---|---|---|---|---|
+| privilege unit tests | 149 | 0 | 0 | 0 |
+| role-bound suites | 175 | 0 | 0 | 0 |
+| roles mode | 484 | 0 | 0 | 0 |
+
+Privilege tests executed in total: **808**
+
+Problems:
+- role-bound suites: 175 tests executed, fewer than the expected 400
+
+::error::role-bound suites: 175 tests executed, fewer than the expected 400
+::endgroup::
+STEP summary exit code 1
+JOB RESULT: failed at step summary
+# job exit code: 1
+# containers left by this run: 2 (the clusters are removed on exit)

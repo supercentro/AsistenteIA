@@ -26,6 +26,7 @@ from tests.ingestion_support import (
     job_state,
     make_scene,
 )
+from tests.least_privilege import superuser_exception
 from tests.service_support import LONG_TEXT, wait_until
 from tests.sql_support import scalar
 
@@ -74,6 +75,7 @@ def worker_environment(url: str) -> dict[str, str]:
         INGESTION_BATCH_SIZE="2",
         PYTHONUNBUFFERED="1",
     )
+    env.update(superuser_exception())
     return env
 
 

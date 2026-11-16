@@ -8,9 +8,9 @@ import pytest
 from sqlalchemy import text
 
 from app.cli import run
-from app.core.config import Settings
+from app.core.config import CliSettings
 from app.core.database import create_db_engine, create_session_factory
-from tests.integration.helpers import FAST_PASSWORDS, MakeUser, build_settings
+from tests.integration.helpers import FAST_PASSWORDS, MakeUser
 
 STRONG = "a-strong-password-1"
 SEED_ENV = {
@@ -19,6 +19,10 @@ SEED_ENV = {
     "SEED_STUDENT_EMAIL": "student.demo@example.com",
     "SEED_STUDENT_PASSWORD": "student-demo-password",
 }
+
+
+def cli_settings(database_url: str, app_env: str) -> CliSettings:
+    return CliSettings(cli_database_url=database_url, app_env=app_env)
 
 
 @dataclass
@@ -31,7 +35,7 @@ class Cli:
         self,
         argv: list[str],
         *,
-        settings: Settings | None = None,
+        settings: CliSettings | None = None,
         env: Mapping[str, str] | None = None,
         stdin: str = "",
         prompts: Callable[[str], str] | None = None,
@@ -40,7 +44,7 @@ class Cli:
         try:
             return run(
                 argv,
-                settings=settings or build_settings(self.database_url, app_env="test"),
+                settings=settings or cli_settings(self.database_url, "test"),
                 session_factory=create_session_factory(engine),
                 passwords=FAST_PASSWORDS,
                 env=env or {},
@@ -222,7 +226,7 @@ def test_seed_is_idempotent(cli: Cli, clean_db: str) -> None:
 
 @pytest.mark.parametrize("app_env", ["production"])
 def test_seed_refuses_to_run_in_production(cli: Cli, clean_db: str, app_env: str) -> None:
-    settings = build_settings(clean_db, app_env=app_env, cors_origins=["https://app.example"])
+    settings = cli_settings(clean_db, app_env)
 
     code = cli(["seed"], settings=settings, env=SEED_ENV)
 
@@ -233,7 +237,7 @@ def test_seed_refuses_to_run_in_production(cli: Cli, clean_db: str, app_env: str
 
 @pytest.mark.parametrize("app_env", ["development", "test"])
 def test_seed_runs_in_development_and_test(cli: Cli, clean_db: str, app_env: str) -> None:
-    settings = build_settings(clean_db, app_env=app_env)
+    settings = cli_settings(clean_db, app_env)
 
     assert cli(["seed"], settings=settings, env=SEED_ENV) == 0
 

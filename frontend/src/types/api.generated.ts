@@ -98,15 +98,8 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Database unreachable (code `SERVICE_UNAVAILABLE`; no connection details) */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -306,6 +299,8 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -410,6 +405,8 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -478,6 +475,8 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -562,6 +561,8 @@ export interface paths {
                 404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -604,6 +605,8 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -817,6 +820,8 @@ export interface paths {
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -1229,6 +1234,34 @@ export interface components {
         };
         /** @description Request validation failed */
         ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description Unexpected server error (code `INTERNAL_ERROR`, no details). When the cause is a write that the
+         *     database refused at commit, the transaction was rolled back and nothing was stored or removed.
+         *     An error raised after a successful commit is reported the same way, so a client that must be
+         *     sure reads the resource before it repeats a request that is not idempotent.
+         */
+        InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description The database could not be reached or the connection was lost (code `SERVICE_UNAVAILABLE`, no details,
+         *     no connection data). When the connection was lost while the write was being committed, the outcome is
+         *     uncertain: the change may or may not be stored, so read the resource before repeating the request
+         *     (a creation that was in fact stored answers 409 when it is repeated).
+         */
+        ServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
             };

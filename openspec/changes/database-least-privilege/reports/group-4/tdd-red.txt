@@ -1,0 +1,14 @@
+$ pytest tests/unit/test_db_admin_sql.py tests/unit/test_cli_database_commands.py tests/integration/test_db_admin_*.py --continue-on-collection-errors -q   (before any implementation)
+      5 E   ModuleNotFoundError: No module named 'app.db_admin'
+      1 FAILED tests/unit/test_cli_database_commands.py::test_each_command_names_its_own_missing_variable_and_never_the_api_ones[db-verify]
+      1 FAILED tests/unit/test_cli_database_commands.py::test_each_command_names_its_own_missing_variable_and_never_the_api_ones[db-migrate]
+      1 FAILED tests/unit/test_cli_database_commands.py::test_each_command_names_its_own_missing_variable_and_never_the_api_ones[db-grants]
+      1 FAILED tests/unit/test_cli_database_commands.py::test_each_command_names_its_own_missing_variable_and_never_the_api_ones[db-bootstrap]
+      1 FAILED tests/unit/test_cli_database_commands.py::test_each_command_names_its_own_missing_variable_and_never_the_api_ones[db-adopt]
+      1 FAILED tests/unit/test_cli_database_commands.py::test_adopt_is_a_dry_run_unless_told_otherwise
+      1 ERROR tests/unit/test_db_admin_sql.py
+      1 ERROR tests/integration/test_db_admin_verify.py
+      1 ERROR tests/integration/test_db_admin_grants.py
+      1 ERROR tests/integration/test_db_admin_bootstrap.py
+      1 ERROR tests/integration/test_db_admin_adopt.py
+      1 6 failed, 7 passed, 5 errors in 0.54s

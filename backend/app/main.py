@@ -5,7 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import Settings, load_settings
-from app.core.database import create_db_engine, create_session_factory
+from app.core.database import (
+    assert_restricted_database_role,
+    create_db_engine,
+    create_session_factory,
+)
 from app.core.error_middleware import UnhandledErrorMiddleware
 from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging
@@ -29,6 +33,7 @@ def create_app(
         idle_in_transaction_timeout_seconds=settings.db_idle_in_transaction_timeout_seconds,
     )
     app.state.settings = settings
+    app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.password_service = password_service or PasswordService()
     app.state.login_rate_limiter = RateLimiter(
@@ -68,5 +73,13 @@ def create_app(
 
 
 def app_factory() -> FastAPI:
-    """Uvicorn entry point: `uvicorn app.main:app_factory --factory`."""
-    return create_app()
+    """Uvicorn entry point: `uvicorn app.main:app_factory --factory`.
+
+    It refuses to start when the database connection is a superuser (finding PG-01): the check asks
+    the server, and only the test-only setting (rejected outside `APP_ENV=test`) skips it.
+    """
+    settings = load_settings()
+    app = create_app(settings)
+    if not settings.allow_superuser_database_role:
+        assert_restricted_database_role(app.state.engine)
+    return app

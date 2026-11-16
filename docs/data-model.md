@@ -105,11 +105,11 @@ erDiagram
 ## Entities
 
 ### users
-- `id` uuid PK (default `gen_random_uuid()`); `name` varchar(100) not null; `email` varchar(255) unique not null (ASCII only and stored lowercase, enforced by check constraints `ck_users_email_lowercase`: `email = lower(email)` and `ck_users_email_ascii`: `octet_length(email) = char_length(email)`; internationalised domains are stored in punycode); `password_hash` text not null (Argon2id); `role` PostgreSQL enum type `user_role` (`teacher`, `student`) not null.
+- `id` uuid PK (default `gen_random_uuid()`); `name` varchar(100) not null; `email` varchar(255) unique not null (ASCII only and stored lowercase, enforced by check constraints `ck_users_email_lowercase`: `email = lower(email)` and `ck_users_email_ascii`: `octet_length(email) = char_length(email)`; internationalised domains are stored in punycode); `password_hash` text not null (Argon2id); `role` PostgreSQL enum type `user_role` (`teacher`, `student`) not null, with the server default `'student'` (migration `0006`).
 - `consent_version` varchar(20) and `consent_accepted_at` timestamptz: evidence of the privacy-policy acceptance; only the latest acceptance is stored (re-acceptance overwrites both). The recorded version must equal the currently configured policy version (`PRIVACY_POLICY_VERSION`). The API must refuse chat usage until consent for the current version is recorded (enforced by the chat change).
-- Teacher accounts are created only by the `python -m app.cli create-teacher` and `seed` commands (public registration creates students), so a role can never be self-assigned.
+- Teacher accounts are created only by the `python -m app.cli create-teacher` and `seed` commands (public registration creates students), so a role can never be self-assigned. This is also enforced by the database (change `database-least-privilege`, option A of DD-9): the registration code does not name `role`, PostgreSQL supplies `student`, and the application role has no `INSERT` or `UPDATE` privilege on `users.role`; the commands run under a separate CLI role (`asistente_cli`, credential in `backend/.env.cli`) that the API never holds.
 - Validation: email format and ASCII-only characters (look-alike Unicode addresses cannot become separate accounts); password length 10-128 (validated at the API layer, never stored; passwords are not Unicode-normalized).
-- Created by migration `0002` (downgrade drops the table, then the `user_role` type).
+- Created by migration `0002` (downgrade drops the table, then the `user_role` type). Migration `0006` adds the default `'student'` to `role` (its downgrade drops only the default; no row changes). `consent_version` and `consent_accepted_at` are declared `FetchedValue()` in the model (no DDL, no migration): the code never sets them on insert, so the ORM leaves them out of the `INSERT`; the application and CLI roles have no `INSERT` privilege on them, and the consent endpoint `UPDATE`s them.
 
 ### subjects
 - `teacher_id` FK → users (must have role `teacher`, enforced in the service layer), `ON DELETE RESTRICT`. Unique `(teacher_id, name)`; names are compared exactly (case-sensitive) after trimming.
@@ -127,6 +127,7 @@ erDiagram
 
 ### documents
 - One row per uploaded **original file**. The original binary is never kept permanently: the uploaded bytes live temporarily in `ingestion_jobs.payload` until the document is `ready` or `failed` (see `ingestion_jobs` below and "Ingestion" in `backend-standards.md`); only metadata and extracted chunks remain.
+- `error_message` and `error_code` are `FetchedValue()` in the model: the upload never sets them (the worker records a failure with SQL), so the ORM insert leaves them out and the application role has no `INSERT` privilege on them.
 - `status`: `pending` → `processing` → `ready` | `failed`. Terminal states do not change. `error_code` is one value of the closed catalogue of 12 codes (`NO_EXTRACTABLE_TEXT`, `ENCRYPTED_PDF`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `TEXT_TOO_LARGE`, `TOO_MANY_CHUNKS`, `PROCESSING_TIMEOUT`, `RESOURCE_LIMIT_EXCEEDED`, `EMBEDDING_FAILED`, `PROCESSING_INTERRUPTED`, `JOB_EXPIRED`, `PROCESSING_FAILED`) and `error_message` is the fixed, non-sensitive English sentence of that code (both defined once in `app/models/ingestion.py`). The database only enforces that a code exists on a `failed` document; that a failed document always has one is the service rule (fixtures and rows from before `0005` may have none).
 - Supported `content_type`: `application/pdf`, `text/plain` (and `text/markdown`). Max size configured via `MAX_UPLOAD_MB`. The database does not restrict `content_type` values (validated at upload), so a new type needs no migration.
 - Columns: `id` uuid (`gen_random_uuid()`), `subject_id` uuid not null, `filename` varchar(255) not null, `content_type` varchar(100) not null, `size_bytes` bigint not null, `status` enum `document_status` (`pending`, `processing`, `ready`, `failed`) not null default `pending`, `error_message` text null, `error_code` varchar(40) null (added by `0005`), `chunks_count` integer not null default 0, `created_at` timestamptz not null default `now()`.
@@ -137,6 +138,7 @@ erDiagram
 ### ingestion_jobs
 - The persistent queue of the background worker: **at most one row per document** (`UNIQUE (document_id)`, `ON DELETE CASCADE`, so deleting a document or its subject removes the job and its bytes). It exists from the upload until the document is terminal (and may remain, without bytes, until the document is deleted).
 - Columns: `id` uuid (`gen_random_uuid()`), `document_id` uuid not null, `payload` bytea null (the uploaded bytes, at most `MAX_UPLOAD_MB`; set to NULL when the document becomes `ready` or `failed`), `attempts` integer not null default 0, `locked_by` varchar(64) null (random **claim token**, the fencing token of every worker write), `locked_until` timestamptz null (the lease), `available_at` timestamptz not null default `now()`, `created_at` and `updated_at` timestamptz not null default `now()`.
+- `locked_by` and `locked_until` are `FetchedValue()` in the model and the mapper sets `eager_defaults=False`: the API never sets or reads them (only the worker, with SQL), so the ORM insert and its `RETURNING` leave them out and the application role has neither `INSERT` nor `SELECT` on them.
 - Checks: `attempts >= 0`, and `(locked_by IS NULL) = (locked_until IS NULL)` (a lease has both an owner and an expiry, or neither). Partial index `ix_ingestion_jobs_claimable (available_at) WHERE payload IS NOT NULL` serves the claim query.
 - Created by migration `0005` (the downgrade drops the table: jobs in flight and their bytes are lost by design, and their documents stay `pending` or `processing` for ever, so a downgrade is only run after the preflight of `docs/development_guide.md` finds nothing in flight).
 - **Temporary bytes are not erased immediately.** Setting `payload` to NULL or deleting the row leaves the bytes in dead tuples and table files until the table is rewritten, in the write-ahead log, and in any base backup, logical dump or replica made while the job existed. Measured on 2026-11-08 with a 10 MB file: about 21 MB of WAL per job (10.7 MB on insert and 10.5 MB on clearing); autovacuum removes the dead tuples but does not overwrite free pages; `VACUUM FULL ingestion_jobs` (about 30 ms) removes them from the data files and is manual maintenance, never part of the worker; WAL segments and backups keep them until they are recycled or expire. Treat database backups as containing teachers' files for their retention period. The queries to follow dead tuples, TOAST size and WAL volume are in `docs/development_guide.md` ("Document ingestion"); the residual risk is TD-029 in `docs/technical-debt.md`.
@@ -185,6 +187,50 @@ erDiagram
 - Right to erasure: deleting one conversation, deleting all of a student's conversations, or deleting the account removes rows physically (no soft delete) via the cascades above.
 - Retention: conversation data lives until the user deletes it or the account is deleted. Application logs must not contain message content or document text.
 - Third-party processing: message text and retrieved chunks are sent to Gemini. This must be disclosed in the privacy policy shown at consent time.
+
+## Database identities and privileges
+
+Change `database-least-privilege`; applied to the development database on 2026-11-14 (revision `0006`, `db-verify` without findings). The privilege matrix has **one home, `backend/app/db_privileges.py`**; the tables below are a reading guide checked against that file on 2026-11-15, not a second copy to maintain: if they ever differ, the code and `db-verify` win and this section is wrong. Rationale and alternatives: `openspec/changes/database-least-privilege/design.md` (DD-1 to DD-16).
+
+### Identities
+
+| Identity | Responsibility | Attributes | Credential file |
+|---|---|---|---|
+| Administrator (`POSTGRES_USER`, `asistente`) | cluster administration only: roles, access to the databases, the `vector` extension, adoption (`db-bootstrap`, `db-adopt`). It owns no application object and no application process connects as it | the only superuser | `.env.db` (container `db`), `ADMIN_DATABASE_URL` in `.env.roles` |
+| `asistente_migrator` | **owns every application object**; runs Alembic and applies the grants (`db-migrate`, `db-grants`); runs `db-verify` | none of the attributes below | `MIGRATION_DATABASE_URL` in `.env.migrate` (`DB_MIGRATOR_PASSWORD` in `.env.roles`) |
+| `asistente_app` | the API | none | `DATABASE_URL` in `.env` (`DB_APP_PASSWORD`) |
+| `asistente_worker` | the ingestion worker | none | `DATABASE_URL` in `.env.worker` (`DB_WORKER_PASSWORD`) |
+| `asistente_cli` | administrative commands (`create-teacher`, `seed`) | none | `CLI_DATABASE_URL` in `.env.cli` (`DB_CLI_PASSWORD`) |
+
+"None" means no `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION` or `BYPASSRLS` (read from `pg_roles` on the development database on 2026-11-15) and, by design (DD-1), no membership of another role. The API and the worker also refuse to start as a superuser.
+
+### Ownership and `PUBLIC`
+
+- The migrator owns the nine objects of the schema: the seven tables (`users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `ingestion_jobs` and `alembic_version`) and the two enum types (`user_role`, `document_status`). The development database was adopted on 2026-11-14 (`db-adopt --apply`: owner changed, data, indexes and constraints identical). The `vector` extension lives in `public` and is managed by the bootstrap.
+- `PUBLIC` has no privilege on the application tables and columns, on the databases or on schema `public`; the bootstrap closes it on every database of the cluster, the templates included, and the migrator's default privileges revoke `EXECUTE` on new functions from `PUBLIC`.
+- `alembic_version` is closed to every runtime role.
+
+### Effective privileges of the runtime roles
+
+Column lists are exact; `SELECT *` means every column of the table. A blank cell is no privilege at all (the table is closed to that role). Nothing in the table is granted to `PUBLIC`.
+
+| Table | `asistente_app` (API) | `asistente_worker` | `asistente_cli` |
+|---|---|---|---|
+| `users` | SELECT *; INSERT (`name`, `email`, `password_hash`); UPDATE (`consent_version`, `consent_accepted_at`) | | SELECT *; INSERT (`name`, `email`, `password_hash`, `role`) |
+| `subjects` | SELECT *; INSERT (`name`, `description`, `teacher_id`); UPDATE (`description`, which also carries the row lock of `SELECT ... FOR UPDATE`); DELETE | | |
+| `enrollments` | SELECT *; INSERT (`subject_id`, `student_id`); DELETE | | |
+| `documents` | SELECT *; INSERT (`subject_id`, `filename`, `content_type`, `size_bytes`, `status`); DELETE | SELECT (`id`, `subject_id`, `filename`, `content_type`, `status`); UPDATE (`status`, `chunks_count`, `error_code`, `error_message`) | |
+| `document_chunks` | SELECT (every column except `created_at`) | INSERT (`document_id`, `subject_id`, `chunk_index`, `page_number`, `content`, `embedding`); SELECT (`id`) | |
+| `ingestion_jobs` | SELECT (`id`, `payload`); INSERT (`document_id`, `payload`) | SELECT (`id`, `document_id`, `payload`, `attempts`, `locked_by`, `locked_until`, `available_at`, `created_at`); UPDATE (`payload`, `attempts`, `locked_by`, `locked_until`, `updated_at`) | |
+
+What follows from it (proved by the denied-operation tests and, on the development database, by the checks of the real run of 2026-11-14):
+- **`users.role` can never be written by the API**: registration omits it and the server default `student` (migration `0006`) supplies it; only the CLI role inserts a `role`, which is how teacher accounts exist. The API cannot insert a teacher.
+- **The worker sees no personal data**: it has no privilege on `users`, `subjects` or `enrollments`, cannot create or delete documents or jobs, and can update only the listed columns of `documents` and `ingestion_jobs`. `locked_by` and `locked_until` (the fencing token and the lease) are readable and writable only by the worker.
+- **No runtime role can delete from `users`, `document_chunks` or `ingestion_jobs`**; chunks and jobs go away through the `ON DELETE CASCADE` of their parent document, and erasing a user account needs a reviewed grant that does not exist yet (TD-039, change `personal-data-erasure`).
+- **No runtime role can create objects, read `alembic_version` or change a schema**: only the migrator owns objects and changes them.
+- `conversations`, `messages` and `message_sources` appear in the diagram above but do not exist in the database yet; a table without a decision in the matrix is closed to every runtime role by default and fails the test suite until someone decides.
+
+Verification: `python -m app.cli db-verify` compares the live catalog with the matrix (read only, exit 1 on a difference); the same comparison runs in the CI job `privileges` (see `docs/development_guide.md`, "Database"). Known limits of that check (defaults, column ACLs of other roles) are TD-043.
 
 ## Changes vs readme.md
 

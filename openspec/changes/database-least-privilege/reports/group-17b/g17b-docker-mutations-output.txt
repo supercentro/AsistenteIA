@@ -1,0 +1,8 @@
+PASS mutation 'bootstrap does not require the drift listing' is detected by T6 (4 check(s) fail)
+PASS mutation 'backup/real-state equivalence ignored' is detected by T4 (2 check(s) fail)
+PASS mutation 'cluster identity pin ignored' is detected by T5 (4 check(s) fail)
+PASS mutation 'adoption dry run count not checked' is detected by T7 (3 check(s) fail)
+PASS mutation 'prepared transaction gate removed' is detected by T2 (5 check(s) fail)
+PASS mutation 'S13 ignores a settings load failure' is detected by T14 (1 check(s) fail)
+docker mutation problems: 0
+exit=0

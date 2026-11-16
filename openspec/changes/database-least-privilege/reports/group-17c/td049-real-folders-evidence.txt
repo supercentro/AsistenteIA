@@ -1,0 +1,142 @@
+TD-049 real-folder operations, 2026-11-14 (sanitized: no path, no user name; identities generic; <owner> = current user, <host> = this computer)
+Authorised: (A) apply the tested folder ACL policy to the two backup folders, (B) replace the two legacy .sha256 of the 17b backup.
+Not done: no new backup, no dump touched, no other folder changed, no PostgreSQL/service/.env change.
+
+== 1. Protection before any change (kept OUTSIDE the repository, in a new rollback folder next to the backups)
+- copies of the two legacy .sha256 (verified byte-identical by the migration tool), SDDL export of both folders and of every child
+  (8 + 4 descriptors), inventory of every file with SHA-256 and size (10 files), hashes of the 4 dumps, ACL listings before.
+- legacy .sha256 content: primary and second both held "<hash> *<absolute path to the PRIMARY folder>" (the second pointed at the other folder).
+- rollback: tools/acl_descriptor.ps1 -Mode Restore (folders and children from the SDDL export) and the legacy .sha256 from the stash;
+  both paths exercised on synthetic folders in tools/test_td049_migration.py (see g17c-td049-migration-selftest.txt).
+
+== 2. Folder policy applied and verified (secure_folder_acl.ps1)
+FOLDER ACL OK AsistenteIA: applied and verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+FOLDER ACL OK AsistenteIA-second: applied and verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+Effective access probe (each folder): create a temporary own file -> restrict to Read -> read it -> delete it through the folder's delete-child right: all four steps succeeded; no probe left.
+(Note: PowerShell Remove-Item cannot delete a Read-restricted file; [IO.File]::Delete / Python unlink, which the tools use, can.)
+Inventory after the policy: 0 differences (hashes and sizes of all 10 files unchanged).
+
+== 3. Migration of the two .sha256 (migrate_legacy_sha256.py, all or nothing, stage + verify before replacing)
+MIGRATE preconditions OK for 2 folders (dump asistenteia_pre_17b_20261114T013150Z.dump: size and sha256 as expected)
+MIGRATE stash primary/second: legacy .sha256 copied and verified
+MIGRATE stage primary/second: MANIFEST OK ... sha256 d0a2ad6bfc0c392d765473acbaf7bfbec25ff24eea99e2828e3377176d6279d9
+MIGRATE commit primary/second: MANIFEST OK (copy primary / copy second)
+MIGRATE acl primary/second: new .sha256 and manifest restricted
+MIGRATE OK: 2 folders migrated; dumps untouched
+
+== 4. Independent verification per folder (after)
+MANIFEST OK asistenteia_pre_17b_20261114T013150Z.dump (copy primary): size 17437; sha256 d0a2ad6b...6279d9; .sha256 and manifest consistent
+MANIFEST OK asistenteia_pre_17b_20261114T013150Z.dump (copy second): size 17437; sha256 d0a2ad6b...6279d9; .sha256 and manifest consistent
+sha256sum -c inside each folder: dump OK, manifest OK (both folders)
+New .sha256 (2 lines, file names only): "<dump hash>  <dump name>" / "<manifest hash>  <dump name>.integrity.txt"; the manifest hashes differ per folder (copy label).
+Negatives on scratch copies: manifest of the other folder -> FAIL (hash and copy label); missing manifest -> FAIL; absolute path in .sha256 -> FAIL.
+New file ACLs: 4 of 4 "ACL OK ... 1 rule: current user, Allow, Read; inheritance disabled".
+Legacy descriptive manifests (<dump>.manifest.txt) and the old backups: untouched.
+
+== 5. Hashes of the four dumps before and after: identical
+f1bf54e5dc15a567...a1ebe97 asistenteia_pre_0004.dump
+e6f5bb7574894fc9...acaba8c6 asistenteia_pre_0005_20261112T034241Z.dump
+d0a2ad6bfc0c392d...6279d9 asistenteia_pre_17b_20261114T013150Z.dump (primary)
+d0a2ad6bfc0c392d...6279d9 asistenteia_pre_17b_20261114T013150Z.dump (second)
+Inventory difference before/after: exactly 2 .integrity.txt added and 2 .sha256 replaced::
+  AFTER  primary/...dump.integrity.txt, primary/...dump.sha256, second/...dump.integrity.txt, second/...dump.sha256
+  BEFORE primary/...dump.sha256, second/...dump.sha256
+Leftovers (probe, stage folders, scratch): 0.
+
+== 6. ACL BEFORE (per folder, then per file)
+== folder primary (BEFORE)
+owner=<host>\<owner> inheritance_protected=True
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=False flags=ContainerInherit, ObjectInherit
+  BUILTIN\Administrators Allow FullControl inherited=False flags=ContainerInherit, ObjectInherit
+  <host>\<owner> Allow FullControl inherited=False flags=ContainerInherit, ObjectInherit
+-- file asistenteia_pre_0004.dump
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow FullControl inherited=False flags=None
+-- file asistenteia_pre_0005_20261112T034241Z.dump
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+-- file asistenteia_pre_0005_20261112T034241Z.dump.manifest.txt
+owner=<host>\<owner> inheritance_protected=False
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=True flags=None
+  BUILTIN\Administrators Allow FullControl inherited=True flags=None
+  <host>\<owner> Allow FullControl inherited=True flags=None
+-- file asistenteia_pre_0005_20261112T034241Z.dump.sha256
+owner=<host>\<owner> inheritance_protected=False
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=True flags=None
+  BUILTIN\Administrators Allow FullControl inherited=True flags=None
+  <host>\<owner> Allow FullControl inherited=True flags=None
+-- file asistenteia_pre_17b_20261114T013150Z.dump
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+-- file asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+-- file asistenteia_pre_17b_20261114T013150Z.dump.sha256
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+== folder second (BEFORE)
+owner=<host>\<owner> inheritance_protected=False
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=True flags=ContainerInherit, ObjectInherit
+  BUILTIN\Administrators Allow FullControl inherited=True flags=ContainerInherit, ObjectInherit
+  <host>\<owner> Allow FullControl inherited=True flags=ContainerInherit, ObjectInherit
+-- file asistenteia_pre_17b_20261114T013150Z.dump
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+-- file asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+-- file asistenteia_pre_17b_20261114T013150Z.dump.sha256
+owner=<host>\<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False flags=None
+
+== 7. ACL AFTER
+== folder primary (AFTER)
+owner=<owner> inheritance_protected=True
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=False
+  BUILTIN\Administrators Allow FullControl inherited=False
+  <host>\<owner> Allow DeleteSubdirectoriesAndFiles, Modify, Synchronize inherited=False
+-- file asistenteia_pre_0004.dump
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow FullControl inherited=False
+-- file asistenteia_pre_0005_20261112T034241Z.dump
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_0005_20261112T034241Z.dump.manifest.txt
+owner=<owner> inheritance_protected=False
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=True
+  BUILTIN\Administrators Allow FullControl inherited=True
+  <host>\<owner> Allow DeleteSubdirectoriesAndFiles, Modify, Synchronize inherited=True
+-- file asistenteia_pre_0005_20261112T034241Z.dump.sha256
+owner=<owner> inheritance_protected=False
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=True
+  BUILTIN\Administrators Allow FullControl inherited=True
+  <host>\<owner> Allow DeleteSubdirectoriesAndFiles, Modify, Synchronize inherited=True
+-- file asistenteia_pre_17b_20261114T013150Z.dump
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.integrity.txt
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.sha256
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+== folder second (AFTER)
+owner=<owner> inheritance_protected=True
+  NT AUTHORITY\SYSTEM Allow FullControl inherited=False
+  BUILTIN\Administrators Allow FullControl inherited=False
+  <host>\<owner> Allow DeleteSubdirectoriesAndFiles, Modify, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.integrity.txt
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.manifest.txt
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False
+-- file asistenteia_pre_17b_20261114T013150Z.dump.sha256
+owner=<owner> inheritance_protected=True
+  <host>\<owner> Allow Read, Synchronize inherited=False

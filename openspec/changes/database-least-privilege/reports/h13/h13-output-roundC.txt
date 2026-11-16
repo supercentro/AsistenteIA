@@ -1,0 +1,9 @@
+H13 run 2026-11-12T18:42:08Z | free host RAM before: 4.98 GB
+repo HEAD: 3b312e4; compose file untouched: 0 changes
+--- config checks
+config valid: 0 errors | published ports in the rendered config: 0 | rendered references to real env files (backend/.env*): 0
+services: backend bootstrap db migrate worker  | frontend profile-excluded: 0
+=== C bootstrap in a Compose profile that is not active (configuration only)
+config without profile: service "migrate" depends on undefined service "bootstrap": invalid compose project
+config with --profile admin: 0 errors
+round C finished (configuration only, nothing was started)

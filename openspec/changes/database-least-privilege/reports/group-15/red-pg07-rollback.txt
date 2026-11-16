@@ -1,0 +1,123 @@
+# group 15.2 test run 2026-11-13T19:27:53Z | free RAM before: 10.42 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: -m role_bound tests/integration/test_db_admin_adopt.py -k named_database or another_database or last_database or does_not_exist
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+FF.F                                                                     [100%]
+=================================== FAILURES ===================================
+___ test_the_rollback_acts_only_on_the_named_database_and_reports_the_other ____
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7d30016e7380>
+
+    def test_the_rollback_acts_only_on_the_named_database_and_reports_the_other(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        first, second, first_counts, second_counts = adopted_pair(cluster, scratch_database)
+    
+        report = rollback_adoption(
+            cluster.admin("postgres"), database=first, names=cluster.names, remove_roles=False
+        )
+    
+        assert set(owners(cluster, first).values()) == {make_admin_name(cluster)}
+>       assert set(owners(cluster, second).values()) == {cluster.names.migrator}  # untouched
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert {'tstadmin'} == {'tstrole_migrator'}
+E         
+E         Extra items in the left set:
+E         'tstadmin'
+E         Extra items in the right set:
+E         'tstrole_migrator'
+E         Use -v to get more diff
+
+tests/integration/test_db_admin_adopt.py:297: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+___ test_removing_the_roles_is_refused_while_another_database_is_still_owned ___
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7d30015f76a0>
+
+    def test_removing_the_roles_is_refused_while_another_database_is_still_owned(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        first, second, _, second_counts = adopted_pair(cluster, scratch_database)
+    
+>       with pytest.raises(AdoptRefusedError, match="owns"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AdoptRefusedError
+
+tests/integration/test_db_admin_adopt.py:310: Failed
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+___________ test_the_rollback_refuses_a_database_that_does_not_exist ___________
+
+cluster = Cluster(names=RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7d30013feb60>
+
+    def test_the_rollback_refuses_a_database_that_does_not_exist(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        prepare(cluster, scratch_database)
+    
+>       with pytest.raises(AdoptRefusedError, match="does not exist"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AdoptRefusedError
+
+tests/integration/test_db_admin_adopt.py:350: Failed
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+=============================== warnings summary ===============================
+../../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_acts_only_on_the_named_database_and_reports_the_other
+FAILED tests/integration/test_db_admin_adopt.py::test_removing_the_roles_is_refused_while_another_database_is_still_owned
+FAILED tests/integration/test_db_admin_adopt.py::test_the_rollback_refuses_a_database_that_does_not_exist
+3 failed, 1 passed, 19 deselected, 1 warning in 3.26s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

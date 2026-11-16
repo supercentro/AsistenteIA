@@ -3,24 +3,26 @@ from pathlib import Path
 
 import pytest
 from alembic import command
-from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.database import create_db_engine, create_session_factory
 from app.core.db_safety import UnsafeTestDatabaseError
 from app.models.user import UserRole
+from tests import least_privilege
 from tests.db_support import (
     MissingTestDatabaseError,
     alembic_config,
     drop_everything,
+    load_test_environment,
     require_test_database_url,
     truncate_all,
 )
 from tests.integration.helpers import MakeUser, TestUser, build_app, insert_user
 
-# Integration tests run on the host: read backend/.env without overriding the real environment.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+# Integration tests run on the host: read backend/.env.test and backend/.env without overriding the
+# real environment (the test variables are host-only and never reach a container).
+load_test_environment(Path(__file__).resolve().parents[2])
 
 
 @pytest.fixture(scope="session")
@@ -34,7 +36,15 @@ def test_db_url() -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def migrated_db(test_db_url: str) -> Iterator[str]:
-    """Test database at `alembic head`, built from scratch once and emptied at the end."""
+    """Test database at `alembic head`, built from scratch once and emptied at the end.
+
+    With `--least-privilege` it is built the way production is (bootstrap, migrator, grants).
+    """
+    if least_privilege.enabled():
+        least_privilege.activate(test_db_url)
+        yield test_db_url
+        least_privilege.deactivate(test_db_url)
+        return
     drop_everything(test_db_url)
     command.upgrade(alembic_config(test_db_url), "head")
     yield test_db_url

@@ -1,0 +1,16 @@
+# group 8 mutation run 2026-11-13T11:53:16Z | free RAM before: 8.35 GB | images: pgvector/pgvector:0.8.7-pg15, asistenteia-worker:main-f455234
+# env files in the copy: 0
+10 mutations, 0 problem(s)
+
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu | published ports: 0
+[0] CAUGHT | matrix: the application role may insert users.role (the broad INSERT is restored) | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_teacher.py::test_the_application_role_cannot_insert_a_teacher_or_change
+[1] CAUGHT | migration 0006: the upgrade no longer sets the default | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_migrations_user_role_default.py::test_upgrade_sets_the_default_and_keeps_every_e
+[2] CAUGHT | migration 0006: the default is teacher | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_migrations_user_role_default.py::test_upgrade_sets_the_default_and_keeps_every_e
+[3] CAUGHT | migration 0006: the downgrade keeps the default | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_migrations_user_role_default.py::test_downgrade_drops_only_the_default_and_loses
+[4] CAUGHT | model: users.role loses its server default | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_teacher_provisioning.py::test_the_model_declares_the_student_default_on_the_server
+[5] CAUGHT | registration names the role again | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_teacher_provisioning.py::test_registration_builds_a_user_without_naming_the_role
+[6] CAUGHT | cli settings: the CLI falls back to the API variable DATABASE_URL | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_teacher_provisioning.py::test_cli_settings_need_only_the_cli_url
+[7] CAUGHT | cli settings: an unset APP_ENV opens the seed gate | baseline rc=0 mutant rc=1 | FAILED tests/unit/test_teacher_provisioning.py::test_the_seed_gate_fails_closed_when_app_env_is_not_provided
+[8] CAUGHT | matrix: the CLI role loses INSERT on users.role | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_teacher.py::test_the_cli_role_creates_a_teacher_and_prints_no_secret
+[9] CAUGHT | matrix: the CLI role may update users | baseline rc=0 mutant rc=1 | FAILED tests/integration/test_db_roles_teacher.py::test_the_cli_role_is_limited_to_creating_and_reading_accoun
+# repository files modified by this run: 0 (mutations are applied to copies in a scratch directory)

@@ -1,0 +1,95 @@
+=== synthetic e2e 2026-11-14T04:11:53Z; repo HEAD 85fd6ea
+=== 0 the synthetic source and folders
+free RAM before: 8.39 GB
+[1] PASS the synthetic source holds the restored 0005 catalog | expected 0, obtained 0
+[2] PASS the synthetic catalog equals the REAL expected baseline of 0005 (so the rehearsal exercises the real gate D) | expected IDENTICAL, obtained IDENTICAL
+FOLDER ACL OK copy-a: applied and verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+FOLDER ACL OK copy-b: applied and verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+=== run 1: happy path
+      [1] PASS connected to the source database as the original administrator, read only | expected asistenteia|asistente|on, obtained asistenteia|asistente|on
+      [2] PASS the container is the expected one (compose project g17synthetic) | expected g17synthetic, obtained g17synthetic
+      [3] PASS revision 0005 | expected revision|0005, obtained revision|0005
+      [4] PASS no open transaction, no idle in transaction, no prepared transaction, no ungranted lock | expected 0|0|0|0, obtained 0|0|0|0
+      [5] PASS GATE D: the catalog of the source database equals the expected baseline of 0005 | expected IDENTICAL, obtained IDENTICAL
+      [6] PASS GATE D: the cluster (roles, databases, ACLs) equals the expected baseline | expected IDENTICAL, obtained IDENTICAL
+      [7] PASS asistenteia_test equals the expected baseline (informative: its public schema owner differs after the fixtures) | expected IDENTICAL, obtained IDENTICAL
+      FOLDER ACL OK copy-a: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+      FOLDER ACL OK copy-b: verified; inheritance disabled; 3 rules: SYSTEM Full, Administrators Full, current user Modify+DeleteChild; owner: current user
+      [8] PASS the pre-existing backups are untouched (their hashes equal the recorded ones) | expected 1, obtained 1
+      [9] PASS sha256 outside equals sha256 inside the container | expected b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a, obtained b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3
+      [10] PASS the second, independent copy has the same sha256 | expected b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a, obtained b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3
+      MANIFEST OK asistenteia_pre_17b_20261114T041207Z.dump (copy primary): written; size 17394; sha256 b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a
+      [11] PASS the integrity files of the primary copy were written | expected MANIFEST OK, obtained MANIFEST OK
+      MANIFEST OK asistenteia_pre_17b_20261114T041207Z.dump (copy second): written; size 17394; sha256 b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a
+      [12] PASS the integrity files of the second copy were written | expected MANIFEST OK, obtained MANIFEST OK
+      MANIFEST OK asistenteia_pre_17b_20261114T041207Z.dump (copy primary): size 17394; sha256 b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a; .sha256 and manifest consistent
+      [13] PASS the primary copy verifies against its own .sha256 and manifest | expected MANIFEST OK, obtained MANIFEST OK
+      MANIFEST OK asistenteia_pre_17b_20261114T041207Z.dump (copy second): size 17394; sha256 b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a; .sha256 and manifest consistent
+      [14] PASS the second copy verifies against its own .sha256 and manifest | expected MANIFEST OK, obtained MANIFEST OK
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump.sha256: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump.manifest.txt: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump.sha256: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      ACL OK asistenteia_pre_17b_20261114T041207Z.dump.manifest.txt: applied and verified; inheritance disabled; 1 rule: current user, Allow, Read; owner: current user
+      [15] PASS the six backup files (both copies) carry the verified restrictive descriptor | expected 6, obtained 6
+      [16] PASS the source did not change while the dump was taken (snapshot after = snapshot before) | expected IDENTICAL, obtained IDENTICAL
+      [17] PASS pg_restore succeeded | expected 0, obtained 0
+      [18] PASS the restored copy is IDENTICAL to the source (revision, schema, owners, table/column/schema ACLs, constraints, defaults, enum types, row counts) | expected IDENTICAL, obtained IDENTICA
+      restored: revision 0005; owners alembic_version=asistente document_chunks=asistente documents=asistente enrollments=asistente ingestion_jobs=asistente subjects=asistente users=asistente ; table 
+      [19] PASS the revision, the owners and the row counts of the restored copy are those of the expected 0005 | expected IDENTICAL, obtained IDENTICAL
+    === result: 19 checks passed, 0 failed (of 19); backup file name: asistenteia_pre_17b_20261114T041207Z.dump; sha256 b896562dd5f3833aa6e006104f62d80b4ddb49c15c1211ad3b60a10d12d14a1a
+    after cleanup: containers left=0 networks left=0; new files left=6
+[3] PASS run 1 exits 0 | expected 0, obtained 0
+[4] PASS run 1: every check passed (result: 19 checks passed, 0 failed) | expected 0 failed, obtained 0 failed
+[5] PASS run 1: six new files (dump, .sha256, manifest in each folder) | expected 6, obtained 6
+[6] PASS run 1: the two copies verify independently with their own labels | expected OK OK, obtained OK OK
+[7] PASS run 1: sha256sum -c works inside each folder | expected 2 2, obtained 2 2
+[8] PASS run 1: no absolute path and no user name in the integrity files | expected 0, obtained 0
+[9] PASS run 1: no absolute path of the folders and no user name in the output | expected 0, obtained 0
+[10] PASS run 1: the restored copy was IDENTICAL to the source | expected IDENTICAL, obtained IDENTICAL
+[11] PASS run 1: the dump was removed from the source container | expected 0, obtained 0
+[12] PASS run 1: the older backup is untouched | expected 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf, obtained 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf
+[13] PASS run 1: the new files were moved away so that the next runs start from the same folders | expected 0, obtained 0
+=== run 2: corrupted second copy
+      (test hook: copy)
+      [10] FAIL the second, independent copy has the same sha256 | expected bb1d4f06aa2c0a8c40430db573b1aefa46674eb8f19d520cb655a20af6c7a276, obtained dc8f9a86ad0c9ae68fd2d2076b2b1406b3cf0f36f98d09c54
+    STOP: a required check failed (fail closed); the files of this run are removed
+    cleanup: the 2 file(s) created by this run were NOT verified and have been removed (exit code 6)
+    after cleanup: containers left=0 networks left=0; new files left=2
+[14] PASS run 2: corrupted second copy: exits non-zero | expected non-zero, obtained non-zero
+[15] FAIL run 2: corrupted second copy: no file of the run is left in either folder | expected 0, obtained 2
+[16] PASS run 2: corrupted second copy: the trap reported the removal of the unverified files | expected 1, obtained 1
+[17] PASS run 2: corrupted second copy: no restore container or network left | expected 0 0, obtained 0 0
+[18] PASS run 2: corrupted second copy: the dump was removed from the source container | expected 0, obtained 0
+[19] PASS run 2: corrupted second copy: the older backup is untouched | expected 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf, obtained 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf
+=== run 3: corrupted manifest
+    after cleanup: containers left=0 networks left=0; new files left=0
+[20] PASS run 3: corrupted manifest: exits non-zero | expected non-zero, obtained non-zero
+[21] FAIL run 3: corrupted manifest: no file of the run is left in either folder | expected 0, obtained 2
+[22] FAIL run 3: corrupted manifest: the trap reported the removal of the unverified files | expected 1, obtained 0
+[23] PASS run 3: corrupted manifest: no restore container or network left | expected 0 0, obtained 0 0
+[24] PASS run 3: corrupted manifest: the dump was removed from the source container | expected 0, obtained 0
+[25] PASS run 3: corrupted manifest: the older backup is untouched | expected 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf, obtained 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf
+=== run 4: simulated Ctrl+C before verification
+    after cleanup: containers left=0 networks left=0; new files left=0
+[26] PASS run 4: simulated Ctrl+C before verification: exits non-zero | expected non-zero, obtained non-zero
+[27] FAIL run 4: simulated Ctrl+C before verification: no file of the run is left in either folder | expected 0, obtained 2
+[28] FAIL run 4: simulated Ctrl+C before verification: the trap reported the removal of the unverified files | expected 1, obtained 0
+[29] PASS run 4: simulated Ctrl+C before verification: no restore container or network left | expected 0 0, obtained 0 0
+[30] PASS run 4: simulated Ctrl+C before verification: the dump was removed from the source container | expected 0, obtained 0
+[31] PASS run 4: simulated Ctrl+C before verification: the older backup is untouched | expected 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf, obtained 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf
+=== run 4b: failure AFTER the files became read-only
+    after cleanup: containers left=0 networks left=0; new files left=0
+[32] PASS run 4b: failure AFTER the files became read-only: exits non-zero | expected non-zero, obtained non-zero
+[33] FAIL run 4b: failure AFTER the files became read-only: no file of the run is left in either folder | expected 0, obtained 2
+[34] FAIL run 4b: failure AFTER the files became read-only: the trap reported the removal of the unverified files | expected 1, obtained 0
+[35] PASS run 4b: failure AFTER the files became read-only: no restore container or network left | expected 0 0, obtained 0 0
+[36] PASS run 4b: failure AFTER the files became read-only: the dump was removed from the source container | expected 0, obtained 0
+[37] PASS run 4b: failure AFTER the files became read-only: the older backup is untouched | expected 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf, obtained 6e0291c7c8cbece0e66b325b14a4330a3a7b68e6fa4f76204702402d91f6f4bf
+=== run 5: a 17b backup already present
+[38] PASS run 5: refused with exit 3 | expected 3, obtained 3
+[39] PASS run 5: the folders are unchanged | expected 00bf24ee6ad766e762e029d75579ae86e344187f6c81ca5e73ac8586232b0dd7, obtained 00bf24ee6ad766e762e029d75579ae86e344187f6c81ca5e73ac8586232b0dd7
+[40] PASS run 5: no dump left in the source container | expected 0, obtained 0
+=== result: 33 checks passed, 7 failed (of 40)
+e2e cleanup: containers left=0 restore containers left=0 networks left=0 root removed=yes

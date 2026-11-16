@@ -160,6 +160,8 @@ def test_the_contract_lists_the_upload_responses_of_the_design(spec: Spec) -> No
         "401",
         "403",
         "404",
+        "500",  # a write refused at commit (15.2, F-1)
+        "503",  # a connection lost at commit: the outcome is uncertain (15.2, F-2)
     }
 
 

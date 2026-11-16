@@ -11,6 +11,7 @@ Each Compose service receives only its own environment file: `backend/.env` (API
 longer see `JWT_SECRET` or any other variable they do not read.
 """
 
+import os
 import re
 import shutil
 import subprocess
@@ -28,11 +29,11 @@ ENV_EXAMPLE = BACKEND_DIR / ".env.example"
 WORKER_EXAMPLE = BACKEND_DIR / ".env.worker.example"
 DB_EXAMPLE = BACKEND_DIR / ".env.db.example"
 DOCKERFILE = BACKEND_DIR / "Dockerfile"
-COMPOSE = REPO / "docker-compose.yml"
+COMPOSE = Path(os.environ.get("COMPOSE_FILE_UNDER_TEST", REPO / "docker-compose.yml"))
 CI = REPO / ".github" / "workflows" / "ci.yml"
 
-# Read by the tests only, never by `Settings`.
-NOT_SETTINGS = {"TEST_DATABASE_URL"}
+# Read by the tests only, never by `Settings` (they live in backend/.env.test.example).
+NOT_SETTINGS: set[str] = set()  # no example carries a test variable any more
 # Read by the Compose "db" service (backend/.env.db), never by the application.
 DB_VARIABLES = {"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"}
 # Seed variables are read by the CLI, not by `Settings`; they are documented commented-out.
@@ -151,7 +152,7 @@ def test_secrets_in_the_examples_are_placeholders() -> None:
     worker = example_assignments(WORKER_EXAMPLE)
     database = example_assignments(DB_EXAMPLE)
 
-    for name in ("JWT_SECRET", "DATABASE_URL", "TEST_DATABASE_URL"):
+    for name in ("JWT_SECRET", "DATABASE_URL"):
         assert "CHANGE_ME" in api[name][1], name
     assert "CHANGE_ME" in worker["DATABASE_URL"][1]
     assert "CHANGE_ME" in database["POSTGRES_PASSWORD"][1]
@@ -163,23 +164,36 @@ def test_secrets_in_the_examples_are_placeholders() -> None:
                 assert "CHANGE_ME" in raw, name
 
 
-def test_the_database_url_examples_agree_with_the_database_server_example() -> None:
+def test_the_database_url_examples_use_the_restricted_roles_not_the_administrator() -> None:
+    """Finding PG-01: the examples of the API and of the worker never carry the superuser."""
     server = example_assignments(DB_EXAMPLE)
-    expected_user = server["POSTGRES_USER"][1]
+    administrator = server["POSTGRES_USER"][1]
     expected_database = server["POSTGRES_DB"][1]
+    expected_user = {ENV_EXAMPLE: "asistente_app", WORKER_EXAMPLE: "asistente_worker"}
 
-    for path in (ENV_EXAMPLE, WORKER_EXAMPLE):
+    for path, user in expected_user.items():
         parts = urlsplit(example_assignments(path)["DATABASE_URL"][1])
-        assert parts.username == expected_user, path.name
+        assert parts.username == user, path.name
+        assert parts.username != administrator, path.name
         assert parts.path == "/" + expected_database, path.name
         assert parts.hostname == "db", path.name  # the Compose service name
 
 
-def test_the_two_database_url_examples_are_identical() -> None:
-    # The value is duplicated by design (the guide documents the risk of drifting apart).
-    assert (
-        example_assignments(ENV_EXAMPLE)["DATABASE_URL"]
-        == example_assignments(WORKER_EXAMPLE)["DATABASE_URL"]
+def test_the_database_url_examples_differ_only_in_the_role() -> None:
+    api = urlsplit(example_assignments(ENV_EXAMPLE)["DATABASE_URL"][1])
+    worker = urlsplit(example_assignments(WORKER_EXAMPLE)["DATABASE_URL"][1])
+
+    assert api.username != worker.username
+    assert (api.hostname, api.port, api.path) == (worker.hostname, worker.port, worker.path)
+
+
+def test_the_examples_do_not_tell_to_reuse_the_administrator_for_the_services() -> None:
+    for path in (ENV_EXAMPLE, WORKER_EXAMPLE, DB_EXAMPLE):
+        text = path.read_text(encoding="utf-8")
+        assert "same database and credentials" not in text, path.name
+        assert "Keep these values equal to the ones inside DATABASE_URL" not in text, path.name
+    assert "future CLI file" not in (ENV_EXAMPLE.parent / ".env.roles.example").read_text(
+        encoding="utf-8"
     )
 
 
@@ -294,8 +308,8 @@ def compose() -> dict[str, dict[str, object]]:
     return services
 
 
-def test_compose_has_the_four_services(compose: dict[str, dict[str, object]]) -> None:
-    assert set(compose) == {"db", "backend", "worker", "frontend"}
+def test_compose_has_the_seven_services(compose: dict[str, dict[str, object]]) -> None:
+    assert set(compose) == {"db", "bootstrap", "migrate", "cli", "backend", "worker", "frontend"}
 
 
 def test_compose_builds_the_api_and_the_worker_from_their_own_targets(
@@ -309,7 +323,10 @@ def test_a_plain_compose_up_starts_the_worker(compose: dict[str, dict[str, objec
     worker = compose["worker"]
 
     assert "profiles" not in worker
-    assert worker["depends_on"] == {"db": {"condition": "service_healthy"}}
+    assert worker["depends_on"] == {
+        "db": {"condition": "service_healthy"},
+        "migrate": {"condition": "service_completed_successfully"},
+    }
     assert "ports" not in worker  # the worker listens on nothing
     assert "command" not in worker  # it uses the image's own `python -m app.worker`
     assert worker["env_file"] == ["./backend/.env.worker"]
@@ -321,6 +338,8 @@ def test_each_service_receives_only_its_own_environment_file(
     assert compose["backend"]["env_file"] == ["./backend/.env"]
     assert compose["worker"]["env_file"] == ["./backend/.env.worker"]
     assert compose["db"]["env_file"] == ["./backend/.env.db"]
+    assert compose["bootstrap"]["env_file"] == [{"path": "./backend/.env.roles", "required": False}]
+    assert compose["migrate"]["env_file"] == [{"path": "./backend/.env.migrate", "required": False}]
     assert compose["frontend"]["env_file"] == ["./frontend/.env"]
 
 

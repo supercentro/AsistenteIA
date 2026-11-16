@@ -1,0 +1,178 @@
+# group 4 test run 2026-11-12T20:23:04Z | free RAM before: 6.03 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: tests/integration/test_db_admin_bootstrap.py tests/integration/test_db_admin_adopt.py tests/integration/test_db_admin_grants.py tests/integration/test_db_admin_verify.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+.........................F.F........F.................................   [100%]
+=================================== FAILURES ===================================
+____ test_rollback_returns_ownership_keeps_rows_and_never_drops_owned_first ____
+
+cluster = Cluster(admin_url='postgresql+psycopg://tstadmin:<password>@pgdb:5432/postgres', names=RoleNames...='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7c622a410fe0>
+
+    def test_rollback_returns_ownership_keeps_rows_and_never_drops_owned_first(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        database, counts = prepare(cluster, scratch_database)
+        fingerprint = catalog_fingerprint(cluster, database)
+        run_adopt(cluster, database, apply=True)
+    
+>       report = rollback_adoption(
+            cluster.admin("postgres"), database=database, names=cluster.names, remove_roles=False
+        )
+
+tests/integration/test_db_admin_adopt.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+admin_url = 'postgresql+psycopg://tstadmin:<password>@pgdb:5432/postgres'
+database = 'tstdb_461ff14d_test'
+names = RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli')
+remove_roles = False
+
+    def rollback_adoption(
+        admin_url: str,
+        *,
+        database: str,
+        names: RoleNames = DEFAULT_NAMES,
+        remove_roles: bool = False,
+    ) -> RollbackReport:
+        """Give every object back to the administrator; optionally remove the roles afterwards."""
+        quote_ident(database)
+        statements: list[str] = []
+        with connect(admin_url, database="postgres") as conn:
+            admin_row = conn.execute(raw("SELECT current_user")).fetchone()
+            admin = str(admin_row[0]) if admin_row else ""
+            exists = conn.execute(
+                raw("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = %s"), (names.migrator,)
+            ).fetchone()
+            sessions = _runtime_sessions(conn, names)
+            databases = _connectable_databases(conn)
+        if sessions:
+            raise AdoptRefusedError(f"{sessions} session(s) of the roles exist; stop them first")
+        if exists is not None:
+            target = quote_catalog_name(admin)
+            for name in databases:
+                with connect(admin_url, database=name) as scoped:
+                    statement = f"REASSIGN OWNED BY {quote_ident(names.migrator)} TO {target}"
+                    scoped.execute(raw(statement))
+                    statements.append(f"{statement} (database {name})")
+            with connect(admin_url, database="postgres") as conn:
+                if _owned_count(conn, names.migrator):
+>                   raise AdoptRefusedError("the migrator still owns objects after the reassignment")
+E                   app.db_admin.adopt.AdoptRefusedError: the migrator still owns objects after the reassignment
+
+app/db_admin/adopt.py:385: AdoptRefusedError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+_ test_rollback_then_removing_the_roles_leaves_the_database_with_the_administrator _
+
+cluster = Cluster(admin_url='postgresql+psycopg://tstadmin:<password>@pgdb:5432/postgres', names=RoleNames...='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7c622a442f20>
+
+    def test_rollback_then_removing_the_roles_leaves_the_database_with_the_administrator(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        database, counts = prepare(cluster, scratch_database)
+        run_adopt(cluster, database, apply=True)
+    
+>       rollback_adoption(
+            cluster.admin("postgres"), database=database, names=cluster.names, remove_roles=True
+        )
+
+tests/integration/test_db_admin_adopt.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+admin_url = 'postgresql+psycopg://tstadmin:<password>@pgdb:5432/postgres'
+database = 'tstdb_87d79417_test'
+names = RoleNames(migrator='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli')
+remove_roles = True
+
+    def rollback_adoption(
+        admin_url: str,
+        *,
+        database: str,
+        names: RoleNames = DEFAULT_NAMES,
+        remove_roles: bool = False,
+    ) -> RollbackReport:
+        """Give every object back to the administrator; optionally remove the roles afterwards."""
+        quote_ident(database)
+        statements: list[str] = []
+        with connect(admin_url, database="postgres") as conn:
+            admin_row = conn.execute(raw("SELECT current_user")).fetchone()
+            admin = str(admin_row[0]) if admin_row else ""
+            exists = conn.execute(
+                raw("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = %s"), (names.migrator,)
+            ).fetchone()
+            sessions = _runtime_sessions(conn, names)
+            databases = _connectable_databases(conn)
+        if sessions:
+            raise AdoptRefusedError(f"{sessions} session(s) of the roles exist; stop them first")
+        if exists is not None:
+            target = quote_catalog_name(admin)
+            for name in databases:
+                with connect(admin_url, database=name) as scoped:
+                    statement = f"REASSIGN OWNED BY {quote_ident(names.migrator)} TO {target}"
+                    scoped.execute(raw(statement))
+                    statements.append(f"{statement} (database {name})")
+            with connect(admin_url, database="postgres") as conn:
+                if _owned_count(conn, names.migrator):
+>                   raise AdoptRefusedError("the migrator still owns objects after the reassignment")
+E                   app.db_admin.adopt.AdoptRefusedError: the migrator still owns objects after the reassignment
+
+app/db_admin/adopt.py:385: AdoptRefusedError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+___________________ test_a_healthy_database_has_no_findings ____________________
+
+cluster = Cluster(admin_url='postgresql+psycopg://tstadmin:<password>@pgdb:5432/postgres', names=RoleNames...='tstrole_migrator', app='tstrole_app', worker='tstrole_worker', cli='tstrole_cli'), passwords=RolePasswords(<hidden>))
+scratch_database = <function scratch_database.<locals>.make at 0x7c622a270cc0>
+
+    def test_a_healthy_database_has_no_findings(
+        cluster: Cluster, scratch_database: Callable[[], str]
+    ) -> None:
+        database = healthy(cluster, scratch_database)
+    
+>       assert run_verify(cluster, database) == []
+E       AssertionError: assert [Finding(chec...bjects'), ...] == []
+E         
+E         Left contains 7 more items, first extra item: Finding(check='privileges', detail='tstrole_migrator holds a grant option on alembic_version')
+E         Use -v to get more diff
+
+tests/integration/test_db_admin_verify.py:31: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+=============================== warnings summary ===============================
+../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_db_admin_adopt.py::test_rollback_returns_ownership_keeps_rows_and_never_drops_owned_first
+FAILED tests/integration/test_db_admin_adopt.py::test_rollback_then_removing_the_roles_leaves_the_database_with_the_administrator
+FAILED tests/integration/test_db_admin_verify.py::test_a_healthy_database_has_no_findings
+3 failed, 67 passed, 1 warning in 21.97s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

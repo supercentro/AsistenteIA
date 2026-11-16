@@ -1,0 +1,23 @@
+# Override for the ROLLBACK of step 17B (group 17A tool). It runs the previous stack from the images tagged
+# `pre-17b`, with the code inside the image (no bind mount of backend/app, which is the new code and refuses a
+# superuser connection), no hot reload, and the ports and env files of main's docker-compose.yml.
+#
+#   git show main:docker-compose.yml > <TMP>/compose.main.yml
+#   docker compose -p asistenteia --project-directory <REPO> -f <TMP>/compose.main.yml \
+#       -f <REPO>/openspec/changes/database-least-privilege/reports/group-17a/tools/compose.rollback.override.yml \
+#       up -d --no-deps backend worker
+#
+# The replica of run_17a_replica.sh used the same idea with scratch env files; the services were available
+# about 125 s after starting them and processed a login and an upload on the rolled-back database.
+services:
+  backend:
+    image: asistenteia-backend:pre-17b
+    build: !reset null
+    pull_policy: never
+    volumes: !override []
+    command: !override ["uvicorn", "app.main:app_factory", "--factory", "--no-proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
+  worker:
+    image: asistenteia-worker:pre-17b
+    build: !reset null
+    pull_policy: never
+    volumes: !override []

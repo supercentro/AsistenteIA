@@ -1,0 +1,59 @@
+# group 5 test run 2026-11-13T13:35:22Z | free RAM before: 11.65 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: tests/integration/test_db_roles_effective.py -s -p no:cacheprovider
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+
+== app (tstrole_app)
+  document_chunks  SELECT  chunk_index, content, document_id, embedding, id, page_number, subject_id
+  documents        DELETE  *
+  documents        INSERT  content_type, filename, size_bytes, status, subject_id
+  documents        SELECT  chunks_count, content_type, created_at, error_code, error_message, filename, id, size_bytes, status, subject_id
+  enrollments      DELETE  *
+  enrollments      INSERT  student_id, subject_id
+  enrollments      SELECT  created_at, id, student_id, subject_id
+  ingestion_jobs   INSERT  document_id, payload
+  ingestion_jobs   SELECT  id, payload
+  subjects         DELETE  *
+  subjects         INSERT  description, name, teacher_id
+  subjects         SELECT  created_at, description, id, name, teacher_id
+  subjects         UPDATE  description
+  users            INSERT  email, name, password_hash
+  users            SELECT  consent_accepted_at, consent_version, created_at, email, id, name, password_hash, role
+  users            UPDATE  consent_accepted_at, consent_version
+
+== worker (tstrole_worker)
+  document_chunks  INSERT  chunk_index, content, document_id, embedding, page_number, subject_id
+  document_chunks  SELECT  id
+  documents        SELECT  content_type, filename, id, status, subject_id
+  documents        UPDATE  chunks_count, error_code, error_message, status
+  ingestion_jobs   SELECT  attempts, available_at, created_at, document_id, id, locked_by, locked_until, payload
+  ingestion_jobs   UPDATE  attempts, locked_by, locked_until, payload, updated_at
+
+== cli (tstrole_cli)
+  users            INSERT  email, name, password_hash, role
+  users            SELECT  consent_accepted_at, consent_version, created_at, email, id, name, password_hash, role
+.INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Running upgrade 0005 -> 0006, Give users.role a server default of 'student'.
+.
+2 passed in 0.90s
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

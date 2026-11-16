@@ -1,0 +1,2 @@
+docker build --target worker of this branch (the Dockerfile worker target, not the overlay used by the rehearsals): rc=0, 859 s, 2026-11-13T23:03:05Z
+image asistenteia-worker:g17a-buildcheck 3.22GB

@@ -91,11 +91,15 @@ def test_load_settings_ignores_invalid_test_database_url(monkeypatch: pytest.Mon
 def test_the_uvicorn_entry_point_builds_the_application_from_the_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.main import app_factory
+    import app.main as main_module
 
+    checked: list[object] = []
+    # The entry point now asks the server for its identity (PG-01); no database exists here.
+    monkeypatch.setattr(main_module, "assert_restricted_database_role", checked.append)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@localhost:5432/factory_test")
     monkeypatch.setenv("JWT_SECRET", "t3sT-s3cr3t-only-for-automated-tests-9Zq")
 
-    app = app_factory()
+    app = main_module.app_factory()
 
     assert app.title == "AsistenteIA API"
+    assert len(checked) == 1

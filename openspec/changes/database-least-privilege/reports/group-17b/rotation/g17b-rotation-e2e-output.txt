@@ -1,0 +1,77 @@
+free RAM before Docker: 10.34 GB
+  PASS disposable PostgreSQL is up
+  PASS synthetic roles, owned object and grant created
+  PASS local connections inside the container are trusted by pg_hba (what makes alter work without any password)
+  PASS network connections are NOT trusted (they need a password)
+  PASS alter --require-superuser REFUSES a restricted role (exit 3) and changes nothing
+== 1. baseline: the old password is the real one
+  PASS old password accepted over the network
+  PASS the CURRENT password read from .env.db is accepted (no extra password file)
+  PASS new password not yet accepted (probe 'accept' fails)
+  PASS probe 'reject' on the VALID password fails (a probe that always says yes would be caught here)
+  PASS new password rejected before the change
+  PASS the server stores SCRAM verifiers
+-- POSTGRES_PASSWORD alone does NOT change the password of an existing role (the image reads it only to initialise an empty data directory)
+  PASS container recreated with the NEW value only in its environment
+  PASS the OLD password still works after that recreation
+  PASS the NEW password is NOT accepted although it is in POSTGRES_PASSWORD
+  PASS container recreated again with the original .env.db
+-- the stored FORMS of the password work: the URL variables are parsed like an application would (--as-url)
+  PASS the CURRENT password inside ADMIN_DATABASE_URL (.env.roles) is accepted
+  PASS the CURRENT password inside TEST_DATABASE_URL (.env.test) is accepted
+  PASS --as-url refuses a URL whose user is not the probed role (exit 1)
+== 2. files: dry run
+  PASS plan (exit 0)
+== 3. SQL: ALTER ROLE through standard input with a client-side SCRAM verifier
+  PASS alter (exit 0)
+  PASS new password accepted over the network
+  PASS old password rejected over the network
+  PASS the container environment still carries the OLD value (irrelevant: the password is stored in the data directory)
+  PASS no secret in the output of the tool
+  PASS no secret in any docker argument (shim log)
+  PASS no probe passes the password as a docker environment argument (-e PGPASSWORD)
+  PASS the statement travelled on standard input
+  PASS standard input holds SCRAM verifiers (the refused migrator alter and the administrator alter) and never the cleartext
+  PASS the migrator password (synthetic) still works after the administrator ALTER ROLE
+  PASS roles, grants, ownership, data and every role verifier other than the administrator's are unchanged by the administrator ALTER ROLE
+  PASS no synthetic restricted-role password in any docker argument
+-- container scan (the running container still carries the OLD value until it is recreated)
+  PASS the scan finds the database container still holding the OLD value (exit 1)
+  PASS the scan names the container and prints no value
+== 4. partial failure: ALTER ROLE done, the files fail half way
+  PASS apply fails (exit 1)
+  PASS all files restored (the old value is still in .env.db: the files and the database now disagree)
+  -- recovery A (revert): put the OLD password back in the database
+  PASS revert from the backup copy of .env.db (exit 0)
+  PASS old accepted again
+  PASS new rejected again
+  -- recovery B (forward): alter again, retry the files
+  PASS alter again (exit 0)
+  PASS apply (exit 0)
+  PASS no secret in the apply output
+  PASS verify (exit 0)
+  PASS the NEW password inside ADMIN_DATABASE_URL (.env.roles, written by the tool) is accepted
+  PASS the NEW password inside TEST_DATABASE_URL (.env.test, written by the tool) is accepted
+  PASS the NEW POSTGRES_PASSWORD (.env.db) is accepted
+== 5. recreate the database container with the updated .env.db (what compose does), same volume
+  PASS container recreated and ready
+  PASS new password accepted after the recreation
+  PASS old password rejected after the recreation
+  PASS the container environment now carries the NEW value
+  PASS the data volume survived the recreation (marker row still there, ownership and grants identical)
+  PASS the migrator password still works after the container was recreated with the new .env.db
+  PASS after the recreation no container holds the OLD value (exit 0)
+  PASS the database container now carries the NEW value (the scan of the new value names it, exit 1)
+  PASS discard --dry-run (exit 0)
+  PASS discard --dry-run names exactly the three .old copies and removed nothing
+== 6. clean-up of the old copies
+  PASS cleanup (exit 0)
+  PASS no pre-17b copy and no backup folder left
+  PASS the old value is in no file under the fixture any more (except the owner's old.txt)
+  PASS no secret in the clean-up and verify output
+== 7. refusals
+  PASS unknown container -> exit 3
+  PASS malformed password file -> refused (exit 1)
+  PASS role name that is not an identifier -> refused (exit 1)
+  PASS after all this the new password is still the valid one
+PASS=63 FAIL=0

@@ -1,0 +1,20 @@
+PASS a fresh file inherits several rules (the problem to fix)
+PASS apply succeeds and reports ACL OK
+PASS the output names the file only, never its folder
+PASS independent reading: inheritance disabled, exactly one rule
+PASS that rule is Allow Read for the current user's SID
+PASS the effective permission is read only: the owner itself cannot write the file
+PASS the file is still readable
+PASS verify-only passes on a correct descriptor
+PASS verify-only fails (exit 1) when another identity has access
+PASS apply removes the foreign rule and verifies again
+PASS verify-only fails when inheritance is enabled again
+PASS a missing file is exit 2 and reported, not created
+PASS a directory is refused (exit 2)
+0 failure(s)
+
+# mutation checks (the guarded check removed or relaxed, then the tool restored and the suite re-run):
+# 1 inheritance check removed -> 1 failing test(s)
+# 2 rule-count check relaxed to >=1 -> 1 failing test(s)
+# 3 identity check removed -> 1 failing test(s)
+# restored -> 0 failure(s)

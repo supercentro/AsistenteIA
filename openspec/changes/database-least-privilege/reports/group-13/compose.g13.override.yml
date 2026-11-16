@@ -1,0 +1,70 @@
+# Scratch override used ONLY by run_g13.sh, on top of the REAL docker-compose.yml (read, never modified).
+# Project g13scratch: its own network and named volume, PostgreSQL not published, the API published only
+# on 127.0.0.1 at a temporary free port, no real env file, no source mount, no frontend.
+# bootstrap, migrate, backend and cli run the image built from this branch (target api); the worker runs
+# the worker image of main with the code of this branch copied over it (the dependencies are identical).
+services:
+  db:
+    ports: !reset []
+    env_file: !override
+      - ${G13_DIR}/db.env
+    cpus: 1
+    mem_limit: 1g
+
+  bootstrap:
+    image: asistenteia-backend:g13-branch
+    build: !reset null
+    pull_policy: never
+    env_file: !override
+      - ${G13_DIR}/roles.env
+    cpus: 1
+    mem_limit: 512m
+
+  migrate:
+    image: asistenteia-backend:g13-branch
+    build: !reset null
+    pull_policy: never
+    env_file: !override
+      - ${G13_DIR}/migrate.env
+    cpus: 1
+    mem_limit: 512m
+
+  cli:
+    image: asistenteia-backend:g13-branch
+    build: !reset null
+    pull_policy: never
+    env_file: !override
+      - ${G13_DIR}/cli.env
+    cpus: 1
+    mem_limit: 512m
+
+  backend:
+    image: asistenteia-backend:g13-branch
+    build: !reset null
+    pull_policy: never
+    ports: !override
+      - "127.0.0.1:${G13_PORT}:8000"
+    env_file: !override
+      - ${G13_DIR}/api.env
+    volumes: !override []
+    command: !override ["uvicorn", "app.main:app_factory", "--factory", "--no-proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    cpus: 1
+    mem_limit: 512m
+
+  worker:
+    image: asistenteia-worker:g13-branch
+    build: !reset null
+    pull_policy: never
+    env_file: !override
+      - ${G13_DIR}/worker.env
+    volumes: !override []
+    cpus: 2
+    mem_limit: 2g
+
+  frontend:
+    profiles: ["g13-excluded"]

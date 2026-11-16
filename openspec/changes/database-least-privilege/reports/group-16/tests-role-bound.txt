@@ -1,0 +1,14 @@
+# group 16 test run 2026-11-13T21:28:20Z | free RAM before: 10.92 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-worker:main-f455234 | pytest args: -m role_bound tests/integration/test_db_admin_adopt.py tests/integration/test_db_admin_bootstrap.py tests/integration/test_db_admin_grants.py tests/integration/test_db_admin_identity.py tests/integration/test_db_admin_verify.py tests/integration/test_db_roles_lifecycle.py tests/integration/test_db_roles_startup.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+........................................................................ [ 62%]
+...........................................                              [100%]
+115 passed in 44.98s
+# pytest exit code: 0
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

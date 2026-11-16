@@ -1,0 +1,419 @@
+# group 5 test run 2026-11-13T11:35:28Z | free RAM before: 9.47 GB
+# postgres image: pgvector/pgvector:0.8.7-pg15 | runner image: asistenteia-backend:main-f455234 | pytest args: tests/integration/test_migrations_user_role_default.py
+# env files in the copy: 0
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+# pytest 9.1.1, httpx 0.28.1
+# PostgreSQL 15.19 (Debian 15.19-1.pgdg12+2) on x86_64-pc-linu
+# pgvector 0.8.7
+# published ports: 0
+FF.F.                                                                    [100%]
+=================================== FAILURES ===================================
+____________________ test_0006_is_the_head_and_follows_0005 ____________________
+
+    def test_0006_is_the_head_and_follows_0005() -> None:
+        script = ScriptDirectory.from_config(alembic_config("postgresql+psycopg://x/y_test"))
+    
+>       assert script.get_heads() == ["0006"]
+E       AssertionError: assert ['0005'] == ['0006']
+E         
+E         At index 0 diff: '0005' != '0006'
+E         Use -v to get more diff
+
+tests/integration/test_migrations_user_role_default.py:22: AssertionError
+_________ test_upgrade_sets_the_default_and_keeps_every_existing_user __________
+
+self = <alembic.script.base.ScriptDirectory object at 0x70d25c16a6c0>
+ancestor = 'Destination %(end)s is not a valid upgrade target from current head(s)'
+multiple_heads = None, start = None, end = '0006'
+resolution = "Can't locate revision identified by '0006'"
+
+    @contextmanager
+    def _catch_revision_errors(
+        self,
+        ancestor: str | None = None,
+        multiple_heads: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        resolution: str | None = None,
+    ) -> Iterator[None]:
+        try:
+>           yield
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:426: in _upgrade_revs
+    for script in reversed(list(revs))
+                           ^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:807: in iterate_revisions
+    revisions, heads = fn(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:1440: in _collect_upgrade_revisions
+    for rev in self._parse_upgrade_target(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:1227: in _parse_upgrade_target
+    return self.get_revisions(target)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:558: in get_revisions
+    return tuple(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:559: in <genexpr>
+    self._revision_for_ident(rev_id, branch_label)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.script.revision.RevisionMap object at 0x70d25c168d70>
+resolved_id = '0006', check_branch = None
+
+    def _revision_for_ident(
+        self,
+        resolved_id: str | tuple[()] | None,
+        check_branch: str | None = None,
+    ) -> Revision | None:
+        branch_rev: Revision | None
+        if check_branch:
+            branch_rev = self._resolve_branch(check_branch)
+        else:
+            branch_rev = None
+    
+        revision: Revision | None | Literal[False]
+        try:
+            revision = self._revision_map[resolved_id]
+        except KeyError:
+            # break out to avoid misleading py3k stack traces
+            revision = False
+        revs: Sequence[str]
+        if revision is False:
+            assert resolved_id
+            # do a partial lookup
+            revs = [
+                x
+                for x in self._revision_map
+                if x and len(x) > 3 and x.startswith(resolved_id)
+            ]
+    
+            if branch_rev:
+                revs = self.filter_for_lineage(revs, check_branch)
+            if not revs:
+>               raise ResolutionError(
+                    "No such revision or branch '%s'%s"
+                    % (
+                        resolved_id,
+                        (
+                            "; please ensure at least four characters are "
+                            "present for partial revision identifier matches"
+                            if len(resolved_id) < 4
+                            else ""
+                        ),
+                    ),
+                    resolved_id,
+E                   alembic.script.revision.ResolutionError: No such revision or branch '0006'
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:630: ResolutionError
+
+The above exception was the direct cause of the following exception:
+
+test_db_url = 'postgresql+psycopg://tstadmin:<password>@pgdb:5432/tstdb_guard_test'
+
+    def test_upgrade_sets_the_default_and_keeps_every_existing_user(test_db_url: str) -> None:
+        drop_everything(test_db_url)
+        config = alembic_config(test_db_url)
+        command.upgrade(config, "0005")
+        assert role_default(test_db_url) is None
+        insert_user(test_db_url, "teacher@example.com", "teacher")
+        insert_user(test_db_url, "student@example.com", "student")
+        before = fetch_all(test_db_url, "SELECT id, email, role::text FROM users ORDER BY email")
+    
+>       command.upgrade(config, "0006")
+
+tests/integration/test_migrations_user_role_default.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/alembic/command.py:487: in upgrade
+    script.run_env()
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:550: in run_env
+    util.load_python_file(self.dir, "env.py")
+/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py:114: in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py:132: in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+alembic/env.py:62: in <module>
+    run_migrations_online()
+alembic/env.py:56: in run_migrations_online
+    context.run_migrations()
+<string>:8: in run_migrations
+    ???
+/opt/venv/lib/python3.12/site-packages/alembic/runtime/environment.py:970: in run_migrations
+    self.get_context().run_migrations(**kw)
+/opt/venv/lib/python3.12/site-packages/alembic/runtime/migration.py:604: in run_migrations
+    for step in self._migrations_fn(heads, self):
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/command.py:476: in upgrade
+    return script._upgrade_revs(revision, rev)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:414: in _upgrade_revs
+    with self._catch_revision_errors(
+/usr/local/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.script.base.ScriptDirectory object at 0x70d25c16a6c0>
+ancestor = 'Destination %(end)s is not a valid upgrade target from current head(s)'
+multiple_heads = None, start = None, end = '0006'
+resolution = "Can't locate revision identified by '0006'"
+
+    @contextmanager
+    def _catch_revision_errors(
+        self,
+        ancestor: str | None = None,
+        multiple_heads: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        resolution: str | None = None,
+    ) -> Iterator[None]:
+        try:
+            yield
+        except revision.RangeNotAncestorError as rna:
+            if start is None:
+                start = cast(Any, rna.lower)
+            if end is None:
+                end = cast(Any, rna.upper)
+            if not ancestor:
+                ancestor = (
+                    "Requested range %(start)s:%(end)s does not refer to "
+                    "ancestor/descendant revisions along the same branch"
+                )
+            ancestor = ancestor % {"start": start, "end": end}
+            raise util.CommandError(ancestor) from rna
+        except revision.MultipleHeads as mh:
+            if not multiple_heads:
+                multiple_heads = (
+                    "Multiple head revisions are present for given "
+                    "argument '%(head_arg)s'; please "
+                    "specify a specific target revision, "
+                    "'<branchname>@%(head_arg)s' to "
+                    "narrow to a specific head, or 'heads' for all heads"
+                )
+            multiple_heads = multiple_heads % {
+                "head_arg": end or mh.argument,
+                "heads": util.format_as_comma(mh.heads),
+            }
+            raise util.CommandError(multiple_heads) from mh
+        except revision.ResolutionError as re:
+            if resolution is None:
+                resolution = "Can't locate revision identified by '%s'" % (
+                    re.argument
+                )
+>           raise util.CommandError(resolution) from re
+E           alembic.util.exc.CommandError: Can't locate revision identified by '0006'
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:239: CommandError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Enable the pgvector extension.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Create users and the user_role type.
+INFO  [alembic.runtime.migration] Running upgrade 0002 -> 0003, Create subjects and enrollments.
+INFO  [alembic.runtime.migration] Running upgrade 0003 -> 0004, Create documents, document_chunks and the document_status type.
+INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+___________ test_downgrade_drops_only_the_default_and_loses_no_user ____________
+
+self = <alembic.script.base.ScriptDirectory object at 0x70d25c1c5070>
+ancestor = 'Destination %(end)s is not a valid upgrade target from current head(s)'
+multiple_heads = None, start = None, end = '0006'
+resolution = "Can't locate revision identified by '0006'"
+
+    @contextmanager
+    def _catch_revision_errors(
+        self,
+        ancestor: str | None = None,
+        multiple_heads: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        resolution: str | None = None,
+    ) -> Iterator[None]:
+        try:
+>           yield
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:426: in _upgrade_revs
+    for script in reversed(list(revs))
+                           ^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:807: in iterate_revisions
+    revisions, heads = fn(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:1440: in _collect_upgrade_revisions
+    for rev in self._parse_upgrade_target(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:1227: in _parse_upgrade_target
+    return self.get_revisions(target)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:558: in get_revisions
+    return tuple(
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:559: in <genexpr>
+    self._revision_for_ident(rev_id, branch_label)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.script.revision.RevisionMap object at 0x70d25c1c4fe0>
+resolved_id = '0006', check_branch = None
+
+    def _revision_for_ident(
+        self,
+        resolved_id: str | tuple[()] | None,
+        check_branch: str | None = None,
+    ) -> Revision | None:
+        branch_rev: Revision | None
+        if check_branch:
+            branch_rev = self._resolve_branch(check_branch)
+        else:
+            branch_rev = None
+    
+        revision: Revision | None | Literal[False]
+        try:
+            revision = self._revision_map[resolved_id]
+        except KeyError:
+            # break out to avoid misleading py3k stack traces
+            revision = False
+        revs: Sequence[str]
+        if revision is False:
+            assert resolved_id
+            # do a partial lookup
+            revs = [
+                x
+                for x in self._revision_map
+                if x and len(x) > 3 and x.startswith(resolved_id)
+            ]
+    
+            if branch_rev:
+                revs = self.filter_for_lineage(revs, check_branch)
+            if not revs:
+>               raise ResolutionError(
+                    "No such revision or branch '%s'%s"
+                    % (
+                        resolved_id,
+                        (
+                            "; please ensure at least four characters are "
+                            "present for partial revision identifier matches"
+                            if len(resolved_id) < 4
+                            else ""
+                        ),
+                    ),
+                    resolved_id,
+E                   alembic.script.revision.ResolutionError: No such revision or branch '0006'
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/revision.py:630: ResolutionError
+
+The above exception was the direct cause of the following exception:
+
+test_db_url = 'postgresql+psycopg://tstadmin:<password>@pgdb:5432/tstdb_guard_test'
+
+    def test_downgrade_drops_only_the_default_and_loses_no_user(test_db_url: str) -> None:
+        drop_everything(test_db_url)
+        config = alembic_config(test_db_url)
+>       command.upgrade(config, "0006")
+
+tests/integration/test_migrations_user_role_default.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/alembic/command.py:487: in upgrade
+    script.run_env()
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:550: in run_env
+    util.load_python_file(self.dir, "env.py")
+/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py:114: in load_python_file
+    module = load_module_py(module_id, path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/util/pyfiles.py:132: in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap_external>:999: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+alembic/env.py:62: in <module>
+    run_migrations_online()
+alembic/env.py:56: in run_migrations_online
+    context.run_migrations()
+<string>:8: in run_migrations
+    ???
+/opt/venv/lib/python3.12/site-packages/alembic/runtime/environment.py:970: in run_migrations
+    self.get_context().run_migrations(**kw)
+/opt/venv/lib/python3.12/site-packages/alembic/runtime/migration.py:604: in run_migrations
+    for step in self._migrations_fn(heads, self):
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/command.py:476: in upgrade
+    return script._upgrade_revs(revision, rev)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:414: in _upgrade_revs
+    with self._catch_revision_errors(
+/usr/local/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.script.base.ScriptDirectory object at 0x70d25c1c5070>
+ancestor = 'Destination %(end)s is not a valid upgrade target from current head(s)'
+multiple_heads = None, start = None, end = '0006'
+resolution = "Can't locate revision identified by '0006'"
+
+    @contextmanager
+    def _catch_revision_errors(
+        self,
+        ancestor: str | None = None,
+        multiple_heads: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        resolution: str | None = None,
+    ) -> Iterator[None]:
+        try:
+            yield
+        except revision.RangeNotAncestorError as rna:
+            if start is None:
+                start = cast(Any, rna.lower)
+            if end is None:
+                end = cast(Any, rna.upper)
+            if not ancestor:
+                ancestor = (
+                    "Requested range %(start)s:%(end)s does not refer to "
+                    "ancestor/descendant revisions along the same branch"
+                )
+            ancestor = ancestor % {"start": start, "end": end}
+            raise util.CommandError(ancestor) from rna
+        except revision.MultipleHeads as mh:
+            if not multiple_heads:
+                multiple_heads = (
+                    "Multiple head revisions are present for given "
+                    "argument '%(head_arg)s'; please "
+                    "specify a specific target revision, "
+                    "'<branchname>@%(head_arg)s' to "
+                    "narrow to a specific head, or 'heads' for all heads"
+                )
+            multiple_heads = multiple_heads % {
+                "head_arg": end or mh.argument,
+                "heads": util.format_as_comma(mh.heads),
+            }
+            raise util.CommandError(multiple_heads) from mh
+        except revision.ResolutionError as re:
+            if resolution is None:
+                resolution = "Can't locate revision identified by '%s'" % (
+                    re.argument
+                )
+>           raise util.CommandError(resolution) from re
+E           alembic.util.exc.CommandError: Can't locate revision identified by '0006'
+
+/opt/venv/lib/python3.12/site-packages/alembic/script/base.py:239: CommandError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=============================== warnings summary ===============================
+../../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_migrations_user_role_default.py::test_0006_is_the_head_and_follows_0005
+FAILED tests/integration/test_migrations_user_role_default.py::test_upgrade_sets_the_default_and_keeps_every_existing_user
+FAILED tests/integration/test_migrations_user_role_default.py::test_downgrade_drops_only_the_default_and_loses_no_user
+3 failed, 2 passed, 1 warning in 2.03s
+# pytest exit code: 1
+# containers left by this run: 1 (the PostgreSQL one is removed on exit)

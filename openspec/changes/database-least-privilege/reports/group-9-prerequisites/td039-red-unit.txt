@@ -1,0 +1,27 @@
+$ pytest tests/unit/test_endpoint_commits.py   (TD-039, before the change)
+      1 15 failed in 0.76s
+      3 E       TypeError: create_subject() takes 3 positional arguments but 4 were given
+      3 E       TypeError: delete_subject() takes 3 positional arguments but 4 were given
+      3 E       TypeError: enroll_student() takes 4 positional arguments but 5 were given
+      3 E       TypeError: register() takes 2 positional arguments but 3 were given
+      3 E       TypeError: remove_enrollment() takes 4 positional arguments but 5 were given
+      1 FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[create-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[delete-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[enroll]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[register]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[remove-enrollment]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_an_error_of_the_service_commits_nothing[create-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_an_error_of_the_service_commits_nothing[delete-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_an_error_of_the_service_commits_nothing[enroll]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_an_error_of_the_service_commits_nothing[register]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_an_error_of_the_service_commits_nothing[remove-enrollment]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[create-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[delete-subject]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[enroll]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[register]
+      1 FAILED tests/unit/test_endpoint_commits.py::test_the_commit_follows_the_service_and_precedes_the_response[remove-enrollment]
+      3 tests\unit\test_endpoint_commits.py:103: TypeError
+      3 tests\unit\test_endpoint_commits.py:109: TypeError
+      3 tests\unit\test_endpoint_commits.py:114: TypeError
+      3 tests\unit\test_endpoint_commits.py:118: TypeError
+      3 tests\unit\test_endpoint_commits.py:99: TypeError

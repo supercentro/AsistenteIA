@@ -1,0 +1,30 @@
+CAUGHT    the gate job may fail without failing the workflow | test_no_step_can_hide_a_failure
+CAUGHT    the workflow token gets default rights | test_the_token_has_read_only_rights_everywhere
+CAUGHT    the summary no longer runs after a failure | test_the_summary_always_runs_and_is_the_last_step
+CAUGHT    the workflow runs on pull_request_target | test_the_workflow_runs_on_push_and_pull_request_only
+CAUGHT    a gate step hides its failure | test_no_step_can_hide_a_failure
+CAUGHT    the gate checkout keeps the token | test_checkout_does_not_keep_the_token
+CAUGHT    the gate runs on a self-hosted runner | test_the_gate_runs_on_a_github_hosted_runner_with_a_time_limit
+CAUGHT    the two clusters share a port | test_the_gate_has_two_exclusive_pinned_clusters
+CAUGHT    an administrator URL is job-wide | test_the_administrator_credentials_are_not_job_wide
+CAUGHT    the backend job runs the role-bound tests again | test_the_backend_job_leaves_the_role_bound_tests_to_the_gate
+CAUGHT    the cluster check step is dropped | test_the_gate_steps_exist_in_order
+CAUGHT    the gate script ignores command errors | test_the_gate_scripts_fail_on_any_error
+CAUGHT    the disposable flag is exported before the cluster proved itself | test_the_disposable_flag_is_set_only_by_the_gate_after_the_cluster_proved_itself
+CAUGHT    skipped tests are accepted | test_any_failure_error_skip_or_shortfall_is_a_problem[kwargs2-skipped]
+CAUGHT    a shortfall of tests is accepted | test_any_failure_error_skip_or_shortfall_is_a_problem[kwargs3-fewer]
+CAUGHT    problems do not fail the process | test_the_main_function_exits_non_zero_on_a_problem
+CAUGHT    any PostgreSQL version is accepted | test_a_cluster_that_is_not_the_exclusive_empty_local_one_is_refused[change1-version]
+CAUGHT    a cluster with foreign databases is accepted | test_a_cluster_that_is_not_the_exclusive_empty_local_one_is_refused[change4-database]
+CAUGHT    a cluster with project roles is accepted | test_a_cluster_that_is_not_the_exclusive_empty_local_one_is_refused[change6-role]
+CAUGHT    a remote host is accepted | test_a_cluster_that_is_not_the_exclusive_empty_local_one_is_refused[change0-host]
+CAUGHT    the summary stops checking the role-bound suites | test_the_summary_checks_the_three_reports_with_their_minimums
+CAUGHT    the minimum of role-bound tests is lowered to nothing | test_the_summary_checks_the_three_reports_with_their_minimums
+CAUGHT    the role-bound step selects another marker | test_the_role_bound_and_the_roles_mode_steps_select_the_expected_tests
+CAUGHT    the roles-mode step loses its option | test_the_role_bound_and_the_roles_mode_steps_select_the_expected_tests
+CAUGHT    the second idempotent pass disappears | test_the_flow_runs_the_real_commands_twice_and_verifies_each_time
+CAUGHT    the drift self-check accepts any failure | test_the_drift_selfcheck_requires_the_right_failure_and_a_clean_recovery
+CAUGHT    the role-bound prefixes stop covering the cluster tests | test_every_module_that_builds_a_cluster_is_role_bound_and_none_is_left_out
+CAUGHT    the revision check accepts a database behind the head | test_the_database_must_be_at_the_head_and_the_head_at_least_0006[0006-0005-False]
+CAUGHT    two names for one server are accepted | test_localhost_and_the_loopback_address_are_the_same_server
+mutations: 29, caught: 29

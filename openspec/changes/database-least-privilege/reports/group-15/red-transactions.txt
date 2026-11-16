@@ -1,0 +1,22 @@
+____ test_the_503_says_the_outcome_may_be_unknown_when_the_commit_was_lost ____
+
+    def test_the_503_says_the_outcome_may_be_unknown_when_the_commit_was_lost() -> None:
+>       description = str(load_spec()["components"]["responses"]["ServiceUnavailable"]["description"])
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'ServiceUnavailable'
+
+tests\unit\test_commit_failure_responses.py:230: KeyError
+=========================== short test summary info ===========================
+FAILED tests/unit/test_endpoint_commits.py::test_a_refused_commit_rolls_back_and_never_returns_a_response[delete-document]
+FAILED tests/unit/test_commit_failure_responses.py::test_every_write_handler_is_classified
+FAILED tests/unit/test_commit_failure_responses.py::test_a_handler_that_stores_something_commits_with_the_shared_helper[documents.delete_document]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[POST-/auth/register]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[POST-/users/me/consent]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[POST-/subjects]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[DELETE-/subjects/{subject_id}]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[POST-/subjects/{subject_id}/enrollments]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[DELETE-/subjects/{subject_id}/enrollments/{student_id}]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_contract_documents_the_500_and_the_503_of_every_committing_operation[DELETE-/subjects/{subject_id}/documents/{document_id}]
+FAILED tests/unit/test_commit_failure_responses.py::test_the_500_does_not_claim_that_nothing_was_stored_in_every_case
+FAILED tests/unit/test_commit_failure_responses.py::test_the_503_says_the_outcome_may_be_unknown_when_the_commit_was_lost
+12 failed, 30 passed in 1.11s

@@ -19,6 +19,7 @@ from sqlalchemy.exc import DBAPIError
 from app.core.database import create_db_engine
 from tests.constants import TEST_JWT_SECRET
 from tests.integration.helpers import DEFAULT_PASSWORD, build_app
+from tests.least_privilege import role_url, superuser_exception
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_DIR = REPO_ROOT / "backend"
@@ -135,9 +136,10 @@ def real_server(clean_db: str, tmp_path: Path) -> Iterator[str]:
     command[0:1] = [sys.executable, "-m", "uvicorn"]
     env = {
         "PYTHONPATH": str(BACKEND_DIR),
-        "DATABASE_URL": clean_db,
+        "DATABASE_URL": role_url("app", clean_db),  # the application role in the roles mode
         "JWT_SECRET": TEST_JWT_SECRET,
         "APP_ENV": "test",
+        **superuser_exception(),
         "LOGIN_RATE_LIMIT": "2/minute",
         "REGISTER_RATE_LIMIT": "2/minute",
     }

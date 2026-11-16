@@ -1,0 +1,8 @@
+FAILED tests/unit/test_worker_health.py::test_the_defaults_leave_room_for_the_beat_interval
+FAILED tests/unit/test_worker_settings.py::test_a_fresh_worker_process_loads_its_settings_without_any_api_variable
+FAILED tests/unit/test_worker_settings.py::test_importing_the_worker_does_not_pull_in_the_api
+3 failed, 1208 passed, 110 skipped, 23 deselected, 1 warning in 18.89s
+skipped reasons:
+73 x  the PDF child runs on Linux only (resource limits)
+36 x  the PDF child applies Linux resource limits; run in the Linux container or CI
+1 x  resource limits exist on Linux only

@@ -1,0 +1,27 @@
+=== ROUND 1: cold start from nothing (no volume, no containers)
+up -d rc=0
+state: bootstrap exited exit=0;db running exit=0;migrate exited exit=0;worker running exit=0;
+bootstrap log: bootstrap done: [('CREATE', 'cs_migrator'), ('CREATE', 'cs_app'), ('CREATE', 'cs_worker')]
+migrate log:   alembic rc 0 INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.|grants applied atomically (table-level revoke then grant, one transaction): 14|
+worker log:    probe connected as cs_worker; alembic=n/a (worker has no access to alembic_version); ingestion_jobs=0; MARK=one
+=== T2 second 'up -d' on the existing volume
+bootstrap StartedAt before: 2026-11-12T15:02:24.620374444Z
+bootstrap StartedAt after:  2026-11-12T15:02:39.540582783Z  (different = the completed one-shot was started again by a plain 'up -d')
+bootstrap runs in its log: 2; second run verbs: bootstrap done: [('ALTER', 'cs_migrator'), ('ALTER', 'cs_app'), ('ALTER', 'cs_worker')]
+worker still running with the same container: running started=2026-11-12T15:02:26.949363035Z
+=== T3 environment switch
+after 'restart':             MARK=one
+after 'up --force-recreate': MARK=two
+=== T4 bootstrap in a profile that is not active while migrate depends on it
+config: service "migrate" depends on undefined service "bootstrap": invalid compose project
+up -d (no profile): service "migrate" depends on undefined service "bootstrap": invalid compose project
+=== teardown of the scratch project (round 1)
+left: containers=0 volumes=0
+=== ROUND 2: cold start from nothing (no volume, no containers)
+up -d rc=0
+state: bootstrap exited exit=0;db running exit=0;migrate exited exit=0;worker running exit=0;
+bootstrap log: bootstrap done: [('CREATE', 'cs_migrator'), ('CREATE', 'cs_app'), ('CREATE', 'cs_worker')]
+migrate log:   alembic rc 0 INFO  [alembic.runtime.migration] Running upgrade 0004 -> 0005, Create ingestion_jobs and add documents.error_code.|grants applied atomically (table-level revoke then grant, one transaction): 14|
+worker log:    probe connected as cs_worker; alembic=n/a (worker has no access to alembic_version); ingestion_jobs=0; MARK=one
+=== teardown of the scratch project (round 2)
+left: containers=0 volumes=0

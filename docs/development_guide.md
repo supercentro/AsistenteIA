@@ -21,17 +21,19 @@ cp backend/.env.db.example backend/.env.db
 cp frontend/.env.example frontend/.env
 ```
 
+**Environment files of the database roles** (change `database-least-privilege`). Besides `backend/.env`, `backend/.env.worker` and `backend/.env.db`, the least-privilege design uses `backend/.env.migrate` (`MIGRATION_DATABASE_URL`, the migrator role; read by Alembic, `db-migrate`, `db-grants` and `db-verify`), `backend/.env.roles` (the administrator URL and the four working-role passwords; read only by the role bootstrap and by `db-verify`), `backend/.env.cli` (`CLI_DATABASE_URL`; read by the administrative commands) and `backend/.env.test` (`TEST_DATABASE_URL`, `TEST_ADMIN_DATABASE_URL`; host-only, read by pytest, never by a container). A new checkout creates each one from its `*.example` file. On the development machine of the project they have existed since 2026-11-14 (stage S21 of the real run): `backend/.env` and `backend/.env.worker` name the restricted roles and hold no `POSTGRES_*` or test variable. A `TEST_DATABASE_URL` left in `backend/.env` is still honoured by the tests, with `.env.test` taking precedence.
+
 Each Compose service reads **only its own file**, so a process never receives a variable it does not use: `backend/.env` (API), `backend/.env.worker` (ingestion worker, no `JWT_SECRET`, no CORS or HTTP setting) and `backend/.env.db` (PostgreSQL, only `POSTGRES_*`). The example files document every variable with **placeholder** values. Replace every `CHANGE_ME` locally and never commit the real files (`.env`, `.env.worker`, `.env.db` are git-ignored; the `*.example` files are tracked):
 
 ```bash
-python -c "import secrets; print(secrets.token_hex(16))"   # e.g. for POSTGRES_PASSWORD (use the same value in .env.db and in the DATABASE_URL of .env and .env.worker)
+python -c "import secrets; print(secrets.token_hex(16))"   # e.g. for POSTGRES_PASSWORD (the database ADMINISTRATOR: .env.db and ADMIN_DATABASE_URL of .env.roles; the API and the worker use their own role passwords, see below)
 ```
 
 Backend variables. The column **File** says where each one lives: `API` = `backend/.env`, `worker` = `backend/.env.worker`, `both` = `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL`, `DB_CONNECT_TIMEOUT_SECONDS` and `DB_IDLE_IN_TRANSACTION_TIMEOUT_SECONDS` in each of the two files, `db` = `backend/.env.db`. A variable placed in the wrong file is ignored: neither process rejects settings it does not read, so a tuning put in `backend/.env` that belongs to the worker has no effect.
 
 | Variable | File | Purpose | Default |
 |---|---|---|---|
-| `DATABASE_URL` | both | Application database (`postgresql+psycopg://...`). Host `db` inside compose, `127.0.0.1:5442` from the host | required |
+| `DATABASE_URL` | both | Application database (`postgresql+psycopg://...`). Host `db` inside compose, `127.0.0.1:5442` from the host. The user is the restricted role of each service (`asistente_app` in `.env`, `asistente_worker` in `.env.worker`), never the administrator: the API and the worker **refuse to start as a PostgreSQL superuser** (they ask the server; the test-only `ALLOW_SUPERUSER_DATABASE_ROLE` is rejected unless `APP_ENV=test`) | required |
 | `APP_ENV` | both | `development`, `test` or `production` | `development` |
 | `CORS_ORIGINS` | API | Comma-separated allowed origins. `*` is rejected. Mandatory and explicit when `APP_ENV=production` | `http://localhost:5173` (development only) |
 | `LOG_LEVEL` | both | Python log level | `INFO` |
@@ -56,9 +58,13 @@ Backend variables. The column **File** says where each one lives: `API` = `backe
 | `EMBEDDER_BACKEND`, `ALLOW_FAKE_EMBEDDER` | worker | `local` (real model) or `fake` (deterministic vectors). `fake` is accepted only with `APP_ENV=test`, or with `ALLOW_FAKE_EMBEDDER=true` outside production | `local`, `false` |
 | `EMBEDDING_MODEL_PATH` | worker | Directory of the model inside the worker image | `/opt/models/paraphrase-multilingual-MiniLM-L12-v2` |
 | `EMBEDDING_THREADS` | worker | Threads used for inference (1-256). Commented out in `.env.worker.example`: unset means the effective CPU quota of the container (cgroup), so a 4-CPU limit gives 4 threads | unset |
-| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | API | Read only by `python -m app.cli seed`; no defaults exist | optional |
+| `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `SEED_STUDENT_EMAIL`, `SEED_STUDENT_PASSWORD` | CLI | Read only by `python -m app.cli seed` (environment, `backend/.env.cli` or `backend/.env`); no defaults exist | optional |
+| `CLI_DATABASE_URL` | CLI (`.env.cli`) | URL of the CLI database role used by `create-teacher` and `seed`; deliberately not `DATABASE_URL` | required for the commands |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | db | Read by the `db` compose service | required for compose |
-| `TEST_DATABASE_URL` | API (tests) | **Integration tests only**; never read by the application | required for integration tests |
+| `TEST_DATABASE_URL` | `.env.test` (host only) | **Integration tests only**; never read by the application and not part of `backend/.env.example` any more. A legacy value in `backend/.env` is still honoured | required for integration tests |
+| `TEST_ADMIN_DATABASE_URL` | `.env.test` (host only) | Administrator URL of the role-bound tests (same server as `TEST_DATABASE_URL`); they fail, not skip, when it is missing | required for role-bound tests |
+| `MIGRATION_DATABASE_URL` | `.env.migrate` | URL of the migrator role, read by `alembic/env.py` through `MigrationSettings`; **never falls back to `DATABASE_URL`** and needs no `JWT_SECRET` | required to run Alembic |
+| `ADMIN_DATABASE_URL`, `DB_MIGRATOR_PASSWORD`, `DB_APP_PASSWORD`, `DB_WORKER_PASSWORD`, `DB_CLI_PASSWORD` | `.env.roles` | Read only by the role bootstrap (`RolesSettings`): administrator URL and the four working-role passwords (at least 16 characters, all different, no placeholder) | required for the bootstrap and `db-verify` |
 
 Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
@@ -68,11 +74,15 @@ Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
 
 The variables above are read only through `core/config.py`: `WorkerSettings` (what the worker reads) and `Settings` (the API, which extends it with authentication, CORS and the upload limits). They are documented with placeholders in the three example files, and tests keep each example equal to the defaults of its settings class, free of secrets, and in agreement with Compose and `.gitignore`.
 
-**One value is duplicated on purpose:** `DATABASE_URL` appears in `backend/.env` and in `backend/.env.worker` (and its user, password and database name must match `backend/.env.db`). Keeping one value in one file would require Compose interpolation from a root `.env` or an external secret store, which this project does not use. The risk is drift: after changing the password in one file, the worker (or the API) fails to connect with an authentication error in its log, never silently. Change the three files together, then `docker compose up -d --force-recreate`. Note that `POSTGRES_PASSWORD` only takes effect when the data volume is created; to change the password of an existing database use `ALTER USER` first.
+**`DATABASE_URL` appears in `backend/.env` and in `backend/.env.worker` with different users:** the same host and database, `asistente_app` in the API file and `asistente_worker` in the worker file, each with its own password (`DB_APP_PASSWORD`, `DB_WORKER_PASSWORD` of `backend/.env.roles`); neither is the administrator of `backend/.env.db`. The risk is drift: after changing a password in one file, that service fails to connect with an authentication error in its log, never silently. Change `.env.roles` and the service file together, then recreate the service. `POSTGRES_PASSWORD` only takes effect when the data volume is created; to change the password of an existing database use `ALTER ROLE` first and recreate the container (a container keeps the environment it was created with, lesson L29).
 
-> **Upgrading an existing checkout (hardening before group 16):** the worker and the database used to receive the whole `backend/.env`. Now run `cp backend/.env.worker.example backend/.env.worker` and `cp backend/.env.db.example backend/.env.db`, copy the real `DATABASE_URL` into `.env.worker` and the three `POSTGRES_*` values into `.env.db` (the same ones as before, so the existing data volume keeps working), keep any worker tuning you had in `.env` (`INGESTION_*`, `PDF_CHILD_*`, `EMBEDDER_*`) in `.env.worker`, and recreate the containers. `backend/.env` can keep its old lines: the API ignores what it does not read. `alembic` and `python -m app.cli` read the API settings, so run them in the `backend` container (or with `JWT_SECRET` set), not in the worker. _(planned)_ The Gemini and chat variables are added by the change that first uses them.
+> **State of this machine (TD-040 in `technical-debt.md` records the former state):** since the real run of 2026-11-14 the API and the worker connect as `asistente_app` and `asistente_worker` (see "State after the real run" in section 3). The code refuses to start as a PostgreSQL superuser: the development `backend` service mounts `backend/app` and runs Uvicorn with `--reload`, so a file edit while it runs triggers a new start, and the worker has `restart: unless-stopped`, so a service given an administrator URL exits (the worker with code 2) and is restarted in a loop until it is given its role (the identity is checked before the embedding model is loaded, so the loop is cheap): "the database connection uses a PostgreSQL superuser: refusing to start". The API also refuses to start when the database is down at boot, because it cannot prove its identity; `depends_on` with the health check of `db` avoids it in Compose. Never work around the refusal with the test-only `ALLOW_SUPERUSER_DATABASE_ROLE`.
+
+> **Upgrading an existing checkout (hardening before group 16):** the worker and the database used to receive the whole `backend/.env`. Now run `cp backend/.env.worker.example backend/.env.worker` and `cp backend/.env.db.example backend/.env.db`, copy the real `DATABASE_URL` into `.env.worker` and the three `POSTGRES_*` values into `.env.db` (the same ones as before, so the existing data volume keeps working; _historical: the worker of a stack that still uses the administrator is refused by the code of `database-least-privilege` until the roles are adopted, see the note on the state of this machine_), keep any worker tuning you had in `.env` (`INGESTION_*`, `PDF_CHILD_*`, `EMBEDDER_*`) in `.env.worker`, and recreate the containers. `backend/.env` can keep its old lines: the API ignores what it does not read. `alembic` and `python -m app.cli` read the API settings, so run them in the `backend` container (or with `JWT_SECRET` set), not in the worker. The administrator URL in these files applied only until the roles were adopted (2026-11-14); the examples already carry the restricted users. _(planned)_ The Gemini and chat variables are added by the change that first uses them.
 
 ## 2. Run the full stack
+
+> **Warning (database roles).** `docker-compose.yml` starts `bootstrap` and `migrate` before `backend` and `worker`. A checkout without `backend/.env.roles` and `backend/.env.migrate` fails at `bootstrap` at once and leaves `backend` and `worker` created but **not started**, and `up` may recreate them. On the development machine of the project the real files exist and the database was adopted (2026-11-14), but the full flow (`docker compose up` with both one-shots) has **not been exercised there**: the stack was moved with `up -d --no-deps --force-recreate` of `backend` and `worker`, and the database container was recreated alone on 2026-11-15. `bootstrap` re-sets the four working-role passwords from `.env.roles` on every run and refuses an administrator URL that no longer authenticates, so `ADMIN_DATABASE_URL` must always hold the current administrator password. `ps`, `logs`, `exec` and `down` keep working (never `down -v` on a database with data). Before the first full `up` on a machine that holds data, check the services state, take a verified backup and follow the preconditions of section 3. Needs Docker Compose 2.24 or newer (`env_file` with `required`); env-file values are interpolated, so a password containing `$` is altered: avoid it.
 
 ```bash
 docker compose up --build
@@ -94,6 +104,49 @@ The first build of the `worker` image downloads the embedding model once, at a p
 docker compose exec backend alembic upgrade head      # apply migrations (manual, not run on startup)
 docker compose exec backend alembic downgrade -1      # revert last migration
 ```
+
+**Compose flow of the database roles** (change `database-least-privilege`, group 6). `docker-compose.yml` now starts `db` (healthy) -> `bootstrap` (completed) -> `migrate` (completed) -> `backend` and `worker`. `bootstrap` runs `db-bootstrap` with `backend/.env.roles` (administrator URL and the four role passwords); `migrate` runs `db-migrate` with `backend/.env.migrate` (the migrator URL only). Rules that matter:
+
+- Both are one-shots that exit (`restart: "no"`); each **runs on every `up`** (a plain `up` starts finished containers again), so both are idempotent. They are in the default profile on purpose.
+- They run the code of the **image**, not your working tree: after `app/` or `alembic/` change, use `docker compose up -d --build`.
+- If either fails, `backend` and `worker` are created but never started. Read why with `docker compose logs bootstrap migrate`; after fixing the cause, `docker compose up -d` repeats the flow.
+- `docker compose restart <service>` keeps the environment the container was created with: **`restart` does not apply a changed environment**. A changed `.env*` file or credential needs `docker compose up -d`, which recreates the services whose environment changed (this is also how a rotated password reaches a service).
+- The flow was proved on disposable clusters (the cold start of the planned flow, the rehearsal on a restored backup and the CI privilege gate). On the development machine the stack was moved after the adoption with `up -d --no-deps --force-recreate` of `backend` and `worker` (2026-11-14); a plain `docker compose up`, which runs `bootstrap` and `migrate`, has not been exercised there yet (see the warning in section 2).
+
+**Migrations go through `python -m app.cli db-migrate`** (change `database-least-privilege`, groups 3 and 4). `alembic/env.py` reads `MIGRATION_DATABASE_URL` (never `DATABASE_URL`) and refuses an online run without an explicit URL, because the privileges of a recreated table vanish unless the grants run afterwards. The two commands above therefore stop working once the image contains this change; they keep working in the containers that exist today, which were built before it. The commands of the new tooling (all of them read only their own file, none needs `JWT_SECRET`):
+
+```bash
+python -m app.cli db-bootstrap [--database asistenteia]   # administrator: roles, access, extension (.env.roles)
+python -m app.cli db-adopt [--database asistenteia]       # dry run; add --apply to change ownership (.env.roles)
+python -m app.cli db-adopt --rollback [--remove-roles]    # give the objects back (and drop the roles)
+python -m app.cli db-migrate [--downgrade REVISION]       # Alembic as the migrator, then the grants (.env.migrate)
+python -m app.cli db-grants                               # only the grants, in one transaction (.env.migrate)
+python -m app.cli db-verify                               # read-only; exit 1 on any difference (.env.migrate + .env.roles)
+```
+
+`db-bootstrap`, `db-adopt --apply` and `db-migrate` were run against the development database once, on 2026-11-14 (stages S22 to S25 of the real run, each with the owner's explicit authorisation, with the API and the worker stopped); `db-verify` ran afterwards without findings and is the read-only check to repeat after any later change. `db-adopt` never runs by itself.
+
+**Dangerous operations: mandatory preconditions** (`db-bootstrap` on a real cluster, `db-adopt --apply`, `db-adopt --rollback --apply`, `--remove-roles`, `db-migrate --downgrade`). Do not start one until every item is true and written down with its evidence:
+
+1. **Owner's explicit authorisation** for that command on that database, in writing, for that session only.
+2. **A verified backup** that exists before the command: file size and checksum recorded, `pg_restore --list` readable, and a restore into a disposable server proved at least once (group 16). A backup that was never restored is not a backup.
+3. **Unambiguous cluster and database**: print `host:port`, `current_database()`, `inet_server_port()`, the data volume name and the container name, and compare them with what the owner named. `postgres`, `template0` and `template1` are refused by the commands; the cluster itself is not checked for you.
+4. **Services stopped when the command needs it**: the API, the worker and the CLI for adoption, its rollback and role removal; the commands refuse while a role holds a session, but a stopped service must not restart in the middle (a restart as the administrator is refused by the code, as a restart under a dropped role would fail).
+5. **A written rollback plan** before the first statement: for adoption `db-adopt --rollback` for that database (it acts on that database only; repeat it for every database where it reports remaining objects), what is restored from the backup if it fails, and who decides.
+6. **Roles and ownership validated** before and after: `db-verify` (it must show no findings after adoption and none new after a rollback), the owners of the seven tables and of the enum types, the row counts, and the catalog fingerprint.
+7. **Evidence before and after**, saved outside the secrets: the output of the commands (they print no secret), the counts, the owners and the revision, plus the time and the person.
+
+The detailed plan for the real run (runbook, backup and recovery, credentials order, GO/NO-GO checklist, tested rollback and the tools `prepare_env_files.py`, `snapshot_*.sql`, `compare_snapshots.sh`, `restore_public_*.sql`, `compose.rollback.override.yml`) is in `openspec/changes/database-least-privilege/reports/group-17a/` (prepared in group 17A). Its execution on the development database on 2026-11-14 is recorded in `reports/2026-11-14-step-17b-window-closure.md` and `reports/2026-11-14-step-17b5-functional-closure.md` of the same change. **Where each procedure lives** (not repeated here): the runbook and the rollback of the real run in `reports/group-17a/runbook-17b.md` and `reports/group-17b/recovery-matrix.md`; the rotation of the administrator password and its recovery table in `reports/group-17b/rotation/README-17b6.md`; the rotation of the migrator password in `reports/2026-11-14-sec-17b-01-migrator-password-exposure.md`. After the change is archived these folders move to `openspec/changes/archive/`.
+
+Known limits of the procedure, recorded in `docs/technical-debt.md` (TD-044), which is **open**: they are documented, neither remediated nor expressly accepted by the owner (no formal acceptance exists). The rollback returns the ownership and drops the grants of the runtime roles, but it does not restore the access that the bootstrap removed from `PUBLIC`: that recovery is a manual step, documented and rehearsed in 17A (`restore_public_cluster.sql` and `restore_public_schema.sql`), and its automation is pending. The other limits: the row counts of the adoption run inside the exclusive-lock transaction (fine for the empty development database, to be rethought before a large one); the rollback runs one connection per statement and can stop half way (it is idempotent: run it again); the bootstrap closes `PUBLIC` on every database of the cluster, so do not run it on a shared cluster; the grants run after Alembic and not inside its transaction, so after a column is added the column is visible to a table-level grant until `db-migrate` finishes (always use `db-migrate`, never `alembic upgrade` alone, which `alembic/env.py` refuses).
+
+**Credential protection (database).** Rules for every file above and for any tool that touches them:
+
+- The real `backend/.env*` files are git-ignored and are never committed, copied into an image, attached to a report or pasted into a conversation; the reports of this change contain variable **names**, never values. On Windows each real file has an owner-only ACL (inheritance disabled, one rule for your user): check it with `powershell -NoProfile -ExecutionPolicy Bypass -File openspec/changes/database-least-privilege/reports/group-17c/tools/secure_file_acl.ps1 -Path <file> -Rights Modify -VerifyOnly` and apply it by dropping `-VerifyOnly`.
+- Each service reads only its own file. The administrator password exists only in `.env.db` (the `db` container), `ADMIN_DATABASE_URL` of `.env.roles` and the host-only `.env.test`, never in the API or worker files. `POSTGRES_PASSWORD` only takes effect when the data volume is created.
+- Never show output that can echo a connection string: the URL parser of a database driver can print its input in an error (incident SEC-17B-01, TD-050), so one-off scripts catch exceptions and print only their type; the rotation tools do this by design.
+- A password is rotated with the tools of `reports/group-17b/rotation/`, never by editing files by hand: they change the database first and the files second, keep a verified backup of the old files and scan the containers for the old value. A container keeps the environment it was created with (lesson L29), so after a rotation recreate only the service concerned.
+- The copies of the files taken before the real run (`backend/.env*.pre-17b`) keep the old values; they are git-ignored and their clean-up is a separate decision of the owner (TD-038, `reports/group-17b/operational-decisions.md`).
 
 Migration `0004` creates `documents`, `document_chunks` and the `document_status` type. A development database created before it stays at `0003` until you rebuild the backend image (`docker compose up -d --build backend`, or `docker compose build backend` followed by `docker compose run --rm --no-deps backend alembic upgrade head`) and apply the migration. Its `downgrade` drops both tables **with their data**, so use it only on development data, and take a `pg_dump -Fc` first if the database holds anything you want to keep. After a pgvector upgrade, also run `ALTER EXTENSION vector UPDATE;` (see section 2).
 
@@ -137,6 +190,18 @@ This describes the Compose stack of one development machine. It is not a product
 
 **Finding (fixed on 2026-11-12): a container keeps the environment it was created with.** The `asistenteia-db-1` container had been created on 2026-10-28, before the environment files were split (commit `172288a`), so besides `POSTGRES_*` it still carried `JWT_SECRET`, `DATABASE_URL`, `TEST_DATABASE_URL`, `CORS_ORIGINS`, `APP_ENV` and `LOG_LEVEL` of the API, although `docker-compose.yml` already gave it only the `POSTGRES_*` variables of `backend/.env.db`. It was found while checking the secrets of the worker. The fix was a controlled recreation: worker stopped, `docker compose up -d --no-build --no-deps db` (a `--dry-run` first showed that only `db` would be recreated), worker started again. The image (PostgreSQL 15.19, pgvector 0.8.7), the volume `asistenteia_db_data`, the port and the network were kept; the catalog, the rows and the revision `0005` were identical before and after, and the worker came back `healthy` with no restarts. No value was printed or recorded. Removing a variable from a container does not rotate it: the values were not changed (TD-038), and the shared superuser account (TD-030) is unchanged and still open.
 
+#### State after the real run of `database-least-privilege` (2026-11-14 and 2026-11-15)
+
+| Item | State |
+|---|---|
+| Database `asistenteia` | revision `0006` (server default `student` on `users.role`); `db-verify` without findings; application tables with 0 rows (the synthetic data of the functional check was removed) |
+| Roles and ownership | the five identities of `data-model.md` ("Database identities and privileges"); the nine objects owned by `asistente_migrator`; `PUBLIC` without privileges |
+| Services | `backend` as `asistente_app` and `worker` as `asistente_worker`, both operating; one session of each role and none of the administrator |
+| Real run | 2026-11-14, window 18:30-20:00, stage by stage under the owner's authorisation: bootstrap, adoption, migration `0005` to `0006` with the grants, `db-verify`, recreation of `backend` and `worker` (about 36 minutes of unavailability), 25 of 25 functional checks |
+| Credentials | the migrator password was rotated on 2026-11-14 (SEC-17B-01) and the administrator password on 2026-11-15, after which only the `db` container was recreated keeping the volume `asistenteia_db_data`; `JWT_SECRET` has **not** been rotated (TD-038) |
+| Backups and recovery | two verified copies of the dump taken before the real run, kept outside the repository; the `backend/.env*.pre-17b` copies and the `:pre-17b` image tags of `backend` and `worker`; the git recovery refs. Nothing was deleted and the clean-up of the `*.pre-17b` copies is not authorised |
+| Not exercised on this machine | a plain `docker compose up` (the one-shots `bootstrap` and `migrate`), see the warning in section 2 |
+
 #### Plan: applying `0005` to the development database (prepared and executed on the local development database on 2026-11-12)
 
 This plan was written before the operation and followed on 2026-11-12; it stays as the reproducible procedure for another database, and the headings that say *planned* are the original wording. The corrections found while executing it are listed after section 4. Applying it to any other database needs the owner's explicit authorisation. Section 1 describes the state **before** the operation.
@@ -170,7 +235,7 @@ This plan was written before the operation and followed on 2026-11-12; it stays 
 **4. Apply (planned)**
 1. `docker compose stop backend worker`.
 2. `docker compose build backend worker`, **before** the upgrade: the current images only know `0004`, so `alembic upgrade head` in them would end successfully without doing anything and leave the database at `0004`. After the build, `docker compose run --rm --no-deps backend alembic heads` must report `0005 (head)`; if it does not, stop. (The worker image is 3.2 GB and downloads the model from its pinned revision; if the network fails, repeat; do not use `--no-cache` unless needed).
-3. `docker compose run --rm --no-deps backend alembic upgrade head`; expected last line `Running upgrade 0004 -> 0005`. Alembic runs with the API settings (`load_settings`), so it needs `backend/.env`, not the worker file. PostgreSQL DDL is transactional: if the upgrade fails, nothing is applied.
+3. `docker compose run --rm --no-deps backend alembic upgrade head`; expected last line `Running upgrade 0004 -> 0005`. Alembic runs with the API settings (`load_settings`), so it needs `backend/.env`, not the worker file. PostgreSQL DDL is transactional: if the upgrade fails, nothing is applied. _(Historical: with the image of `database-least-privilege` this command is replaced by `python -m app.cli db-migrate`, and a direct `alembic upgrade` with the API settings is refused by design.)_
 4. Verify: `alembic current` reports `0005 (head)`; `alembic check` reports no new upgrade operations; catalog queries find `ingestion_jobs`, `uq_ingestion_jobs_document_id`, `ck_ingestion_jobs_attempts_non_negative`, `ck_ingestion_jobs_lease_consistent`, `ix_ingestion_jobs_claimable` with its predicate `payload IS NOT NULL`, `documents.error_code` and its check; the application tables still have 0 rows.
 5. Start `docker compose up -d backend worker` and wait for the worker to be `healthy` (the first beat takes up to the 120 s start period). **Start the worker only after the migration**: before it, the worker has no `ingestion_jobs` table to claim from.
 6. Optional smoke test (needs its own authorisation because it writes data): create a teacher with the documented administrative command, upload a small text file, wait for `ready`, then delete the document and the test account.
@@ -209,21 +274,25 @@ The three are not interchangeable: a rollback cannot be used after the commit, a
 
 Other points seen in the Docker review: the database, API and frontend ports are bound to `127.0.0.1`; only the worker has CPU and memory limits (4 CPUs, 2 GB) and a restart policy; the database, API and frontend have no limits and the database does not restart by itself; the API has no healthcheck; the API runs with `--reload` and a writable code mount, which is for development only; the worker code mount is read-only; the secrets are split per service and none is in an image or a versioned file. These are deployment topics, not blockers of the development migration.
 
-Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442`. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
+Only `backend/app` is mounted into the backend container, so a **new migration file is not visible inside a running container**: rebuild it first (`docker compose up -d --build backend`) before running `alembic upgrade head` there, or run Alembic from the host with `DATABASE_URL` pointing to `127.0.0.1:5442` _(historical: after `database-least-privilege` use `db-migrate` with `MIGRATION_DATABASE_URL`; `db-migrate`, `db-migrate --downgrade` and `db-verify` also refuse to run unless the session is the migrator, before any statement)_. Running `alembic current` in the container shows which head it knows. Check for drift between models and migrations with `alembic check` (it must report no new operations).
 
 ### Administrative commands (teacher accounts and demo data)
 
 Teacher accounts can only be created from the command line; no HTTP endpoint creates teachers or changes roles.
 
+The commands run under the **CLI database role** (`asistente_cli`), with the credential in `backend/.env.cli` (copy `backend/.env.cli.example`; the password is `DB_CLI_PASSWORD` of `backend/.env.roles`). The API container never receives that file, and the API database role cannot insert a teacher or change a role (change `database-least-privilege`, group 8). The `cli` Compose service is in the profile `cli`, so a plain `up` never starts it; it waits for `migrate`. The older form `docker compose exec backend python -m app.cli ...` no longer works: the command needs `CLI_DATABASE_URL`, which only `backend/.env.cli` provides. `docker compose run --rm cli ...` starts the dependencies of the service (`bootstrap` and `migrate`) first; add `--no-deps` to skip them once the roles exist.
+
 ```bash
 # Interactive hidden prompt (asks twice). The password is never accepted as an argument.
-docker compose exec backend python -m app.cli create-teacher --email teacher@example.com --name "Ana Teacher"
+docker compose run --rm cli create-teacher --email teacher@example.com --name "Ana Teacher"
 # Non-interactive: first line of standard input
-printf '%s\n' "$TEACHER_PASSWORD" | docker compose exec -T backend python -m app.cli create-teacher --email teacher@example.com --password-stdin
+printf '%s\n' "$TEACHER_PASSWORD" | docker compose run --rm -T cli create-teacher --email teacher@example.com --password-stdin
 
 # Demo accounts: one teacher and one student, no subjects. Development and test only.
-# Set the four SEED_* variables first (in backend/.env or with `docker compose exec -e ...`).
-docker compose exec backend python -m app.cli seed
+# Set the four SEED_* variables first (in backend/.env.cli or with `docker compose run --rm -e ...`).
+# APP_ENV is not read from any API file and defaults to production, where the seed is refused:
+# pass `-e APP_ENV=development` (or `test`) explicitly.
+docker compose run --rm -e APP_ENV=development cli seed
 ```
 
 - Passwords are 10-128 characters. Emails must be ASCII (lowercased; write internationalised domains in punycode, for example `user@xn--bcher-kva.com`). An existing email is never modified or promoted (non-zero exit).
@@ -237,7 +306,7 @@ Create migrations with `alembic revision --autogenerate -m "describe change"` an
 
 ### Test database isolation
 
-Tests that run migrations or destructive cleanup use `TEST_DATABASE_URL` only. A guard (`app/core/db_safety.py`) runs before any such connection and refuses to continue unless the database name ends in `_test`, differs from the database in `DATABASE_URL`, and `APP_ENV` is not `production`. If `TEST_DATABASE_URL` is missing, integration tests abort before connecting. Use `127.0.0.1` (not `localhost`) in URLs from the host: `localhost` may resolve to IPv6 first and the port is published on IPv4 only.
+Tests that run migrations or destructive cleanup use `TEST_DATABASE_URL` only (from `backend/.env.test`, with `backend/.env` still supplying the application `DATABASE_URL` that the guard compares with; if that one is missing the tests abort, they never skip the comparison). Roles created by tests carry the reserved prefix `tstrole_` (`tests/role_support.py`), which no real role can match, and leftovers are swept by prefix only. A guard (`app/core/db_safety.py`) runs before any such connection and refuses to continue unless the database name ends in `_test`, differs from the database in `DATABASE_URL`, and `APP_ENV` is not `production`. If `TEST_DATABASE_URL` is missing, integration tests abort before connecting. Use `127.0.0.1` (not `localhost`) in URLs from the host: `localhost` may resolve to IPv6 first and the port is published on IPv4 only.
 
 ## Document ingestion: worker, model and limits
 
@@ -284,6 +353,16 @@ uv run pytest tests/integration --cov=app --cov-report=term-missing   # needs th
 uv run pytest -m realmodel tests/unit/test_embedder_realmodel.py tests/unit/test_chunker_realmodel.py   # real model; only inside the worker image (excluded by default and in CI)
 ```
 
+**Role-bound mode (change `database-least-privilege`, group 9).** The same API and ingestion integration tests (the modules listed in `tests/conftest.py`, marker `least_privilege`) can run with the code under test connected as its production role instead of the superuser of the test cluster:
+
+```bash
+TEST_CLUSTER_IS_DISPOSABLE=true uv run pytest tests/integration --least-privilege -m least_privilege
+```
+
+The guarded test database is then built like production (bootstrap with the reserved `tstrole_` names, Alembic as the migrator, grants); `build_settings` (the API) uses the application role and `built_service` (the ingestion service) the worker role, while the seeding and inspection helpers keep the administrator URL, so no assertion changes. `TEST_CLUSTER_IS_DISPOSABLE=true` and `TEST_ADMIN_DATABASE_URL` (see `backend/.env.test.example`) are mandatory because the bootstrap closes `PUBLIC` on every database of the cluster: use the disposable test cluster, never the development database. `tests/integration/test_least_privilege_coverage.py` fails when an API route, a CLI subcommand or a worker path has no role-bound scenario, and `test_db_roles_effective.py` compares the privileges of the catalog with the matrix (run it with `-s` to print them).
+
+Limits of the mode, so nobody over-reads it: the code under test is the API (`build_settings`), the ingestion service (`built_service`) and the ingestion repository sessions (`session_for`, worker role by default, `role="app"` for retrieval); seeding and inspection stay with the administrator, and repository-level tests of other modules (for example `test_chunk_retrieval`) are not in the marked list and run as before. The roles have connection limits (application 20): the fixture `release_leaked_connections` collects engines that a test left behind, and a failure with `database unavailable` in this mode means a test leaks connections, not that the limit should be raised. Do not combine, in one pytest process, the role fixtures that drop every `tstdb_%_test` database (`cluster`, used by the `test_db_*` files) with the session database of this mode: run them as separate invocations.
+
 The real-server and real-process tests (Uvicorn started with the production arguments, killed workers, PDF child limits) run on Linux. On a Windows host where Application Control blocks the virtual environment, run the suite in the worker image with the repository mounted and `TEST_DATABASE_URL` pointing to the test database through `host.docker.internal:5442`. Coverage of `app` is 99 %: every module created by the ingestion change is at 100 % and the lines missed belong to older modules.
 
 Frontend (from `frontend/`):
@@ -314,7 +393,46 @@ _(planned)_ `npm run test:e2e` will start the backend with `LLM_PROVIDER=fake` a
 
 ## 6. Continuous integration
 
-GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: backend lint, format check, `mypy --strict`, unit and integration tests (PostgreSQL service with pgvector, database `asistenteia_test` created in the job); frontend lint, format check, type check, unit tests and build; `pip-audit` and `npm audit` as non-blocking steps. Gemini is never called in CI. Playwright Test is not run in CI yet.
+GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: backend lint, format check, `mypy --strict`, unit and integration tests (PostgreSQL service with pgvector, database `asistenteia_test` created in the job); frontend lint, format check, type check, unit tests and build; `pip-audit` and `npm audit` as non-blocking steps. Gemini is never called in CI. The mocked Playwright suite (`npm run test:e2e`) runs in the CI job `frontend`; the real-backend suite (`E2E_REAL_BACKEND=1`) is opt-in and does not run in CI (TD-041).
+
+### The privilege gate (job `privileges`)
+
+Change `database-least-privilege`, decision D5. The job `privileges` of the workflow is **mandatory**: it is what makes a backend change valid with respect to PostgreSQL privileges. It runs on every push and Pull Request against two PostgreSQL 15 + pgvector 0.8.7 service containers that exist only for that run (`flow` on port 5433 and `tests` on 5434; the throwaway administrator password in the workflow belongs to containers that live for the job on the runner and protects nothing). All logic lives in `.github/scripts/privilege_gate.sh`, one step per subcommand, so the same steps can be run locally (see below):
+
+| Step | What it proves |
+|---|---|
+| `prerequisites` | every variable is present, otherwise the job fails naming it; four ephemeral role credentials are generated, masked in the log and kept in a private file of the runner temp directory (never an artifact) |
+| `clusters` | each cluster is local, PostgreSQL 15 with pgvector 0.8.7, a superuser session, holds only the default databases (and, for `tests`, its own `tstdb_*_test`) and no `asistente*` role; the two are different servers. Nothing destructive happens before this passes, and it is checked again right before the flag `TEST_CLUSTER_IS_DISPOSABLE=true` is exported |
+| `flow` | the real commands: `db-bootstrap`, `db-migrate` (Alembic to 0006 and the grants), `db-verify` without findings, `alembic check`, then a second idempotent pass |
+| `drift-selfcheck` | a privilege outside the matrix is granted on purpose: `db-verify` must fail, and `db-grants` must heal it. A verifier that cannot see drift fails the job |
+| `privilege-unit` | matrix, inventory (a table without a decision fails and is named), generated SQL, `FetchedValue` columns, and the workflow and script tests |
+| `role-suites` | the role-bound integration suites (marker `role_bound`): bootstrap, adoption, grants, verify, lifecycle, denied operations, paths, teacher and CLI, ORM SQL inspection, consent and TD-039 persistence, API routes, effective privileges, coverage guards |
+| `roles-mode` | the existing API and ingestion tests with the code under test as its production role (`--least-privilege -m least_privilege`), in a separate process so the fixtures of the previous step cannot interfere |
+| `summary` | runs even after a failure: every report must exist, have no failure, no error, **no skipped test** and at least the expected number of tests (`MIN_UNIT`, `MIN_ROLE_SUITES`, `MIN_ROLES_MODE`); it prints the number of privilege tests executed and appends it to the job summary |
+
+Rules the gate keeps (and `tests/unit/test_ci_workflow.py` enforces): `permissions: contents: read` for the whole workflow, no `secrets.*`, only `push` and `pull_request` triggers (never `pull_request_target`), GitHub-hosted runner with a time limit, checkout without keeping the token, no `continue-on-error`, `|| true`, `set +e` or `exit 0` in the job, `TEST_CLUSTER_IS_DISPOSABLE` set only by the gate script, and no administrator or role credential in the job-wide environment. The ordinary `backend` job runs the integration tests with `-m "not role_bound"`; the role-bound ones need the clusters of this job and are never skipped silently.
+
+**Branch protection (to be applied by the repository owner; this change does not modify GitHub settings).** Require these status checks on `main` before merging, with "Require branches to be up to date" and no bypass for administrators if the owner wants the gate to bind everyone:
+
+```bash
+# Proposal only: nothing in this repository runs it. Replace OWNER/REPO and review before use.
+gh api -X PUT repos/OWNER/REPO/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": { "strict": true, "contexts": ["backend", "privileges", "frontend"] },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null
+}
+JSON
+```
+
+The proposal is written for a repository with a single owner: with `enforce_admins: true` and a required review the owner could not merge their own Pull Request, so both are left off here; a team should turn them on. The `contexts` field is the classic form; a ruleset with the same three checks is equivalent.
+
+What the gate does not prove, so nobody over-reads it: it was first validated step by step against disposable clusters with `run_gate_local.sh` (the semantics of Actions, a prebuilt local runner image and internal host names) and has since run on GitHub Actions for real (the pushes of `53031a1` and `8931d67`, with `backend`, `privileges` and `frontend` green; TD-045). No Pull Request has been opened yet, so the check name `privileges` on a real Pull Request and the behaviour for forks (which get a read-only token and no secret) are still unproved, and branch protection is not available on the current plan, so the gate is advisory until it is (TD-045). The minimums of executed tests (`MIN_UNIT` 60, `MIN_ROLE_SUITES` 400, `MIN_ROLES_MODE` 480, set below the 149, 410 and 484 tests of the last local run) are floors: raise them in `.github/scripts/privilege_gate.sh` when the suites grow, otherwise a deleted group of tests could go unnoticed. Actions are pinned to major tags; pin them to commit SHAs if the supply chain of the actions is a concern.
+
+The job names `backend`, `privileges` and `frontend` are the check names; renaming a job removes it from the required checks without any warning, which is why the workflow test pins the job and its steps.
+
+**Running the gate locally** needs Docker and at least 6 GB of free memory: `openspec/changes/database-least-privilege/reports/group-10/run_gate_local.sh <output> <scenario>` creates two disposable clusters on an internal network (no published port), runs the eight steps with the semantics of Actions (the first failing step stops the job, the summary always runs) and removes everything; the scenarios `missing-prerequisite`, `foreign-database`, `same-server`, `failing-test`, `new-table`, `skipped-test`, `too-few-tests` and `drift-blind` show that the job fails and why.
 
 ## 7. Troubleshooting
 
@@ -327,6 +445,7 @@ GitHub Actions (`.github/workflows/ci.yml`) on every push and Pull Request: back
 - Startup error `Invalid configuration - CORS_ORIGINS ...`: set explicit origins in production and never use `*`.
 - Frontend page blank or `Failed to resolve import` after a dependency change: renew the container volume (`docker compose up -d --build -V frontend`).
 - A container still has an old variable, or does not see a changed one: the effective environment of an existing container is the one it was created with, not what Compose or the `.env` files say now. List the variable **names** it holds (`docker exec <container> env | cut -d= -f1 | sort`) and compare them with its `env_file`; `docker compose up -d --no-build --no-deps --dry-run <service>` prints `Recreate` when the container no longer matches the configuration. Recreate only that service (`docker compose up -d --no-build --no-deps <service>`; named volumes are kept; never use `down -v`), after stopping the services that connect to a database you are recreating. Removing a variable from a container does not rotate its value: change the secret itself if the old container could have exposed it (TD-038).
+- The administrator password is lost or rejected, or a role cannot log in: do not edit files by hand. While the `db` container runs, the rotation tool resets a role through the container's local socket without needing its old password (`rotate_db_role.py alter`, see the recovery table of `reports/group-17b/rotation/README-17b6.md`); the four working roles are also re-set from `.env.roles` by `db-bootstrap`.
 - _(planned)_ Gemini 429/blocked responses locally: switch `LLM_PROVIDER=fake` to keep developing without the API.
 
 ### Ports already in use
