@@ -291,6 +291,11 @@ The API and the worker, started through their production entry points, SHALL ask
 - **WHEN** `db-migrate --downgrade` or `db-verify` is given a URL of another role
 - **THEN** each stops with the identity error and changes nothing
 
+#### Scenario: A malformed database URL is rejected without leaking any part of it
+- **WHEN** a database URL variable of the administrative commands (`MIGRATION_DATABASE_URL`, `ADMIN_DATABASE_URL` or `CLI_DATABASE_URL`) is malformed, whether the parser reports an argument error or a value error (for example a password with an unescaped "@" that leaves a segment read as an invalid port)
+- **THEN** the configuration is rejected with a message that names the variable and holds no part of the value, no fragment of the credential and no internal text of the parser, and no command runs
+- **Note (2026-11-15, task 19.3.4, finding P2 of the Codex review of PR #12 on `6e85470`):** the validator caught only `ArgumentError`; a `ValueError` of the parser reached the message of the validation error and the CLI printed it. The same two exceptions are now handled where a URL is parsed to open a connection or an engine (administrative connection, login probe, test-database guard, engine of the API and the worker)
+
 ### Requirement: Cluster-wide commands cannot be pointed at a system database
 `db-bootstrap` and `db-adopt` SHALL refuse `postgres`, `template0` and `template1` as the target database before any connection, and the adoption rollback SHALL act only on the named database, report the databases where the migrator still owns objects, and keep refusing to remove the roles until none is left.
 
