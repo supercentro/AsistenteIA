@@ -4,7 +4,9 @@ Task 3.1 and 3.2. Migrations and the bootstrap must not need the API secrets, mu
 another database URL, and must never print a credential.
 """
 
+import argparse
 import io
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -16,9 +18,12 @@ from app.core.config import (
     ConfigurationError,
     MigrationSettings,
     RolesSettings,
+    load_cli_settings,
     load_migration_settings,
     load_roles_settings,
+    load_verify_settings,
 )
+from app.db_admin.commands import run_database_command
 from tests.db_support import BACKEND_DIR
 
 MIGRATOR_URL = (
@@ -246,3 +251,101 @@ def test_roles_settings_do_not_need_the_api_or_migration_variables(
     set_roles(monkeypatch)
 
     load_roles_settings(env_file=None)  # DATABASE_URL, JWT_SECRET and MIGRATION_DATABASE_URL unset
+
+
+# --- Finding P2 of the Codex review of 6e85470 (task 19.3.4): malformed URLs ---
+# SQLAlchemy raises ArgumentError for an unparsable URL, but a ValueError (for example an invalid
+# port taken from the part of a password that follows an unescaped "@") for others. Both must be
+# rejected with a message that names the variable and holds nothing from the value. Synthetic only.
+
+FRAGMENT = "Zq9-frag-secret"
+MALFORMED = {
+    "unescaped-at-in-password": f"postgresql+psycopg://app_user:pre@part:{FRAGMENT}@db/app",
+    "malformed-port": "postgresql+psycopg://app_user:Pw-long-enough-123@db:notaport/app",
+}
+UNPARSABLE = {"not-a-url": "this is not a url"}
+LOADERS = {
+    "migration": "MIGRATION_DATABASE_URL",
+    "admin": "ADMIN_DATABASE_URL",
+    "cli": "CLI_DATABASE_URL",
+    "verify": "MIGRATION_DATABASE_URL",
+}
+
+
+def prepare_loader(monkeypatch: pytest.MonkeyPatch, loader: str, url: str) -> Callable[[], object]:
+    for name in ("CLI_DATABASE_URL", "APP_ENV", "DB_CONNECT_TIMEOUT_SECONDS"):
+        monkeypatch.delenv(name, raising=False)  # nothing of the real environment may interfere
+    if loader == "migration":
+        monkeypatch.setenv("MIGRATION_DATABASE_URL", url)
+        return lambda: load_migration_settings(env_file=None)
+    if loader == "admin":
+        set_roles(monkeypatch, ADMIN_DATABASE_URL=url)
+        return lambda: load_roles_settings(env_file=None)
+    if loader == "cli":
+        monkeypatch.setenv("CLI_DATABASE_URL", url)
+        return lambda: load_cli_settings(env_file=None)
+    monkeypatch.setenv("MIGRATION_DATABASE_URL", url)
+    for name, value in PASSWORDS.items():
+        monkeypatch.setenv(name, value)
+    return lambda: load_verify_settings(env_files=None)
+
+
+def assert_value_free(message: str, variable: str, url: str) -> None:
+    assert variable in message, message
+    for forbidden in (
+        url,
+        FRAGMENT,
+        "Pw-long-enough-123",
+        "notaport",
+        "invalid literal",
+        "int()",
+        "app_user",
+    ):
+        assert forbidden not in message, "the message holds part of the value or an internal text"
+
+
+@pytest.mark.parametrize("loader", list(LOADERS))
+@pytest.mark.parametrize("case", list(MALFORMED))
+def test_a_malformed_database_url_is_rejected_without_leaking_any_part_of_it(
+    monkeypatch: pytest.MonkeyPatch, loader: str, case: str
+) -> None:
+    load = prepare_loader(monkeypatch, loader, MALFORMED[case])
+
+    with pytest.raises(ConfigurationError) as caught:
+        load()
+
+    assert_value_free(str(caught.value), LOADERS[loader], MALFORMED[case])
+    assert caught.value.__cause__ is None and caught.value.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("loader", list(LOADERS))
+def test_an_unparsable_database_url_keeps_its_safe_rejection(
+    monkeypatch: pytest.MonkeyPatch, loader: str
+) -> None:
+    load = prepare_loader(monkeypatch, loader, UNPARSABLE["not-a-url"])
+
+    with pytest.raises(ConfigurationError) as caught:
+        load()
+
+    assert_value_free(str(caught.value), LOADERS[loader], UNPARSABLE["not-a-url"])
+    assert caught.value.__cause__ is None and caught.value.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("case", list(MALFORMED))
+@pytest.mark.parametrize(
+    ("command", "loader"),
+    [("db-migrate", "migration"), ("db-bootstrap", "admin"), ("db-verify", "verify")],
+)
+def test_the_database_commands_print_nothing_from_a_malformed_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, command: str, loader: str, case: str
+) -> None:
+    monkeypatch.chdir(tmp_path)  # no environment file is read from the project
+    prepare_loader(monkeypatch, loader, MALFORMED[case])
+    printed: list[str] = []
+    errors: list[str] = []
+    args = argparse.Namespace(command=command, database="postgres", downgrade=None)
+
+    code = run_database_command(args, printed.append, errors.append)
+
+    assert code == 1 and printed == []
+    assert_value_free("\n".join(errors), LOADERS[loader], MALFORMED[case])

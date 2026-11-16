@@ -182,7 +182,9 @@ def _check_database_url(value: SecretStr, variable: str) -> SecretStr:
     """A PostgreSQL URL with user, password and database, without placeholders; never echoed."""
     try:
         url = make_url(value.get_secret_value())
-    except ArgumentError:
+    except (ArgumentError, ValueError):
+        # A ValueError (for example an invalid port read from a password) carries a part of the
+        # value in its text, so both exceptions give the same message, without the cause.
         raise ValueError(f"{variable} is not a valid database URL") from None
     if not url.drivername.startswith("postgresql"):
         raise ValueError(f"{variable} must be a PostgreSQL URL")
