@@ -90,7 +90,9 @@ def _blocking_sessions(
 
     Before adoption the API and the worker run as the administrator, so the sessions of the four
     new roles are not enough: any other session on this database counts too (spec: running
-    services block adoption). `ignore` skips sessions by `application_name` (a test lock holder).
+    services block adoption). `ignore` skips sessions by `application_name` (a test lock holder):
+    the exclusions are explicit, so an empty list skips nothing and a session without an
+    application name (as those of the API and the worker are) always counts.
     """
     rows = conn.execute(
         raw(
@@ -98,9 +100,9 @@ def _blocking_sessions(
             "FROM pg_catalog.pg_stat_activity "
             "WHERE pid <> pg_catalog.pg_backend_pid() AND backend_type = 'client backend' "
             "AND (datname = pg_catalog.current_database() OR usename = ANY(%s)) "
-            "AND application_name <> ALL(%s) GROUP BY 1, 2 ORDER BY 1, 2"
+            "AND coalesce(application_name, '') <> ALL(%s::text[]) GROUP BY 1, 2 ORDER BY 1, 2"
         ),
-        (list(names.all()), list(ignore) or [""]),
+        (list(names.all()), list(ignore)),
     ).fetchall()
     return [f"{user} [{app or 'no application name'}] x{count}" for user, app, count in rows]
 

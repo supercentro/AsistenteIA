@@ -7,7 +7,10 @@ database with data, ownership recovery and rollback.
 from collections.abc import Callable
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
+from app.core.database import create_db_engine
 from app.db_admin.adopt import AdoptRefusedError, adopt, remove_roles, rollback_adoption
 from app.db_admin.bootstrap import bootstrap
 from tests.db_admin_support import (
@@ -357,3 +360,123 @@ def test_the_rollback_refuses_a_database_that_does_not_exist(
             names=cluster.names,
             remove_roles=False,
         )
+
+
+# --- Finding P1 of the Codex review of PR #12 (task 19.3.1): unnamed sessions ---
+
+
+def test_adoption_is_refused_while_an_unnamed_administrator_session_exists(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    # The API and the worker open their connections without an application name. Before the
+    # adoption they connect as the administrator, so an unnamed session is the case that matters.
+    database, counts = prepare(cluster, scratch_database)
+    before = owners(cluster, database)
+
+    with cluster.connect(cluster.admin(database), application_name="") as unnamed:
+        assert unnamed.execute("SHOW application_name").fetchone() == ("",)  # the premise
+        with pytest.raises(AdoptRefusedError, match="no application name"):
+            run_adopt(cluster, database, apply=True)
+
+    assert owners(cluster, database) == before and row_counts(cluster, database) == counts
+
+
+def test_adoption_is_refused_while_a_session_of_create_db_engine_exists(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, counts = prepare(cluster, scratch_database)
+    before = owners(cluster, database)
+    url = make_url(cluster.admin(database)).set(drivername="postgresql+psycopg")
+    engine = create_db_engine(url.render_as_string(hide_password=False))
+    try:
+        with engine.connect() as connection:
+            assert connection.execute(text("SHOW application_name")).scalar_one() == ""
+            with pytest.raises(AdoptRefusedError, match="no application name"):
+                run_adopt(cluster, database, apply=True)
+    finally:
+        engine.dispose()
+
+    assert owners(cluster, database) == before and row_counts(cluster, database) == counts
+
+
+def test_an_empty_list_of_exclusions_skips_no_session(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, _ = prepare(cluster, scratch_database)
+
+    with (
+        cluster.connect(cluster.admin(database), application_name=""),
+        pytest.raises(AdoptRefusedError, match="no application name"),
+    ):
+        adopt(
+            cluster.admin("postgres"),
+            database=database,
+            names=cluster.names,
+            apply=False,
+            ignore_application_names=(),
+        )
+
+
+def test_an_explicit_exclusion_skips_only_the_named_session(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, _ = prepare(cluster, scratch_database)
+
+    with cluster.connect(cluster.admin(database), application_name="tst-ignored"):
+        report = adopt(
+            cluster.admin("postgres"),
+            database=database,
+            names=cluster.names,
+            apply=False,
+            ignore_application_names=("tst-ignored",),
+        )
+        assert report.planned  # the named session did not block the (dry) run
+
+        with (
+            cluster.connect(cluster.admin(database), application_name="tst-other"),
+            pytest.raises(AdoptRefusedError, match="tst-other"),
+        ):
+            adopt(
+                cluster.admin("postgres"),
+                database=database,
+                names=cluster.names,
+                apply=False,
+                ignore_application_names=("tst-ignored",),
+            )
+
+
+def test_an_explicit_exclusion_does_not_hide_an_unnamed_session(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, _ = prepare(cluster, scratch_database)
+
+    with (
+        cluster.connect(cluster.admin(database), application_name="tst-ignored"),
+        cluster.connect(cluster.admin(database), application_name=""),
+        pytest.raises(AdoptRefusedError, match="no application name") as caught,
+    ):
+        adopt(
+            cluster.admin("postgres"),
+            database=database,
+            names=cluster.names,
+            apply=False,
+            ignore_application_names=("tst-ignored",),
+        )
+
+    assert "tst-ignored" not in str(caught.value)
+
+
+def test_every_blocking_session_is_described_when_there_are_several(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database, _ = prepare(cluster, scratch_database)
+
+    with (
+        cluster.connect(cluster.admin(database), application_name="tst-api-standin"),
+        cluster.connect(cluster.admin(database), application_name=""),
+        pytest.raises(AdoptRefusedError, match="session") as caught,
+    ):
+        run_adopt(cluster, database, apply=False)
+
+    message = str(caught.value)
+    assert "tst-api-standin" in message and "no application name" in message
