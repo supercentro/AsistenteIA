@@ -288,6 +288,30 @@ def _extra_checks(conn: "psycopg.Connection[Any]", names: RoleNames) -> list[Fin
         findings.append(
             Finding("privileges", f"{grantee}, outside the four roles, has privileges on {table}")
         )
+    # Column privileges live in `pg_attribute.attacl`, not in the table ACL above. `PUBLIC` is the
+    # pseudo-grantee 0 and is reported by name; the owner and the four roles are judged by the
+    # matrix (`_privilege_checks`), so they are excluded here.
+    for table, column, grantee in _rows(
+        conn,
+        "SELECT DISTINCT c.relname, k.attname, "
+        "CASE WHEN a.grantee = 0 THEN 'PUBLIC' "
+        "ELSE a.grantee::pg_catalog.regrole::pg_catalog.text END "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_attribute k ON k.attrelid = c.oid AND k.attnum > 0 "
+        "AND NOT k.attisdropped AND k.attacl IS NOT NULL, "
+        "LATERAL pg_catalog.aclexplode(k.attacl) a "
+        "WHERE c.relnamespace = 'public'::pg_catalog.regnamespace AND c.relkind = 'r' "
+        "AND a.grantee <> c.relowner "
+        "AND (a.grantee = 0 OR NOT (a.grantee::pg_catalog.regrole::pg_catalog.text = ANY(%s))) "
+        "ORDER BY 1, 2, 3",
+        (roles,),
+    ):
+        findings.append(
+            Finding(
+                "privileges",
+                f"{grantee}, outside the four roles, has privileges on column {table}.{column}",
+            )
+        )
     for table, role in _rows(
         conn,
         "SELECT c.relname, r.rolname FROM pg_catalog.pg_class c, pg_catalog.pg_roles r "

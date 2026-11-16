@@ -1,6 +1,9 @@
 """db-verify against a disposable cluster (change `database-least-privilege`, task 4.5)."""
 
-from collections.abc import Callable
+import re
+import secrets
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 import pytest
 
@@ -186,3 +189,145 @@ def test_a_wrong_migrator_password_fails_without_echoing_it(
         verify(url, cluster.passwords, names=cluster.names)
 
     assert "Wrong-0123456789-passwd" not in str(caught.value)
+
+
+# --- Finding P2 of the Codex review of PR #12 (task 19.3.2): column ACLs of strangers ---
+
+
+@contextmanager
+def outsider_role(cluster: Cluster, database: str) -> Iterator[str]:
+    """A login-less role outside the four managed identities, dropped with its privileges.
+
+    The name carries the sweep prefix `tstrole_` (so the fixture removes it even if the process
+    dies half way) and a random suffix (so two runs never collide on the name).
+    """
+    role = f"tstrole_out_{secrets.token_hex(4)}"
+    with cluster.admin_connection(database) as conn:
+        conn.execute(f"CREATE ROLE {role} NOLOGIN")
+    try:
+        yield role
+    finally:
+        with cluster.admin_connection(database) as conn:
+            conn.execute(f"DROP OWNED BY {role}")
+            conn.execute(f"DROP ROLE {role}")
+
+
+def forget_database_grants_of_earlier_drifts(cluster: Cluster) -> None:
+    """Undo what the drift cases above leave on the shared cluster (`CONNECT` on `postgres`).
+
+    The bootstrap closes `PUBLIC` again but not an explicit grant to a managed role, so a case
+    that asserts "no findings" after those drifts must start from a clean cluster.
+    """
+    roles = ", ".join(f'"{role}"' for role in cluster.names.all())
+    with cluster.admin_connection("postgres") as conn:
+        conn.execute(f"REVOKE ALL ON DATABASE postgres FROM {roles}")
+
+
+def names_column(finding: Finding, grantee: str, table: str, column: str) -> bool:
+    """True only for the finding of exactly this grantee, table and column.
+
+    A finding has no structured fields, only `check` and `detail`, so the whole detail must match
+    (no substring): `users.password_hash` does not match `users.password_hash_old` nor another role.
+    """
+    pattern = (
+        rf"{re.escape(grantee)}, outside the four roles, has privileges on column "
+        rf"{re.escape(table)}\.{re.escape(column)}"
+    )
+    return finding.check == "privileges" and re.fullmatch(pattern, finding.detail) is not None
+
+
+def test_a_column_grant_to_a_role_outside_the_four_is_reported(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    with outsider_role(cluster, database) as outsider:
+        with cluster.admin_connection(database) as conn:
+            conn.execute(f"GRANT SELECT (password_hash) ON users TO {outsider}")
+
+        findings = run_verify(cluster, database)
+
+    assert any(names_column(f, outsider, "users", "password_hash") for f in findings), [
+        f.detail for f in findings
+    ]
+
+
+def test_a_column_grant_to_public_is_reported_as_public(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    with cluster.admin_connection(database) as conn:
+        conn.execute("GRANT SELECT (password_hash) ON users TO PUBLIC")
+
+    findings = run_verify(cluster, database)
+
+    # Other checks may also notice the effect on a managed role; one finding must name PUBLIC.
+    assert any(names_column(f, "PUBLIC", "users", "password_hash") for f in findings), [
+        f.detail for f in findings
+    ]
+
+
+def test_the_column_finding_names_grantee_table_and_column_and_holds_no_value(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    with outsider_role(cluster, database) as outsider:
+        with cluster.admin_connection(database) as conn:
+            conn.execute(f"GRANT SELECT (email) ON users TO {outsider}")
+
+        findings = run_verify(cluster, database)
+        text = render_findings(findings)
+
+    assert any(names_column(f, outsider, "users", "email") for f in findings), [
+        f.detail for f in findings
+    ]
+    for secret in (
+        cluster.passwords.app,
+        cluster.passwords.migrator,
+        cluster.passwords.worker,
+        cluster.passwords.cli,
+        "SCRAM-SHA-256",
+    ):
+        assert secret not in text
+
+
+def test_verify_reports_a_column_grant_without_removing_it(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    with outsider_role(cluster, database) as outsider:
+        with cluster.admin_connection(database) as conn:
+            conn.execute(f"GRANT SELECT (password_hash) ON users TO {outsider}")
+
+        findings = run_verify(cluster, database)
+
+        with cluster.admin_connection(database) as conn:
+            row = conn.execute(
+                "SELECT pg_catalog.has_column_privilege(%s, 'users', 'password_hash', 'SELECT')",
+                (outsider,),
+            ).fetchone()
+    assert any(names_column(f, outsider, "users", "password_hash") for f in findings)
+    assert row == (True,)  # the verifier repairs nothing
+
+
+def test_an_outsider_without_privileges_is_not_a_finding(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    forget_database_grants_of_earlier_drifts(cluster)
+    with outsider_role(cluster, database):
+        assert run_verify(cluster, database) == []
+
+
+def test_the_column_grants_of_the_managed_roles_are_not_findings(
+    cluster: Cluster, scratch_database: Callable[[], str]
+) -> None:
+    database = healthy(cluster, scratch_database)
+    forget_database_grants_of_earlier_drifts(cluster)
+    with cluster.admin_connection(database) as conn:
+        managed_column_acls = conn.execute(
+            "SELECT count(*) FROM pg_catalog.pg_attribute a "
+            "WHERE a.attrelid = 'public.users'::pg_catalog.regclass AND a.attacl IS NOT NULL"
+        ).fetchone()
+    assert managed_column_acls is not None and managed_column_acls[0] > 0  # the premise
+
+    assert run_verify(cluster, database) == []
