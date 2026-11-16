@@ -190,7 +190,7 @@ erDiagram
 
 ## Database identities and privileges
 
-Change `database-least-privilege`; applied to the development database on 2026-11-14 (revision `0006`, `db-verify` without findings). The privilege matrix has **one home, `backend/app/db_privileges.py`**; the tables below are a reading guide checked against that file on 2026-11-15, not a second copy to maintain: if they ever differ, the code and `db-verify` win and this section is wrong. Rationale and alternatives: `openspec/changes/database-least-privilege/design.md` (DD-1 to DD-16).
+Change `database-least-privilege`; applied to the development database on 2026-11-14 (revision `0006`, `db-verify` without findings). The privilege matrix has **one home, `backend/app/db_privileges.py`**; the tables below are a reading guide checked against that file on 2026-11-15, not a second copy to maintain: if they ever differ, the code and `db-verify` win and this section is wrong. Rationale and alternatives: `openspec/changes/archive/2026-11-16-database-least-privilege/design.md` (DD-1 to DD-16).
 
 ### Identities
 
