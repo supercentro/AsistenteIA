@@ -153,14 +153,28 @@ def _is_blocked_response(response: object) -> bool:
     return isinstance(reason, str) and reason.strip().upper() not in _NO_BLOCK_REASONS
 
 
+def _status_code(exc: BaseException) -> int | None:
+    """Status code of the error or, for a wrapped one, of its cause (the chain is bounded)."""
+    current: BaseException | None = exc
+    for _ in range(5):
+        if current is None:
+            return None
+        code = getattr(current, "code", None)
+        if isinstance(code, int) and not isinstance(code, bool):
+            return code
+        current = current.__cause__
+    return None
+
+
 def _is_safety_block(exc: BaseException) -> bool:
     """A provider error that names a safety block.
 
     The status code decides first: 429 and 5xx are never a block, whatever their text says. The
-    text counts only for an exception of the Google client libraries, with no status code or 400.
+    langchain wrapper of a rate-limit error has no status of its own, so the cause is read too.
+    The text counts only for an exception of the Google client libraries, with no status or 400.
     """
-    code = getattr(exc, "code", None)
-    if isinstance(code, int) and code != 400:
+    code = _status_code(exc)
+    if code is not None and code != 400:
         return False
     if not type(exc).__module__.startswith(("google.", "langchain_google_genai")):
         return False

@@ -170,6 +170,10 @@ LLM timeout, rate-limiting (429), server errors (5xx) SHALL return 502 with code
 - **WHEN** the LLM provider blocks the response for safety reasons
 - **THEN** the endpoint returns 502 with code `LLM_BLOCKED` and a fixed message
 
+#### Scenario: Wrapped provider errors keep their status
+- **WHEN** the provider error reaches the service wrapped by `langchain-google-genai` (for example a rate-limit error that has no status attribute of its own and carries the original error as its cause)
+- **THEN** the status code of the original error decides, so a wrapped 429 or 5xx is `LLM_UNAVAILABLE` whatever its text says
+
 #### Scenario: LLM empty answer
 - **WHEN** the LLM provider returns no text (an empty string, only whitespace, or no text block)
 - **THEN** the endpoint returns 502 with code `LLM_BLOCKED` and a fixed message, and nothing is stored

@@ -325,3 +325,63 @@ async def test_a_normal_finish_reason_returns_the_text(metadata: object) -> None
     service = GeminiLLMService(model=mock_model, timeout_seconds=30)
 
     assert await service.generate("s", [{"role": "user", "content": "q"}]) == "The answer."
+
+
+# --- wrapped provider errors keep the status of their cause (task 19.1) ---
+
+
+def _wrapped(wrapper_type: type[BaseException], text: str, cause: BaseException) -> BaseException:
+    """What langchain-google-genai raises: the wrapper has no status, its cause has."""
+    wrapper = wrapper_type(f"Error calling model 'm' (STATUS): {text}")
+    wrapper.__cause__ = cause
+    return wrapper
+
+
+@pytest.mark.asyncio
+async def test_a_wrapped_429_with_those_words_is_unavailable() -> None:
+    from google.genai.errors import ClientError
+    from langchain_google_genai.chat_models import GoogleRateLimitError
+
+    text = "quota blocked for safety reasons"
+    error = _wrapped(GoogleRateLimitError, text, ClientError(429, {"error": {"message": text}}))
+
+    with pytest.raises(LLMUnavailableError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+async def test_a_wrapped_5xx_with_those_words_is_unavailable() -> None:
+    from google.genai.errors import ServerError
+    from langchain_google_genai.chat_models import GoogleAPIError
+
+    error = GoogleAPIError(
+        code=503, response_json={"error": {"message": "blocked by safety"}}, response=None
+    )
+    error.__cause__ = ServerError(503, {"error": {"message": "blocked by safety"}})
+
+    with pytest.raises(LLMUnavailableError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+async def test_a_wrapped_400_that_names_a_block_is_a_block() -> None:
+    from google.genai.errors import ClientError
+    from langchain_google_genai.chat_models import GoogleInvalidRequestError
+
+    text = "Prompt was blocked: SAFETY"
+    error = _wrapped(
+        GoogleInvalidRequestError, text, ClientError(400, {"error": {"message": text}})
+    )
+
+    with pytest.raises(LLMBlockedError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+async def test_a_wrapped_error_with_no_status_anywhere_keeps_the_text_rule() -> None:
+    from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
+
+    with pytest.raises(LLMBlockedError):
+        await _service_failing_with(
+            ChatGoogleGenerativeAIError("response blocked by safety filter")
+        ).generate("s", [{"role": "user", "content": "q"}])
