@@ -63,6 +63,29 @@ class MessageRepository:
         )
         return list(self._session.execute(statement).unique().scalars())
 
+    def recent_for_prompt(
+        self, conversation_id: uuid.UUID, student_id: uuid.UUID, limit: int
+    ) -> list[Message]:
+        """The newest ``limit`` messages of the student's own conversation, oldest first.
+
+        Bounded in the database so that the cost does not grow with the conversation. Sources
+        are not loaded: the prompt needs only the role and the text. No query runs for 0.
+        """
+        if limit <= 0:
+            return []
+        statement = (
+            select(Message)
+            .join(Message.conversation)
+            .where(
+                Message.conversation_id == conversation_id,
+                Message.conversation.has(student_id=student_id),
+            )
+            .order_by(Message.created_at.desc(), Message.role.desc())
+            .limit(limit)
+        )
+        newest_first = list(self._session.execute(statement).scalars())
+        return newest_first[::-1]
+
     def citation_details(
         self, conversation_id: uuid.UUID, student_id: uuid.UUID
     ) -> dict[uuid.UUID, tuple[uuid.UUID, str]]:

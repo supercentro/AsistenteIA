@@ -234,3 +234,33 @@ def test_delete_all_teacher_forbidden(client: TestClient, teacher: TestUser) -> 
     token = login_token(client, teacher.email)
     resp = client.delete(DELETE_ALL, headers=bearer(token))
     assert resp.status_code == 403
+
+
+# ------------------------- teacher and anonymous callers on every conversation route (PR #14)
+
+
+def test_get_messages_teacher_forbidden(client: TestClient, teacher: TestUser) -> None:
+    token = login_token(client, teacher.email)
+    resp = client.get(f"{CONVERSATIONS}/{uuid.uuid4()}/messages", headers=bearer(token))
+    assert resp.status_code == 403
+
+
+def test_delete_conversation_teacher_forbidden(client: TestClient, teacher: TestUser) -> None:
+    token = login_token(client, teacher.email)
+    resp = client.delete(f"{CONVERSATIONS}/{uuid.uuid4()}", headers=bearer(token))
+    assert resp.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", CONVERSATIONS),
+        ("GET", f"{CONVERSATIONS}/00000000-0000-4000-8000-000000000001/messages"),
+        ("DELETE", f"{CONVERSATIONS}/00000000-0000-4000-8000-000000000001"),
+        ("DELETE", DELETE_ALL),
+    ],
+)
+def test_conversation_routes_require_authentication(
+    client: TestClient, method: str, path: str
+) -> None:
+    assert client.request(method, path).status_code == 401

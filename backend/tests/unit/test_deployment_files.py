@@ -277,7 +277,8 @@ def test_the_api_image_installs_embedding_but_not_ingestion() -> None:
 
     assert "--extra embedding" in api
     assert "--extra ingestion" not in api
-    assert "torch" not in api.lower()
+    # torch arrives through the embedding extra; the CPU-only build is guaranteed by the lock
+    # (see test_the_lock_resolves_torch_from_the_cpu_index)
     assert "fetch_model" in api
     assert "HF_HUB_OFFLINE" in api
     assert "uvicorn" in api
@@ -491,3 +492,12 @@ def test_ci_uses_the_pgvector_database_of_the_project(backend_job: dict[str, obj
     assert isinstance(env, dict)
     assert env["APP_ENV"] == "test"  # the fake embedder is accepted only here
     assert str(env["TEST_DATABASE_URL"]).endswith("_test")
+
+
+def test_the_lock_resolves_torch_from_the_cpu_index() -> None:
+    """A re-lock that drops the pytorch-cpu source pulls CUDA wheels into both images (L26)."""
+    lock = (DOCKERFILE.parent / "uv.lock").read_text(encoding="utf-8")
+
+    assert "https://download.pytorch.org/whl/cpu" in lock
+    assert 'name = "nvidia-' not in lock
+    assert 'name = "triton"' not in lock

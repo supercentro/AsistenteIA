@@ -284,7 +284,10 @@ class RAGService:
     def _load_history(
         self, conversation_id: uuid.UUID, student_id: uuid.UUID
     ) -> list[dict[str, str]]:
-        messages = self._message_repo.list_by_conversation(conversation_id, student_id)
+        limit = self._settings.chat_history_messages
+        if limit <= 0:
+            return []
+        messages = self._message_repo.recent_for_prompt(conversation_id, student_id, limit)
         return [{"role": m.role.value, "content": m.content} for m in messages]
 
     def _resolve_conversation(

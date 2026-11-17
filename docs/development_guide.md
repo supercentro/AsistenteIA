@@ -96,7 +96,7 @@ The database image is pinned to `pgvector/pgvector:0.8.7-pg15` (PostgreSQL 15 wi
 
 If port 8000 or 5173 is already used by another application, see [Ports already in use](#ports-already-in-use) instead of changing the project's defaults.
 
-The first build of both the `worker` and `backend` (API) images downloads the embedding model once per target, at a pinned revision verified by hash (`backend/docker/fetch_model.py`), and bakes it into the image. The worker image is larger (about 3.2 GB with the CPU-only `torch`); the API image includes the `embedding` extra (sentence-transformers) but not `torch` or `ingestion`. Both run with the hub offline: nothing is downloaded at runtime. The API loads the embedder at startup to serve RAG queries; the worker loads it for document ingestion. Memory requirement: the API process needs about 700 MiB additional memory when the model is loaded.
+The first build of both the `worker` and `backend` (API) images downloads the embedding model once per target, at a pinned revision verified by hash (`backend/docker/fetch_model.py`), and bakes it into the image. The worker image is larger (about 3.2 GB with the CPU-only `torch`); the API image includes the `embedding` extra (sentence-transformers and, because it depends on it, the same CPU-only `torch`) but not `ingestion`; its size has not been measured for this change. Both run with the hub offline: nothing is downloaded at runtime. The API loads the embedder at startup to serve RAG queries; the worker loads it for document ingestion. Memory requirement: the API process needs about 700 MiB additional memory when the model is loaded.
 
 ## 3. Database
 
@@ -211,7 +211,7 @@ This plan was written before the operation and followed on 2026-11-12; it stays 
 
 | Item | Observed |
 |---|---|
-| Migration chain | `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007` (single head); `0007` creates `conversations`, `messages` and `message_sources` with foreign keys, indexes and privilege grants for the RAG chat feature; `0006` creates the least-privilege database roles; `0005` adds `documents.error_code` with `ck_documents_error_code_only_when_failed`, creates `ingestion_jobs` |
+| Migration chain | `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007` (single head); `0007` creates `conversations`, `messages` and `message_sources` with foreign keys and indexes for the RAG chat feature (the privileges are not in the migration: `db-grants` applies the matrix of `backend/app/db_privileges.py`); `0006` creates the least-privilege database roles; `0005` adds `documents.error_code` with `ck_documents_error_code_only_when_failed`, creates `ingestion_jobs` |
 | Development database | `asistenteia`, revision `0004`; tables `users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `alembic_version`; **0 rows** in every application table; 8 MB; no `ingestion_jobs` |
 | Server | container `asistenteia-db-1` (project `asistenteia`), PostgreSQL 15.19, pgvector 0.8.7 (the pinned image `pgvector/pgvector:0.8.7-pg15`), data in the named volume `asistenteia_db_data`, 915 GB free; port published on `127.0.0.1:5442` only |
 | Account | the application account is the bootstrap superuser of the image (can create objects; also what API and worker use, see TD-030) |

@@ -884,9 +884,11 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
-                /** @description Rate limit exceeded */
+                /** @description Chat rate limit exceeded (error code `RATE_LIMITED`) */
                 429: {
                     headers: {
+                        /** @description Seconds to wait before retrying */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {
@@ -941,6 +943,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -979,6 +982,8 @@ export interface paths {
                         "application/json": components["schemas"]["Message"][];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -1020,6 +1025,7 @@ export interface paths {
                     content?: never;
                 };
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 500: components["responses"]["InternalError"];
                 503: components["responses"]["ServiceUnavailable"];

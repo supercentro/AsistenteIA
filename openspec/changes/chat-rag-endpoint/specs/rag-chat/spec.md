@@ -128,7 +128,7 @@ When `conversation_id` is given, it SHALL belong to the authenticated student AN
 
 ### Requirement: LLM failures are reported as 502 without leaking provider details
 
-LLM timeout, rate-limiting (429), server errors (5xx) SHALL return 502 with code `LLM_UNAVAILABLE`. A safety/content block SHALL return 502 with code `LLM_BLOCKED`. Error messages SHALL be fixed text; provider error details, API keys, and model identifiers SHALL NOT appear in the response or application logs.
+LLM timeout, rate-limiting (429), server errors (5xx) SHALL return 502 with code `LLM_UNAVAILABLE`. A safety/content block or an empty answer SHALL return 502 with code `LLM_BLOCKED`. Error messages SHALL be fixed text; provider error details, API keys, and model identifiers SHALL NOT appear in the response or application logs.
 
 #### Scenario: LLM timeout
 - **WHEN** the LLM provider does not respond within the configured timeout
@@ -141,6 +141,10 @@ LLM timeout, rate-limiting (429), server errors (5xx) SHALL return 502 with code
 #### Scenario: LLM safety block
 - **WHEN** the LLM provider blocks the response for safety reasons
 - **THEN** the endpoint returns 502 with code `LLM_BLOCKED` and a fixed message
+
+#### Scenario: LLM empty answer
+- **WHEN** the LLM provider returns no text (an empty string, only whitespace, or no text block)
+- **THEN** the endpoint returns 502 with code `LLM_BLOCKED` and a fixed message, and nothing is stored
 
 #### Scenario: No provider details leaked
 - **WHEN** any LLM error occurs

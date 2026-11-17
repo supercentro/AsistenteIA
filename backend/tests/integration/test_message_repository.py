@@ -241,3 +241,100 @@ def test_messages_of_one_turn_are_returned_user_first(
     db_session.flush()
     messages = repo.list_by_conversation(conversation_id, uuid.UUID(student.id))
     assert [m.role.value for m in messages] == ["user", "assistant"]
+
+
+# ------------------------------------------------------ recent_for_prompt (PR #14 review)
+
+
+def _spread_in_time(session: Session, conversation_id: uuid.UUID) -> None:
+    """Give the messages distinct creation times, oldest first, in insertion order."""
+    session.execute(
+        text(
+            "UPDATE messages m SET created_at = now() + (n.rn * interval '1 second') "
+            "FROM (SELECT id, row_number() OVER (ORDER BY ctid) AS rn FROM messages "
+            "WHERE conversation_id = :c) n WHERE m.id = n.id"
+        ),
+        {"c": conversation_id},
+    )
+    session.flush()
+
+
+def _three_turns(session: Session, conversation_id: uuid.UUID) -> MessageRepository:
+    repo = MessageRepository(session)
+    for turn in range(1, 4):
+        repo.create_with_sources(
+            conversation_id=conversation_id, role="user", content=f"Q{turn}", sources=[]
+        )
+        repo.create_with_sources(
+            conversation_id=conversation_id, role="assistant", content=f"A{turn}", sources=[]
+        )
+    _spread_in_time(session, conversation_id)
+    return repo
+
+
+@pytest.mark.usefixtures("enrolled")
+def test_recent_for_prompt_returns_only_the_newest_in_chronological_order(
+    db_session: Session, conversation_id: uuid.UUID, student: TestUser
+) -> None:
+    repo = _three_turns(db_session, conversation_id)
+
+    recent = repo.recent_for_prompt(conversation_id, uuid.UUID(student.id), 3)
+
+    assert [m.content for m in recent] == ["A2", "Q3", "A3"]
+
+
+@pytest.mark.usefixtures("enrolled")
+def test_recent_for_prompt_orders_a_turn_written_in_one_transaction_user_first(
+    db_session: Session, conversation_id: uuid.UUID, student: TestUser
+) -> None:
+    repo = MessageRepository(db_session)  # both rows share the transaction timestamp
+    repo.create_with_sources(conversation_id=conversation_id, role="user", content="Q", sources=[])
+    repo.create_with_sources(
+        conversation_id=conversation_id, role="assistant", content="A", sources=[]
+    )
+    db_session.flush()
+
+    recent = repo.recent_for_prompt(conversation_id, uuid.UUID(student.id), 10)
+
+    assert [m.content for m in recent] == ["Q", "A"]
+
+
+@pytest.mark.usefixtures("enrolled")
+def test_recent_for_prompt_with_a_limit_above_the_total_returns_everything(
+    db_session: Session, conversation_id: uuid.UUID, student: TestUser
+) -> None:
+    repo = _three_turns(db_session, conversation_id)
+
+    recent = repo.recent_for_prompt(conversation_id, uuid.UUID(student.id), 50)
+
+    assert [m.content for m in recent] == ["Q1", "A1", "Q2", "A2", "Q3", "A3"]
+
+
+@pytest.mark.usefixtures("enrolled")
+def test_recent_for_prompt_other_student_gets_nothing(
+    db_session: Session, conversation_id: uuid.UUID, other_student: TestUser
+) -> None:
+    repo = _three_turns(db_session, conversation_id)
+
+    assert repo.recent_for_prompt(conversation_id, uuid.UUID(other_student.id), 10) == []
+
+
+@pytest.mark.usefixtures("enrolled")
+def test_recent_for_prompt_with_a_zero_limit_runs_no_query(
+    db_session: Session, conversation_id: uuid.UUID, student: TestUser
+) -> None:
+    repo = _three_turns(db_session, conversation_id)
+    statements: list[str] = []
+
+    from sqlalchemy import event
+
+    def record(*args: object) -> None:
+        statements.append(str(args[2]))
+
+    event.listen(db_session.get_bind(), "before_cursor_execute", record)
+    try:
+        assert repo.recent_for_prompt(conversation_id, uuid.UUID(student.id), 0) == []
+    finally:
+        event.remove(db_session.get_bind(), "before_cursor_execute", record)
+
+    assert statements == []

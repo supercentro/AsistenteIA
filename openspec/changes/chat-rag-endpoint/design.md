@@ -160,7 +160,7 @@ Per `docs/backend-standards.md` §6:
 
 **Delimiter neutralization**: Before prompt assembly, any occurrence of `<CONTEXT>`, `</CONTEXT>`, `<SYSTEM>`, `</SYSTEM>` in chunk content or user message is replaced with a safe form (e.g., `[CONTEXT]`). This prevents content from escaping its designated section.
 
-**History inclusion**: The last `CHAT_HISTORY_MESSAGES` messages of the current conversation are included after the system prompt and before the context blocks, as alternating user/assistant messages.
+**History inclusion**: The last `CHAT_HISTORY_MESSAGES` messages of the current conversation are included after the system prompt and before the context blocks, as alternating user/assistant messages. Only those messages are read from the database: a bounded query takes the newest `CHAT_HISTORY_MESSAGES` of the conversation (none, and no query, when the value is 0) and they are put back in chronological order before the prompt is assembled; the cost does not grow with the length of the conversation.
 
 ### D6: Error types
 

@@ -452,7 +452,11 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
-        '429': { description: Rate limit exceeded, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429':
+          description: Chat rate limit exceeded (error code `RATE_LIMITED`)
+          headers:
+            Retry-After: { description: Seconds to wait before retrying, schema: { type: integer } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '500': { $ref: '#/components/responses/InternalError' }
         '502': { description: LLM provider failed or blocked the answer (retryable), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
@@ -475,6 +479,7 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/Conversation' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /conversations/{conversation_id}/messages:
     get:
@@ -490,6 +495,8 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /conversations/{conversation_id}:
@@ -501,6 +508,7 @@ paths:
       responses:
         '204': { description: Conversation deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }

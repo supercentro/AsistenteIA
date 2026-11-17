@@ -255,3 +255,13 @@ def test_a_closed_tag_still_leaves_the_text_around_it_untouched() -> None:
     _, _, neutralize = _import()
 
     assert neutralize("a < b and c > d, <CONTEXT> end") == "a < b and c > d, [CONTEXT] end"
+
+
+def test_system_prompt_forbids_urls_tool_calls_code_and_revealing_itself() -> None:
+    """rag-chat spec, requirement 'Prompt-injection defenses constrain LLM behaviour'."""
+    system, _, _ = _import()
+    lower = system.lower()
+    assert "url" in lower
+    assert "tool call" in lower
+    assert "code" in lower
+    assert "reveal" in lower and "system prompt" in lower

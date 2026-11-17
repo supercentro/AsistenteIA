@@ -323,7 +323,7 @@ async def test_foreign_conversation_is_rejected_before_embedding_or_llm() -> Non
 async def test_conversation_lookup_is_bound_to_the_subject() -> None:
     service, mocks = _build_service()
     student_id, subject_id, conversation_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    mocks["message_repo"].list_by_conversation.return_value = []
+    mocks["message_repo"].recent_for_prompt.return_value = []
 
     await _answer(
         service,
@@ -346,7 +346,7 @@ async def test_previous_messages_reach_the_llm() -> None:
         MagicMock(role=MagicMock(value="user"), content="first question"),
         MagicMock(role=MagicMock(value="assistant"), content="first answer"),
     ]
-    mocks["message_repo"].list_by_conversation.return_value = earlier
+    mocks["message_repo"].recent_for_prompt.return_value = earlier
 
     await _answer(
         service,
@@ -359,6 +359,44 @@ async def test_previous_messages_reach_the_llm() -> None:
     sent = mocks["llm"].generate.await_args.args[1]
     assert [m["content"] for m in sent] == ["first question", "first answer", "follow-up"]
     assert [m["role"] for m in sent] == ["user", "assistant", "user"]
+
+
+@pytest.mark.asyncio
+async def test_history_is_read_with_the_configured_window_only() -> None:
+    service, mocks = _build_service()
+    student_id, conversation_id = uuid.uuid4(), uuid.uuid4()
+    mocks["message_repo"].recent_for_prompt.return_value = []
+
+    await _answer(
+        service,
+        student_id=student_id,
+        subject_id=uuid.uuid4(),
+        message="follow-up",
+        conversation_id=conversation_id,
+    )
+
+    limit = service._settings.chat_history_messages
+    mocks["message_repo"].recent_for_prompt.assert_called_once_with(
+        conversation_id, student_id, limit
+    )
+    mocks["message_repo"].list_by_conversation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_history_is_not_read_when_the_window_is_zero() -> None:
+    service, mocks = _build_service()
+    service._settings.chat_history_messages = 0
+
+    await _answer(
+        service,
+        student_id=uuid.uuid4(),
+        subject_id=uuid.uuid4(),
+        message="follow-up",
+        conversation_id=uuid.uuid4(),
+    )
+
+    mocks["message_repo"].recent_for_prompt.assert_not_called()
+    mocks["message_repo"].list_by_conversation.assert_not_called()
 
 
 # --- request phases (design D3): no session during generation, revalidation before writing ---
@@ -460,7 +498,7 @@ def test_persist_rejects_a_conversation_deleted_during_generation() -> None:
         message="hello",
         conversation_id=uuid.uuid4(),
     )
-    mocks["message_repo"].list_by_conversation.return_value = []
+    mocks["message_repo"].recent_for_prompt.return_value = []
     mocks["conversation_repo"].get_by_id_and_student.return_value = None  # gone meanwhile
 
     with pytest.raises(NotFoundError):

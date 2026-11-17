@@ -173,3 +173,54 @@ def test_llm_blocked_error_has_fixed_message() -> None:
     err = LLMBlockedError()
     assert err.status_code == 502
     assert err.code == "LLM_BLOCKED"
+
+
+# --- empty provider answers are blocked answers (PR #14 review, docs/backend-standards.md) ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    [
+        "",
+        "   \n\t ",
+        [],
+        [{"type": "image_url", "image_url": "x"}],
+        [{"type": "text", "text": " "}],
+        [""],
+    ],
+)
+async def test_gemini_service_rejects_an_empty_answer(content: object) -> None:
+    mock_model = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = content
+    mock_model.ainvoke = AsyncMock(return_value=mock_response)
+
+    service = GeminiLLMService(model=mock_model, timeout_seconds=30)
+
+    with pytest.raises(LLMBlockedError):
+        await service.generate("system", [{"role": "user", "content": "test"}])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("  Paris.  ", "Paris."),
+        (["Paris", " is it."], "Paris is it."),
+        ([{"type": "text", "text": "Paris"}, {"type": "text", "text": " is it."}], "Paris is it."),
+        ([{"type": "image_url", "image_url": "x"}, {"type": "text", "text": "Paris"}], "Paris"),
+    ],
+)
+async def test_gemini_service_returns_the_text_of_block_content(
+    content: object, expected: str
+) -> None:
+    mock_model = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = content
+    mock_model.ainvoke = AsyncMock(return_value=mock_response)
+
+    service = GeminiLLMService(model=mock_model, timeout_seconds=30)
+    result = await service.generate("system", [{"role": "user", "content": "test"}])
+
+    assert result == expected

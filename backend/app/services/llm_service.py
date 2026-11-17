@@ -46,6 +46,27 @@ class FakeLLMService:
         return f"[FakeLLM:{digest}] Based on the provided context, here is the answer to: {last}"
 
 
+def _answer_text(content: object) -> str:
+    """Return the text of a provider message: a string, or the text of its content blocks.
+
+    Blocks that carry no text (images, tool calls) are ignored. An answer with no text at all
+    comes back as an empty string, which the caller treats as a blocked answer.
+    """
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            text = block.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+    return "".join(parts).strip()
+
+
 # --- Gemini (langchain-google-genai) -----------------------------------------------------------
 
 
@@ -87,7 +108,11 @@ class GeminiLLMService:
             logger.warning("llm unexpected error")
             raise LLMUnavailableError() from None
 
-        return str(response.content)
+        text = _answer_text(response.content)
+        if not text:
+            logger.warning("llm empty answer")
+            raise LLMBlockedError()
+        return text
 
 
 def _is_rate_limit_or_server_error(exc: BaseException) -> bool:
