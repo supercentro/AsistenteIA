@@ -50,6 +50,9 @@ SHARED = {
     "database_url",
     "db_connect_timeout_seconds",
     "db_idle_in_transaction_timeout_seconds",
+    "embedder_backend",
+    "embedding_model_path",
+    "allow_fake_embedder",
 }
 API_FIELDS = set(Settings.model_fields)
 WORKER_FIELDS = set(WorkerSettings.model_fields)
@@ -131,6 +134,7 @@ def test_active_values_of_the_examples_equal_the_defaults_of_their_settings(
         values: dict[str, object] = {"database_url": "postgresql+psycopg://u:p@localhost/db"}
         if api:
             values["jwt_secret"] = "t3sT-s3cr3t-only-for-automated-tests-9Zq"
+            values["google_api_key"] = "AIza-test-key-for-unit-tests-only"
         values.update(extra)
         return model(_env_file=None, **values)  # type: ignore[arg-type]
 
@@ -268,13 +272,15 @@ def stage(name: str) -> str:
     return stages[name]
 
 
-def test_the_api_image_does_not_install_the_machine_learning_groups() -> None:
+def test_the_api_image_installs_embedding_but_not_ingestion() -> None:
     api = stage("api")
 
-    assert "--extra" not in api
-    assert "torch" not in api.lower()
-    assert "embedding" not in api.lower()
-    assert "fetch_model" not in api
+    assert "--extra embedding" in api
+    assert "--extra ingestion" not in api
+    # torch arrives through the embedding extra; the CPU-only build is guaranteed by the lock
+    # (see test_the_lock_resolves_torch_from_the_cpu_index)
+    assert "fetch_model" in api
+    assert "HF_HUB_OFFLINE" in api
     assert "uvicorn" in api
     assert "--no-proxy-headers" in api
 
@@ -411,7 +417,8 @@ def test_the_worker_source_mount_is_read_only_and_the_api_mount_is_not(
 ) -> None:
     # Review finding R-06: the worker parses untrusted files and has no reason to write its code.
     assert compose["worker"]["volumes"] == ["./backend/app:/app/app:ro"]
-    assert compose["backend"]["volumes"] == ["./backend/app:/app/app"]  # auto-reload needs it
+    # the working tree is mounted so that a restart picks up edits
+    assert compose["backend"]["volumes"] == ["./backend/app:/app/app"]
 
 
 def test_the_worker_has_no_other_writable_mount_and_the_container_is_not_read_only(
@@ -485,3 +492,12 @@ def test_ci_uses_the_pgvector_database_of_the_project(backend_job: dict[str, obj
     assert isinstance(env, dict)
     assert env["APP_ENV"] == "test"  # the fake embedder is accepted only here
     assert str(env["TEST_DATABASE_URL"]).endswith("_test")
+
+
+def test_the_lock_resolves_torch_from_the_cpu_index() -> None:
+    """A re-lock that drops the pytorch-cpu source pulls CUDA wheels into both images (L26)."""
+    lock = (DOCKERFILE.parent / "uv.lock").read_text(encoding="utf-8")
+
+    assert "https://download.pytorch.org/whl/cpu" in lock
+    assert 'name = "nvidia-' not in lock
+    assert 'name = "triton"' not in lock

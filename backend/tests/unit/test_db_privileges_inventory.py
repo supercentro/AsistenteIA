@@ -90,19 +90,13 @@ def test_every_call_is_resolved(inventory: Inventory) -> None:
 
 
 def test_every_actor_has_statements(inventory: Inventory) -> None:
-    for actor in ("api", "worker", "cli", "anticipated"):
+    for actor in ("api", "worker", "cli"):
         assert inventory.statements[actor] > 0, actor
         assert inventory.required(actor), actor
 
 
 def test_functions_with_statements_are_reached_or_declared(inventory: Inventory) -> None:
     assert set(inventory.unreached) == set(UNREACHED_ALLOWED)
-
-
-def test_anticipated_statement_is_not_reached_by_an_entry_point(inventory: Inventory) -> None:
-    root = ANTICIPATED_ROOTS["anticipated"][0]
-    for actor in ("api", "worker", "cli"):
-        assert root not in inventory.reachable[actor], f"{root} is wired: drop the special case"
 
 
 def test_worker_needs_derived_from_raw_sql(inventory: Inventory) -> None:

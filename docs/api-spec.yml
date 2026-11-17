@@ -180,6 +180,8 @@ paths:
         '204': { description: All conversations deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /subjects:
     get:
@@ -426,6 +428,8 @@ paths:
         Retrieval is restricted to chunks of `subject_id`. If `conversation_id` is given it must belong to the
         caller AND to the same `subject_id`. When no chunk reaches the relevance threshold the response has
         `no_material=true`, empty `sources`, and the LLM is not called.
+        A subject that does not exist is 404 and a subject the student is not enrolled in is 403, so a
+        student can learn whether a subject identifier exists (accepted, TD-061).
       requestBody:
         required: true
         content:
@@ -450,9 +454,14 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
-        '429': { description: Rate limit exceeded, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429':
+          description: Chat rate limit exceeded (error code `RATE_LIMITED`)
+          headers:
+            Retry-After: { description: Seconds to wait before retrying, schema: { type: integer } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '500': { $ref: '#/components/responses/InternalError' }
         '502': { description: LLM provider failed or blocked the answer (retryable), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '503': { description: Vector search unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /conversations:
     get:
@@ -472,6 +481,7 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/Conversation' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /conversations/{conversation_id}/messages:
     get:
@@ -487,6 +497,8 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /conversations/{conversation_id}:
@@ -498,7 +510,10 @@ paths:
       responses:
         '204': { description: Conversation deleted }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
 components:
   securitySchemes:
@@ -649,7 +664,10 @@ components:
         created_at: { type: string, format: date-time }
     Source:
       type: object
-      description: Citation of a chunk used for an answer
+      description: |
+        Citation of a chunk used for an answer: the chunks whose `[n]` marker the answer contains, with
+        `rank` the retrieval rank of the chunk (ranks can have gaps). An answer with no valid marker lists
+        every retrieved chunk of its context.
       properties:
         chunk_id: { type: string, format: uuid, nullable: true }
         document_id: { type: string, format: uuid, nullable: true }

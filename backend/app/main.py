@@ -17,6 +17,7 @@ from app.core.rate_limit import RateLimiter
 from app.core.security import PasswordService
 from app.core.security_headers import SecureHeadersMiddleware
 from app.core.upload_guard import MULTIPART_OVERHEAD_BYTES, UploadBodyGuard, UploadSlots
+from app.rag.embedder import build_embedder
 
 
 def create_app(
@@ -46,7 +47,11 @@ def create_app(
     app.state.upload_rate_limiter = RateLimiter(
         settings.upload_rate_limit, "upload", "Too many uploads. Try again later."
     )
+    app.state.chat_rate_limiter = RateLimiter(
+        settings.chat_rate_limit, "chat", "Too many chat requests. Try again later."
+    )
     app.state.upload_slots = UploadSlots(settings.upload_max_in_flight)
+    app.state.embedder = build_embedder(settings)
 
     # Innermost: it wraps `receive` of the upload route only (limit and deadlines on the bytes
     # actually received); the endpoint turns its refusals into the 413 and 408 answers.

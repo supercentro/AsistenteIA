@@ -124,6 +124,17 @@ class Settings(WorkerSettings):
     upload_body_timeout_seconds: int = Field(default=120, ge=1, le=3600)
     upload_body_idle_seconds: int = Field(default=20, ge=1, le=3600)
 
+    # Chat / RAG (change chat-rag-endpoint, design D1)
+    google_api_key: SecretStr | None = None
+    llm_backend: Literal["gemini", "fake"] = "gemini"
+    allow_fake_llm: bool = False
+    chat_llm_model: str = "gemini-2.5-flash"
+    chat_llm_timeout_seconds: int = Field(default=30, ge=5, le=120)
+    chat_top_k: int = Field(default=5, ge=1, le=50)
+    chat_relevance_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+    chat_history_messages: int = Field(default=10, ge=0, le=50)
+    chat_rate_limit: str = "20/minute"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: Any) -> Any:
@@ -143,7 +154,9 @@ class Settings(WorkerSettings):
             raise ValueError("JWT_SECRET has too little variety; generate a random value")
         return value
 
-    @field_validator("login_rate_limit", "register_rate_limit", "upload_rate_limit")
+    @field_validator(
+        "login_rate_limit", "register_rate_limit", "upload_rate_limit", "chat_rate_limit"
+    )
     @classmethod
     def _check_rate_limit(cls, value: str) -> str:
         try:
@@ -175,6 +188,19 @@ class Settings(WorkerSettings):
                 "INGESTION_PENDING_BYTES_MAX_MB must be at least MAX_UPLOAD_MB, "
                 "otherwise no file could ever be accepted"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _check_llm(self) -> "Settings":
+        if self.llm_backend == "fake" and not (
+            self.app_env == "test" or (self.allow_fake_llm and self.app_env != "production")
+        ):
+            raise ValueError(
+                "LLM_BACKEND=fake is accepted only with APP_ENV=test, or with "
+                "ALLOW_FAKE_LLM=true outside production"
+            )
+        if self.llm_backend == "gemini" and self.google_api_key is None:
+            raise ValueError("GOOGLE_API_KEY is required when LLM_BACKEND=gemini")
         return self
 
 

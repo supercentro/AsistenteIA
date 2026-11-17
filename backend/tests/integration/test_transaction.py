@@ -34,6 +34,8 @@ def make_client(test_db_url: str) -> TestClient:
             jwt_secret=TEST_JWT_SECRET,
             database_url=test_db_url,
             cors_origins=["http://localhost:5173"],
+            embedder_backend="fake",
+            app_env="test",
         )
     )
 

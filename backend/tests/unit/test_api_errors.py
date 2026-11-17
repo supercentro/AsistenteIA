@@ -27,6 +27,9 @@ def client() -> Iterator[TestClient]:
         jwt_secret=TEST_JWT_SECRET,
         database_url="postgresql+psycopg://u:p@localhost:5432/asistenteia",
         cors_origins=["http://localhost:5173"],
+        google_api_key="AIza-test-key-for-unit-tests-only",
+        embedder_backend="fake",
+        app_env="test",
     )
     app = create_app(settings)
 

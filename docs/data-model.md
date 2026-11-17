@@ -163,7 +163,8 @@ erDiagram
 
 ### message_sources
 - Citation of a chunk used to build an assistant answer. `document_filename` and `page_number` are **snapshots** so a citation remains readable if the document is later deleted (`chunk_id` becomes NULL).
-- `rank` (1 = most relevant) and `score` (cosine similarity) allow RAG quality analysis.
+- `rank` (the retrieval rank, 1 = most relevant; it can have gaps because only the cited chunks are stored) and `score` (cosine similarity) allow RAG quality analysis.
+- The API `Source` of an assistant message (`docs/api-spec.yml`) is built from this table plus the chunk still referenced by `chunk_id`: `filename` and `page_number` come from the snapshots, `document_id` and `snippet` (first 300 characters of the chunk) are read from the chunk, scoped to the conversation's student and subject. When the document has been deleted `chunk_id` is NULL, so `document_id` is `null` and `snippet` is an empty string; nothing else is stored. `score` is kept for analysis and is not part of the API contract. The rows of an assistant message are the chunks its answer cites: each context block of the prompt is numbered with its retrieval rank, the answer marks the blocks it used as `[n]`, only those chunks are stored and `rank` keeps the retrieval rank (so ranks can have gaps); an answer with no valid marker stores every retrieved chunk of the prompt (`openspec/changes/chat-rag-endpoint/design.md` D5b, TD-062).
 
 ## Referential actions
 
@@ -185,6 +186,7 @@ erDiagram
 
 - Personal data: `users` (name, email), conversation content, consent evidence. No other personal data is stored.
 - Right to erasure: deleting one conversation, deleting all of a student's conversations, or deleting the account removes rows physically (no soft delete) via the cascades above.
+- Visibility: a student sees a conversation (list, messages, citation text) only while enrolled in its subject; unenrolment deletes nothing, re-enrolment makes the conversations visible again, and the right to erasure (delete one or all) works regardless of enrolment.
 - Retention: conversation data lives until the user deletes it or the account is deleted. Application logs must not contain message content or document text.
 - Third-party processing: message text and retrieved chunks are sent to Gemini. This must be disclosed in the privacy policy shown at consent time.
 
@@ -206,7 +208,7 @@ Change `database-least-privilege`; applied to the development database on 2026-1
 
 ### Ownership and `PUBLIC`
 
-- The migrator owns the nine objects of the schema: the seven tables (`users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `ingestion_jobs` and `alembic_version`) and the two enum types (`user_role`, `document_status`). The development database was adopted on 2026-11-14 (`db-adopt --apply`: owner changed, data, indexes and constraints identical). The `vector` extension lives in `public` and is managed by the bootstrap.
+- The migrator owns the twelve objects of the schema: the ten tables (`users`, `subjects`, `enrollments`, `documents`, `document_chunks`, `ingestion_jobs`, `conversations`, `messages`, `message_sources` and `alembic_version`) and the two enum types (`user_role`, `document_status`). The development database was adopted on 2026-11-14 (`db-adopt --apply`: owner changed, data, indexes and constraints identical). The `vector` extension lives in `public` and is managed by the bootstrap.
 - `PUBLIC` has no privilege on the application tables and columns, on the databases or on schema `public`; the bootstrap closes it on every database of the cluster, the templates included, and the migrator's default privileges revoke `EXECUTE` on new functions from `PUBLIC`.
 - `alembic_version` is closed to every runtime role.
 
@@ -222,13 +224,16 @@ Column lists are exact; `SELECT *` means every column of the table. A blank cell
 | `documents` | SELECT *; INSERT (`subject_id`, `filename`, `content_type`, `size_bytes`, `status`); DELETE | SELECT (`id`, `subject_id`, `filename`, `content_type`, `status`); UPDATE (`status`, `chunks_count`, `error_code`, `error_message`) | |
 | `document_chunks` | SELECT (every column except `created_at`) | INSERT (`document_id`, `subject_id`, `chunk_index`, `page_number`, `content`, `embedding`); SELECT (`id`) | |
 | `ingestion_jobs` | SELECT (`id`, `payload`); INSERT (`document_id`, `payload`) | SELECT (`id`, `document_id`, `payload`, `attempts`, `locked_by`, `locked_until`, `available_at`, `created_at`); UPDATE (`payload`, `attempts`, `locked_by`, `locked_until`, `updated_at`) | |
+| `conversations` | SELECT *; INSERT (`student_id`, `subject_id`); DELETE | | SELECT *; DELETE |
+| `messages` | SELECT *; INSERT (`conversation_id`, `role`, `content`) | | SELECT * |
+| `message_sources` | SELECT *; INSERT (`message_id`, `chunk_id`, `document_filename`, `page_number`, `rank`, `score`) | | |
 
 What follows from it (proved by the denied-operation tests and, on the development database, by the checks of the real run of 2026-11-14):
 - **`users.role` can never be written by the API**: registration omits it and the server default `student` (migration `0006`) supplies it; only the CLI role inserts a `role`, which is how teacher accounts exist. The API cannot insert a teacher.
 - **The worker sees no personal data**: it has no privilege on `users`, `subjects` or `enrollments`, cannot create or delete documents or jobs, and can update only the listed columns of `documents` and `ingestion_jobs`. `locked_by` and `locked_until` (the fencing token and the lease) are readable and writable only by the worker.
 - **No runtime role can delete from `users`, `document_chunks` or `ingestion_jobs`**; chunks and jobs go away through the `ON DELETE CASCADE` of their parent document, and erasing a user account needs a reviewed grant that does not exist yet (TD-039, change `personal-data-erasure`).
 - **No runtime role can create objects, read `alembic_version` or change a schema**: only the migrator owns objects and changes them.
-- `conversations`, `messages` and `message_sources` appear in the diagram above but do not exist in the database yet; a table without a decision in the matrix is closed to every runtime role by default and fails the test suite until someone decides.
+- `conversations`, `messages` and `message_sources` are created by migration `0007` (change `chat-rag-endpoint`). The privilege matrix grants `asistente_app` SELECT/INSERT on all three and DELETE on conversations; `asistente_cli` SELECT on conversations and messages, DELETE on conversations; `message_sources` are closed to the CLI and to the worker. See the table above for exact column lists.
 
 Verification: `python -m app.cli db-verify` compares the live catalog with the matrix (read only, exit 1 on a difference); the same comparison runs in the CI job `privileges` (see `docs/development_guide.md`, "Database"). Known limits of that check (defaults, column ACLs of other roles) are TD-043.
 

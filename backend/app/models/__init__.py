@@ -1,9 +1,11 @@
+from app.models.conversation import Conversation, Message, MessageRole, MessageSource
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode, IngestionJob
 from app.models.subject import Enrollment, Subject
 from app.models.user import User, UserRole
 
 __all__ = [
+    "Conversation",
     "DOCUMENT_ERROR_MESSAGES",
     "Document",
     "DocumentChunk",
@@ -11,6 +13,9 @@ __all__ = [
     "DocumentStatus",
     "Enrollment",
     "IngestionJob",
+    "Message",
+    "MessageRole",
+    "MessageSource",
     "Subject",
     "User",
     "UserRole",

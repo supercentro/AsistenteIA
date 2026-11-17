@@ -78,6 +78,11 @@ KNOWN_COLUMNS: Final[dict[str, frozenset[str]]] = {
             "updated_at",
         }
     ),
+    "conversations": frozenset({"id", "student_id", "subject_id", "created_at"}),
+    "messages": frozenset({"id", "conversation_id", "role", "content", "created_at"}),
+    "message_sources": frozenset(
+        {"id", "message_id", "chunk_id", "document_filename", "page_number", "rank", "score"}
+    ),
 }
 
 
@@ -149,6 +154,21 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
             # locked_by and locked_until are fetched server values: the ORM does not insert them.
             insert=_cols("document_id", "payload"),
         ),
+        "conversations": TableGrant(
+            select=_all("conversations"),
+            insert=_cols("student_id", "subject_id"),
+            delete=True,
+        ),
+        "messages": TableGrant(
+            select=_all("messages"),
+            insert=_cols("conversation_id", "role", "content"),
+        ),
+        "message_sources": TableGrant(
+            select=_all("message_sources"),
+            insert=_cols(
+                "message_id", "chunk_id", "document_filename", "page_number", "rank", "score"
+            ),
+        ),
     },
     WORKER: {
         "users": TableGrant(),
@@ -177,6 +197,9 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
             ),  # fmt: skip
             update=_cols("payload", "attempts", "locked_by", "locked_until", "updated_at"),
         ),
+        "conversations": TableGrant(),
+        "messages": TableGrant(),
+        "message_sources": TableGrant(),
     },
     CLI: {
         "users": TableGrant(
@@ -188,5 +211,13 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         "documents": TableGrant(),
         "document_chunks": TableGrant(),
         "ingestion_jobs": TableGrant(),
+        "conversations": TableGrant(
+            select=_all("conversations"),
+            delete=True,
+        ),
+        "messages": TableGrant(
+            select=_all("messages"),
+        ),
+        "message_sources": TableGrant(),
     },
 }

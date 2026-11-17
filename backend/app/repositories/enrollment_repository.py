@@ -1,8 +1,9 @@
+import hashlib
 import uuid
 from typing import NamedTuple
 
 from psycopg import errors as pg_errors
-from sqlalchemy import delete, insert, literal, select
+from sqlalchemy import delete, insert, literal, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,11 +19,38 @@ class EnrollmentRow(NamedTuple):
     student_email: str
 
 
+# First integer of the advisory lock "student and subject" (the bytes spell "ENRL"). The two-integer
+# form of `pg_advisory_xact_lock` is a different key space from the one-bigint admission lock of the
+# documents, so the two can never collide.
+ENROLLMENT_LOCK_SPACE = 0x454E524C
+
+
+def enrollment_lock_key(student_id: uuid.UUID, subject_id: uuid.UUID) -> int:
+    """Stable signed 32-bit key of one student in one subject.
+
+    Two different pairs may share a key (it only serialises two unrelated pairs); the same pair
+    always gets the same key, which is what the lock needs.
+    """
+    digest = hashlib.sha256(f"{student_id}:{subject_id}".encode()).digest()
+    return int.from_bytes(digest[:4], "big", signed=True)
+
+
 class EnrollmentRepository:
     """All data access for enrollments. Every operation is scoped by subject owner."""
 
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def lock_student_subject(self, student_id: uuid.UUID, subject_id: uuid.UUID) -> None:
+        """Take, until this transaction ends, the lock that orders a chat turn and an unenrolment.
+
+        Rules (design D3): a transaction takes at most this one advisory lock and takes it first;
+        nobody holds it during embedding or generation; it needs no table privilege.
+        """
+        self._session.execute(
+            text("SELECT pg_advisory_xact_lock(:space, :key)"),
+            {"space": ENROLLMENT_LOCK_SPACE, "key": enrollment_lock_key(student_id, subject_id)},
+        )
 
     def add(
         self, subject_id: uuid.UUID, teacher_id: uuid.UUID, student_id: uuid.UUID
@@ -67,9 +95,22 @@ class EnrollmentRepository:
         )
         return [EnrollmentRow(row[0], row[1]) for row in self._session.execute(statement)]
 
+    def is_enrolled(self, *, student_id: uuid.UUID, subject_id: uuid.UUID) -> bool:
+        statement = select(
+            select(Enrollment.id)
+            .where(
+                Enrollment.student_id == student_id,
+                Enrollment.subject_id == subject_id,
+            )
+            .exists()
+        )
+        result: bool = self._session.execute(statement).scalar_one()
+        return result
+
     def delete_for_teacher_subject(
         self, subject_id: uuid.UUID, teacher_id: uuid.UUID, student_id: uuid.UUID
     ) -> bool:
+        self.lock_student_subject(student_id, subject_id)  # before the delete: M2
         owned_subject = select(Subject.id).where(
             Subject.id == subject_id, Subject.teacher_id == teacher_id
         )

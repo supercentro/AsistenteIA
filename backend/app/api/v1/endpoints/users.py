@@ -1,9 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status
 
-from app.api.deps import CurrentUser, DbSession, get_consent_service
+from app.api.deps import CurrentUser, DbSession, get_consent_service, require_student
 from app.api.transaction import commit_or_rollback
+from app.models.user import User
+from app.repositories.conversation_repository import ConversationRepository
 from app.schemas.consent import ConsentRequest
 from app.schemas.user import UserResponse
 from app.services.consent_service import ConsentService
@@ -31,3 +33,15 @@ def record_consent(
     updated = service.record(user, body.consent_version)
     commit_or_rollback(db)
     return UserResponse.model_validate(updated)
+
+
+@router.delete("/me/conversations", status_code=status.HTTP_204_NO_CONTENT)
+def delete_all_conversations(
+    student: Annotated[User, Depends(require_student)],
+    db: DbSession,
+) -> Response:
+    """Delete all of the current student's conversations (right to erasure)."""
+    repo = ConversationRepository(db)
+    repo.delete_all_by_student(student.id)
+    commit_or_rollback(db)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

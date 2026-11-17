@@ -13,6 +13,8 @@ def make_client(database_url: str) -> TestClient:
         jwt_secret=TEST_JWT_SECRET,
         database_url=database_url,
         cors_origins=["http://localhost:5173"],
+        embedder_backend="fake",
+        app_env="test",
     )
     return TestClient(create_app(settings), raise_server_exceptions=False)
 
@@ -65,6 +67,8 @@ def test_health_returns_503_quickly_when_database_never_answers() -> None:
             database_url=f"postgresql+psycopg://u:p@127.0.0.1:{port}/silent_test",
             db_connect_timeout_seconds=1,
             cors_origins=["http://localhost:5173"],
+            embedder_backend="fake",
+            app_env="test",
         )
 
         with TestClient(create_app(settings), raise_server_exceptions=False) as client:

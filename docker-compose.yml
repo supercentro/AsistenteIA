@@ -75,6 +75,9 @@ services:
       target: api
     env_file:
       - ./backend/.env
+    environment:
+      EMBEDDER_BACKEND: local
+      EMBEDDING_MODEL_PATH: /opt/models/paraphrase-multilingual-MiniLM-L12-v2
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -83,6 +86,9 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
+      # The working tree, so `docker compose restart backend` picks up your edits. There is no
+      # `--reload` on purpose (docs/development_guide.md, section 2): it coupled every edit of the
+      # repository to the running container and its file watcher could fail.
       - ./backend/app:/app/app
     command:
       [
@@ -94,9 +100,6 @@ services:
         "0.0.0.0",
         "--port",
         "8000",
-        "--reload",
-        "--reload-dir",
-        "/app/app",
       ]
 
   # Ingestion worker (change 6): `python -m app.worker`, a process separate from the API. A plain

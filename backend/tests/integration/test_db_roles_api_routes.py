@@ -25,10 +25,20 @@ from tests.db_admin_support import Cluster
 from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
 from tests.db_admin_support import scratch_database as scratch_database  # noqa: F401  (fixture)
 from tests.db_roles_support import own_database as own_database
-from tests.integration.helpers import DEFAULT_PASSWORD, bearer, build_app, insert_user, login_token
+from tests.integration.helpers import (
+    DEFAULT_PASSWORD,
+    bearer,
+    build_app,
+    insert_enrollment,
+    insert_subject,
+    insert_user,
+    login_token,
+)
 from tests.integration.test_ingestion_end_to_end import PDF_LIMITS, linux_only
 from tests.pdf_support import pdf_with_pages
 from tests.service_support import built_service
+from tests.sql_support import insert_chunk as insert_chunk_row
+from tests.sql_support import insert_document as insert_document_row
 
 API = "/api/v1"
 CURRENT = "2026-10-v1"
@@ -78,6 +88,20 @@ SCENARIOS = {
         "DELETE",
         f"{API}/subjects/{{subject_id}}/documents/{{document_id}}",
     ): "test_text_and_markdown_are_uploaded_processed_retrieved_and_deleted",
+    ("POST", f"{API}/chat"): "test_chat_and_conversations_are_persisted_and_cascade",
+    ("GET", f"{API}/conversations"): "test_chat_and_conversations_are_persisted_and_cascade",
+    (
+        "GET",
+        f"{API}/conversations/{{conversation_id}}/messages",
+    ): "test_chat_and_conversations_are_persisted_and_cascade",
+    (
+        "DELETE",
+        f"{API}/conversations/{{conversation_id}}",
+    ): "test_chat_and_conversations_are_persisted_and_cascade",
+    (
+        "DELETE",
+        f"{API}/users/me/conversations",
+    ): "test_chat_and_conversations_are_persisted_and_cascade",
 }
 
 
@@ -334,3 +358,92 @@ def test_a_pdf_is_uploaded_processed_with_its_pages_and_retrieved(
             )
             == "ready"
         )
+
+
+def test_chat_and_conversations_are_persisted_and_cascade(
+    cluster: Cluster, own_database: str
+) -> None:
+    admin = cluster.admin(own_database)
+    teacher = insert_user(admin, "chat.teacher@example.com", UserRole.TEACHER)
+    student = insert_user(admin, "chat.student@example.com", UserRole.STUDENT)
+    subject = insert_subject(admin, teacher.id)
+    insert_enrollment(admin, subject, student.id)
+    content = "limits describe the value a function approaches"
+    vector = "[" + ",".join(repr(v) for v in FakeEmbedder().embed([content])[0]) + "]"
+    document = insert_document_row(admin, uuid.UUID(subject), "limits.pdf", "ready")
+    insert_chunk_row(
+        admin, document, uuid.UUID(subject), embedding=vector, content=content, page_number=4
+    )
+
+    def count(table: str) -> int:
+        return int(one(cluster, own_database, f"SELECT count(*) FROM {table}"))
+
+    with api(cluster, own_database) as client:
+        headers = bearer(login_token(client, student.email, DEFAULT_PASSWORD))
+        consent = client.post(
+            f"{API}/users/me/consent", json={"consent_version": CURRENT}, headers=headers
+        )
+        assert consent.status_code == 200
+
+        first = client.post(
+            f"{API}/chat", json={"subject_id": subject, "message": content}, headers=headers
+        )
+        assert first.status_code == 200, first.text
+        conversation = first.json()["conversation_id"]
+        assert (count("conversations"), count("messages"), count("message_sources")) == (1, 2, 1)
+        assert rows(
+            cluster,
+            own_database,
+            "SELECT document_filename, page_number, rank FROM message_sources",
+        ) == [("limits.pdf", 4, 1)]
+
+        again = client.post(
+            f"{API}/chat",
+            json={"subject_id": subject, "conversation_id": conversation, "message": content},
+            headers=headers,
+        )
+        assert again.status_code == 200, again.text
+        assert (count("conversations"), count("messages"), count("message_sources")) == (1, 4, 2)
+
+        listed = client.get(f"{API}/conversations", headers=headers)
+        assert [c["id"] for c in listed.json()] == [conversation]
+        history = client.get(f"{API}/conversations/{conversation}/messages", headers=headers)
+        assert history.status_code == 200 and len(history.json()) == 4
+        cited = next(m for m in history.json() if m["sources"])["sources"][0]
+        assert cited["document_id"] == str(document) and cited["snippet"] == content
+
+        # DELETE of the conversation alone: the children go through ON DELETE CASCADE, because the
+        # application role has no DELETE privilege on messages or message_sources.
+        assert (
+            client.delete(f"{API}/conversations/{conversation}", headers=headers).status_code == 204
+        )
+        assert (count("conversations"), count("messages"), count("message_sources")) == (0, 0, 0)
+
+        assert (
+            client.post(
+                f"{API}/chat", json={"subject_id": subject, "message": content}, headers=headers
+            ).status_code
+            == 200
+        )
+        assert count("conversations") == 1
+
+        outsider = insert_user(admin, "chat.outsider@example.com", UserRole.STUDENT)
+        outsider_headers = bearer(login_token(client, outsider.email, DEFAULT_PASSWORD))
+        client.post(
+            f"{API}/users/me/consent", json={"consent_version": CURRENT}, headers=outsider_headers
+        )
+        not_enrolled = client.post(
+            f"{API}/chat",
+            json={"subject_id": subject, "message": content},
+            headers=outsider_headers,
+        )
+        unknown = client.post(
+            f"{API}/chat",
+            json={"subject_id": str(uuid.uuid4()), "message": content},
+            headers=outsider_headers,
+        )
+        assert (not_enrolled.status_code, unknown.status_code) == (403, 404)
+        assert count("conversations") == 1
+
+        assert client.delete(f"{API}/users/me/conversations", headers=headers).status_code == 204
+        assert (count("conversations"), count("messages"), count("message_sources")) == (0, 0, 0)

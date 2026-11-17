@@ -107,7 +107,12 @@ def test_the_refusal_names_neither_a_password_nor_a_url() -> None:
 
 
 def api_settings(**extra: object) -> Settings:
-    return Settings(database_url=URL, jwt_secret=JWT, cors_origins=["http://x"], **extra)  # type: ignore[arg-type]
+    defaults: dict[str, object] = {
+        "embedder_backend": "fake",
+        "app_env": "test",
+    }
+    defaults.update(extra)
+    return Settings(database_url=URL, jwt_secret=JWT, cors_origins=["http://x"], **defaults)  # type: ignore[arg-type]
 
 
 def worker_settings(**extra: object) -> WorkerSettings:

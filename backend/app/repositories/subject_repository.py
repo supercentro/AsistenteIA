@@ -50,6 +50,11 @@ class SubjectRepository:
         )
         return self._session.execute(statement).scalar_one_or_none()
 
+    def subject_exists(self, subject_id: uuid.UUID) -> bool:
+        """Whether the subject exists. Returns only a boolean: it tells a 404 from a 403 in chat."""
+        statement = select(select(Subject.id).where(Subject.id == subject_id).exists())
+        return bool(self._session.execute(statement).scalar_one())
+
     def get_for_student(self, subject_id: uuid.UUID, student_id: uuid.UUID) -> Subject | None:
         statement = (
             select(Subject)

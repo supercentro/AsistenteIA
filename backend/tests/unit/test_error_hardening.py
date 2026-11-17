@@ -20,6 +20,8 @@ def client() -> Iterator[TestClient]:
     settings = Settings(
         database_url="postgresql+psycopg://u:p@localhost:5432/x_test",
         jwt_secret=TEST_JWT_SECRET,
+        embedder_backend="fake",
+        app_env="test",
     )
     app = create_app(settings)
 

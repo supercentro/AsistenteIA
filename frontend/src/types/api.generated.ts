@@ -341,6 +341,8 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -843,6 +845,8 @@ export interface paths {
          * @description Retrieval is restricted to chunks of `subject_id`. If `conversation_id` is given it must belong to the
          *     caller AND to the same `subject_id`. When no chunk reaches the relevance threshold the response has
          *     `no_material=true`, empty `sources`, and the LLM is not called.
+         *     A subject that does not exist is 404 and a subject the student is not enrolled in is 403, so a
+         *     student can learn whether a subject identifier exists (accepted, TD-061).
          */
         post: {
             parameters: {
@@ -882,15 +886,18 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 422: components["responses"]["ValidationError"];
-                /** @description Rate limit exceeded */
+                /** @description Chat rate limit exceeded (error code `RATE_LIMITED`) */
                 429: {
                     headers: {
+                        /** @description Seconds to wait before retrying */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                500: components["responses"]["InternalError"];
                 /** @description LLM provider failed or blocked the answer (retryable) */
                 502: {
                     headers: {
@@ -900,15 +907,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Vector search unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -946,6 +945,7 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -984,6 +984,8 @@ export interface paths {
                         "application/json": components["schemas"]["Message"][];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -1025,7 +1027,10 @@ export interface paths {
                     content?: never;
                 };
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -1136,7 +1141,11 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @description Citation of a chunk used for an answer */
+        /**
+         * @description Citation of a chunk used for an answer: the chunks whose `[n]` marker the answer contains, with
+         *     `rank` the retrieval rank of the chunk (ranks can have gaps). An answer with no valid marker lists
+         *     every retrieved chunk of its context.
+         */
         Source: {
             /** Format: uuid */
             chunk_id?: string | null;

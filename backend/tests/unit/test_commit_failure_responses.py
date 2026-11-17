@@ -31,6 +31,9 @@ PREFIX = "/api/v1"
 COMMITS = "commit_or_rollback before the response"
 READ_ONLY = "reads only; the post-response commit has nothing to write"
 OWN_SESSION = "its own session commits in the upload; every database error is a 503"
+PERSIST_PHASE = (
+    "the persist phase, in a new session, commits with the shared helper before the response"
+)
 
 # Every operation that is not a GET: how it commits. A new operation must be added here with its
 # reason, which is the point of the test (finding F-3, TD-039).
@@ -44,6 +47,9 @@ WRITE_OPERATIONS: dict[tuple[str, str], str] = {
     ("DELETE", "/subjects/{subject_id}/enrollments/{student_id}"): COMMITS,
     ("POST", "/subjects/{subject_id}/documents"): OWN_SESSION,
     ("DELETE", "/subjects/{subject_id}/documents/{document_id}"): COMMITS,
+    ("POST", "/chat"): PERSIST_PHASE,
+    ("DELETE", "/conversations/{conversation_id}"): COMMITS,
+    ("DELETE", "/users/me/conversations"): COMMITS,
 }
 # The handler names behind them (AST scan of the endpoint modules).
 HANDLERS: dict[str, str] = {
@@ -56,6 +62,9 @@ HANDLERS: dict[str, str] = {
     "enrollments.remove_enrollment": COMMITS,
     "documents.upload_document": OWN_SESSION,
     "documents.delete_document": COMMITS,
+    "chat.ask_question": PERSIST_PHASE,
+    "conversations.delete_conversation": COMMITS,
+    "users.delete_all_conversations": COMMITS,
 }
 SECRET = "very-secret-credential"
 ERROR_TEXT = f"connection to server at 10.1.2.3 failed for user admin password {SECRET}"
@@ -66,6 +75,8 @@ def settings() -> Settings:
         database_url=f"postgresql+psycopg://u:{SECRET}@h/d",
         jwt_secret="Zq8!vN3#rT6&wK1@mX9$pL4^bC7*dF2_hG5+yJ0",
         cors_origins=["http://x"],
+        embedder_backend="fake",
+        app_env="test",
     )
 
 
@@ -127,6 +138,27 @@ def test_a_handler_that_stores_something_commits_with_the_shared_helper(name: st
 
     assert "commit_or_rollback" in calls, f"{name} must use the shared helper"
     assert "commit" not in attributes, f"{name} must not call a bare commit()"
+
+
+def test_the_chat_persist_phase_commits_with_the_shared_helper_and_never_bare() -> None:
+    tree = ast.parse((ENDPOINTS / "chat.py").read_text(encoding="utf-8"))
+    phase = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_persist_phase"
+    )
+    calls = [
+        node.func.id
+        for node in ast.walk(phase)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    ]
+    attributes = [
+        node.func.attr
+        for node in ast.walk(phase)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    ]
+    assert "commit_or_rollback" in calls
+    assert "commit" not in attributes
 
 
 # --- what the client sees ---------------------------------------------------------------------

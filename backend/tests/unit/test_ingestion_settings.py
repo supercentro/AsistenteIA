@@ -47,8 +47,12 @@ INGESTION_VARIABLES = (
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in INGESTION_VARIABLES:
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_BACKEND", raising=False)
+    monkeypatch.delenv("ALLOW_FAKE_LLM", raising=False)
     monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
     monkeypatch.setenv("DATABASE_URL", DB_URL)
+    monkeypatch.setenv("GOOGLE_API_KEY", "AIza-test-key-for-unit-tests-only")
 
 
 def test_defaults_are_the_values_approved_after_the_spike() -> None:
