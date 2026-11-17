@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from google.genai.errors import ClientError
 
 from app.models.user import UserRole
 from app.rag.embedder import FakeEmbedder
@@ -105,7 +106,16 @@ def _assert_no_leak(text: str, caplog: pytest.LogCaptureFixture) -> None:
     [
         (TimeoutError(f"deadline {API_KEY}"), "LLM_UNAVAILABLE"),
         (RuntimeError(f"gemini-2.5-flash exploded {API_KEY}"), "LLM_UNAVAILABLE"),
-        (RuntimeError(f"response blocked by safety filter {CHUNK_SECRET}"), "LLM_BLOCKED"),
+        (
+            ClientError(400, {"error": {"message": f"blocked by safety filter {CHUNK_SECRET}"}}),
+            "LLM_BLOCKED",
+        ),
+        # the words alone do not make a block (spec: provider failures are classified by status)
+        (RuntimeError(f"blocked by the proxy, safety check {CHUNK_SECRET}"), "LLM_UNAVAILABLE"),
+        (
+            ClientError(429, {"error": {"message": f"quota blocked for safety {CHUNK_SECRET}"}}),
+            "LLM_UNAVAILABLE",
+        ),
     ],
 )
 def test_llm_failures_return_controlled_502(

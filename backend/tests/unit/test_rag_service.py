@@ -624,3 +624,56 @@ async def test_the_read_and_generation_phases_take_no_lock() -> None:
     await service.generate(context)
 
     mocks["enrollment_repo"].lock_student_subject.assert_not_called()
+
+
+# --- citation attribution (design D5b, task 18.1) ---
+
+
+def _three_chunks() -> list[ScoredChunk]:
+    return [
+        _make_chunk(similarity=0.9, filename="a.pdf", page_number=1, content="alpha"),
+        _make_chunk(similarity=0.8, filename="b.pdf", page_number=2, content="beta"),
+        _make_chunk(similarity=0.7, filename="c.pdf", page_number=3, content="gamma"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_only_the_cited_chunks_are_returned_and_stored_with_their_retrieval_rank() -> None:
+    service, mocks = _build_service(chunks=_three_chunks(), llm_response="It is beta [2].")
+
+    result = await _answer(service, student_id=uuid.uuid4(), subject_id=uuid.uuid4(), message="q")
+
+    assert [(s.rank, s.document_filename) for s in result.sources] == [(2, "b.pdf")]
+    stored = mocks["message_repo"].create_with_sources.call_args_list[-1].kwargs["sources"]
+    assert [(s["rank"], s["document_filename"]) for s in stored] == [(2, "b.pdf")]
+    assert result.sources[0].snippet == "beta"
+
+
+@pytest.mark.asyncio
+async def test_two_cited_chunks_keep_rank_order_whatever_the_citation_order() -> None:
+    service, _ = _build_service(chunks=_three_chunks(), llm_response="[3] then [1].")
+
+    result = await _answer(service, student_id=uuid.uuid4(), subject_id=uuid.uuid4(), message="q")
+
+    assert [s.rank for s in result.sources] == [1, 3]
+
+
+@pytest.mark.asyncio
+async def test_an_answer_without_a_valid_marker_keeps_every_retrieved_chunk() -> None:
+    service, mocks = _build_service(chunks=_three_chunks(), llm_response="See [9] and [0].")
+
+    result = await _answer(service, student_id=uuid.uuid4(), subject_id=uuid.uuid4(), message="q")
+
+    assert [s.rank for s in result.sources] == [1, 2, 3]
+    stored = mocks["message_repo"].create_with_sources.call_args_list[-1].kwargs["sources"]
+    assert [s["rank"] for s in stored] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_the_no_material_answer_has_no_sources_whatever_it_contains() -> None:
+    service, mocks = _build_service(chunks=[])
+
+    result = await _answer(service, student_id=uuid.uuid4(), subject_id=uuid.uuid4(), message="q")
+
+    assert result.sources == []
+    assert result.no_material is True

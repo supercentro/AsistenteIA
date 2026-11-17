@@ -108,6 +108,9 @@ class GeminiLLMService:
             logger.warning("llm unexpected error")
             raise LLMUnavailableError() from None
 
+        if _is_blocked_response(response):
+            logger.warning("llm safety block")
+            raise LLMBlockedError()
         text = _answer_text(response.content)
         if not text:
             logger.warning("llm empty answer")
@@ -127,7 +130,40 @@ def _is_rate_limit_or_server_error(exc: BaseException) -> bool:
     return "ServerError" in cls_name or "ClientError" in cls_name
 
 
+_REFUSAL_FINISH_REASONS = frozenset({"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"})
+_NO_BLOCK_REASONS = frozenset({"", "0", "BLOCK_REASON_UNSPECIFIED"})
+
+
+def _is_blocked_response(response: object) -> bool:
+    """A refusal reported by the provider in the response metadata (structured signals only)."""
+    metadata = getattr(response, "response_metadata", None)
+    if not isinstance(metadata, dict):
+        return False
+    if str(metadata.get("finish_reason", "")).upper() in _REFUSAL_FINISH_REASONS:
+        return True
+    feedback = metadata.get("prompt_feedback")
+    if not isinstance(feedback, dict):
+        return False
+    reason = feedback.get("block_reason")
+    reason = getattr(reason, "name", reason)
+    if isinstance(reason, bool):
+        return False
+    if isinstance(reason, int):
+        return reason != 0
+    return isinstance(reason, str) and reason.strip().upper() not in _NO_BLOCK_REASONS
+
+
 def _is_safety_block(exc: BaseException) -> bool:
+    """A provider error that names a safety block.
+
+    The status code decides first: 429 and 5xx are never a block, whatever their text says. The
+    text counts only for an exception of the Google client libraries, with no status code or 400.
+    """
+    code = getattr(exc, "code", None)
+    if isinstance(code, int) and code != 400:
+        return False
+    if not type(exc).__module__.startswith(("google.", "langchain_google_genai")):
+        return False
     msg = str(exc).lower()
     return "safety" in msg or "blocked" in msg
 

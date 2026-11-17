@@ -265,3 +265,52 @@ def test_system_prompt_forbids_urls_tool_calls_code_and_revealing_itself() -> No
     assert "tool call" in lower
     assert "code" in lower
     assert "reveal" in lower and "system prompt" in lower
+
+
+# --- citation attribution (design D5b, task 18.1) ---
+
+
+def test_select_cited_returns_the_cited_ranks_in_rank_order() -> None:
+    from app.services.prompt_builder import select_cited
+
+    assert select_cited("Both [3] and [1] say so; [3] again.", 3) == [1, 3]
+
+
+@pytest.mark.parametrize(
+    "answer", ["no markers at all", "[0] and [9] only", "[a] [1.5] [ 2 ] [-1]"]
+)
+def test_select_cited_falls_back_to_every_retrieved_rank(answer: str) -> None:
+    from app.services.prompt_builder import select_cited
+
+    assert select_cited(answer, 3) == [1, 2, 3]
+
+
+def test_select_cited_ignores_the_markers_outside_the_range_but_keeps_the_valid_ones() -> None:
+    from app.services.prompt_builder import select_cited
+
+    assert select_cited("[2] and [7] and [0]", 3) == [2]
+
+
+def test_select_cited_with_no_chunks_returns_nothing() -> None:
+    from app.services.prompt_builder import select_cited
+
+    assert select_cited("[1]", 0) == []
+
+
+def test_each_context_block_is_numbered_with_its_rank() -> None:
+    _, build_prompt, _ = _import()
+    chunks = [
+        {"content": "first text", "filename": "a.pdf", "page_number": 1},
+        {"content": "second text", "filename": "b.pdf", "page_number": None},
+    ]
+
+    system = build_prompt(history=[], chunks=chunks, user_message="q")[0]["content"]
+
+    assert "[1] [Source: a.pdf, p.1]\nfirst text" in system
+    assert "[2] [Source: b.pdf]\nsecond text" in system
+
+
+def test_system_prompt_asks_for_the_block_marker() -> None:
+    system, _, _ = _import()
+
+    assert "[n]" in system or "[1]" in system

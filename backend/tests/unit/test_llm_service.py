@@ -224,3 +224,104 @@ async def test_gemini_service_returns_the_text_of_block_content(
     result = await service.generate("system", [{"role": "user", "content": "test"}])
 
     assert result == expected
+
+
+# --- provider classification (design D6, task 18.3) ---
+
+
+def _service_failing_with(error: BaseException) -> GeminiLLMService:
+    mock_model = MagicMock()
+    mock_model.ainvoke = AsyncMock(side_effect=error)
+    return GeminiLLMService(model=mock_model, timeout_seconds=30)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code", [429, 500, 503])
+async def test_the_status_code_decides_before_the_words_of_the_error(code: int) -> None:
+    from google.genai.errors import ClientError, ServerError
+
+    error_type = ClientError if code == 429 else ServerError
+    error = error_type(code, {"error": {"message": "quota blocked for safety reasons"}})
+
+    with pytest.raises(LLMUnavailableError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", ["blocked by the firewall", "safety check of the proxy"])
+async def test_an_unrelated_exception_with_those_words_is_not_a_block(message: str) -> None:
+    with pytest.raises(LLMUnavailableError):
+        await _service_failing_with(RuntimeError(message)).generate(
+            "s", [{"role": "user", "content": "q"}]
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_provider_400_that_names_a_block_is_a_block() -> None:
+    from google.genai.errors import ClientError
+
+    error = ClientError(400, {"error": {"message": "Prompt was blocked: SAFETY"}})
+
+    with pytest.raises(LLMBlockedError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+async def test_a_provider_400_without_those_words_is_unavailable() -> None:
+    from google.genai.errors import ClientError
+
+    error = ClientError(400, {"error": {"message": "API key not valid"}})
+
+    with pytest.raises(LLMUnavailableError):
+        await _service_failing_with(error).generate("s", [{"role": "user", "content": "q"}])
+
+
+def _response(content: str, metadata: object) -> MagicMock:
+    response = MagicMock()
+    response.content = content
+    response.response_metadata = metadata
+    return response
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"])
+async def test_a_refusal_finish_reason_is_a_block_even_with_partial_text(reason: str) -> None:
+    mock_model = MagicMock()
+    mock_model.ainvoke = AsyncMock(
+        return_value=_response("partial answer", {"finish_reason": reason})
+    )
+    service = GeminiLLMService(model=mock_model, timeout_seconds=30)
+
+    with pytest.raises(LLMBlockedError):
+        await service.generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("block_reason", [2, "SAFETY"])
+async def test_a_prompt_block_reason_is_a_block(block_reason: object) -> None:
+    mock_model = MagicMock()
+    mock_model.ainvoke = AsyncMock(
+        return_value=_response("text", {"prompt_feedback": {"block_reason": block_reason}})
+    )
+    service = GeminiLLMService(model=mock_model, timeout_seconds=30)
+
+    with pytest.raises(LLMBlockedError):
+        await service.generate("s", [{"role": "user", "content": "q"}])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"finish_reason": "STOP", "prompt_feedback": {"block_reason": 0}},
+        {"finish_reason": "STOP", "prompt_feedback": {"block_reason": "BLOCK_REASON_UNSPECIFIED"}},
+        {"finish_reason": "MAX_TOKENS"},
+        {},
+    ],
+)
+async def test_a_normal_finish_reason_returns_the_text(metadata: object) -> None:
+    mock_model = MagicMock()
+    mock_model.ainvoke = AsyncMock(return_value=_response("The answer.", metadata))
+    service = GeminiLLMService(model=mock_model, timeout_seconds=30)
+
+    assert await service.generate("s", [{"role": "user", "content": "q"}]) == "The answer."

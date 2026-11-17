@@ -26,7 +26,7 @@ from app.repositories.message_repository import MessageRepository
 from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
 from app.services.consent_service import has_current_consent
-from app.services.prompt_builder import build_prompt
+from app.services.prompt_builder import build_prompt, select_cited
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -227,6 +227,10 @@ class RAGService:
     def _write_turn(
         self, conversation: Any, context: RetrievedContext, answer_text: str, keep_chunk_ids: bool
     ) -> ChatResult:
+        cited = [
+            (rank, context.chunks[rank - 1])
+            for rank in select_cited(answer_text, len(context.chunks))
+        ]
         self._message_repo.create_with_sources(
             conversation_id=conversation.id,
             role="user",
@@ -242,10 +246,10 @@ class RAGService:
                     "chunk_id": c.chunk_id if keep_chunk_ids else None,
                     "document_filename": c.document_filename,
                     "page_number": c.page_number,
-                    "rank": rank + 1,
+                    "rank": rank,
                     "score": c.similarity,
                 }
-                for rank, c in enumerate(context.chunks)
+                for rank, c in cited
             ],
         )
         return ChatResult(
@@ -258,11 +262,11 @@ class RAGService:
                     document_id=c.document_id if keep_chunk_ids else None,
                     document_filename=c.document_filename,
                     page_number=c.page_number,
-                    rank=rank + 1,
+                    rank=rank,
                     score=c.similarity,
                     snippet=c.content[:SNIPPET_MAX_LENGTH] if keep_chunk_ids else "",
                 )
-                for rank, c in enumerate(context.chunks)
+                for rank, c in cited
             ],
             no_material=not context.chunks,
         )

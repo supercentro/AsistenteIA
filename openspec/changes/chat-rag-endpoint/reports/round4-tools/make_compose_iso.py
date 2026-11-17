@@ -12,7 +12,7 @@ from pathlib import Path
 
 source = Path(sys.argv[1])  # clean copy of the repository (no env files)
 target = Path(sys.argv[2])
-assert "scratchpad" in str(target), "refusing to write outside the scratch directory"
+assert "scratch" in str(target), "refusing to write outside the scratch directory"
 
 if target.exists():
     shutil.rmtree(target)

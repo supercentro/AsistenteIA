@@ -153,7 +153,7 @@ Per `docs/backend-standards.md` §6:
 **Context block format**:
 ```
 <CONTEXT>
-[Source: {filename}, Page: {page_number}]
+[{rank}] [Source: {filename}, Page: {page_number}]
 {content_with_neutralized_delimiters}
 </CONTEXT>
 ```
@@ -161,6 +161,10 @@ Per `docs/backend-standards.md` §6:
 **Delimiter neutralization**: Before prompt assembly, any occurrence of `<CONTEXT>`, `</CONTEXT>`, `<SYSTEM>`, `</SYSTEM>` in chunk content or user message is replaced with a safe form (e.g., `[CONTEXT]`). This prevents content from escaping its designated section.
 
 **History inclusion**: The last `CHAT_HISTORY_MESSAGES` messages of the current conversation are included after the system prompt and before the context blocks, as alternating user/assistant messages. Only those messages are read from the database: a bounded query takes the newest `CHAT_HISTORY_MESSAGES` of the conversation (none, and no query, when the value is 0) and they are put back in chronological order before the prompt is assembled; the cost does not grow with the length of the conversation.
+
+### D5b: Citation attribution
+
+The canonical `Source` is the citation of a chunk *used* for an answer. Each context block is numbered with its retrieval rank (`[1]`, `[2]`, ...) and the system prompt tells the model to cite the blocks it used with that marker. After generation `select_cited` (pure function in `prompt_builder.py`) reads the markers of the answer, ignores any outside `1..len(chunks)`, and returns the matching chunks in rank order with their original rank. If the answer has no valid marker the retrieved chunks that were in the prompt are returned, because `docs/base-standards.md` section 9.5 requires every answer to persist its sources; the cost is that such an answer cites chunks the model may not have used. The same selection feeds the response and `message_sources`, so the stored history agrees with the response. A model can be induced to cite a marker that its answer does not rely on; the markers can only select chunks that were retrieved for this student and subject, so no data of another subject is reachable.
 
 ### D6: Error types
 

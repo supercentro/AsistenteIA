@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -216,8 +216,10 @@ def request(
     body: bytes = b"",
     content_type: str = "application/json",
     timeout: float = 15,
+    headers: Mapping[str, str] | None = None,
 ) -> Reply:
     lines = [f"{method} {path} HTTP/1.1", f"Host: {HOST}", "Connection: close"]
+    lines += [f"{name}: {value}" for name, value in (headers or {}).items()]
     if token:
         lines.append(f"Authorization: Bearer {token}")
     if method in ("POST", "PUT"):
