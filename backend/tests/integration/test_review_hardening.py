@@ -139,6 +139,8 @@ def real_server(clean_db: str, tmp_path: Path) -> Iterator[str]:
         "DATABASE_URL": role_url("app", clean_db),  # the application role in the roles mode
         "JWT_SECRET": TEST_JWT_SECRET,
         "APP_ENV": "test",
+        "EMBEDDER_BACKEND": "fake",
+        "LLM_BACKEND": "fake",
         **superuser_exception(),
         "LOGIN_RATE_LIMIT": "2/minute",
         "REGISTER_RATE_LIMIT": "2/minute",

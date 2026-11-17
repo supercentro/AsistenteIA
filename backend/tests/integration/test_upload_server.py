@@ -81,6 +81,8 @@ def server(migrated_db: str) -> Iterator[Server]:
             APP_ENV="test",
             DATABASE_URL=migrated_db,
             JWT_SECRET=TEST_JWT_SECRET,
+            EMBEDDER_BACKEND="fake",
+            LLM_BACKEND="fake",
             MAX_UPLOAD_MB="2",
             INGESTION_PENDING_BYTES_MAX_MB="50",
             UPLOAD_BODY_IDLE_SECONDS=str(IDLE_SECONDS),

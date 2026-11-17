@@ -11,6 +11,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("APP_ENV", "LOG_LEVEL", "DATABASE_URL", "CORS_ORIGINS", "TEST_DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
+    monkeypatch.setenv("GOOGLE_API_KEY", "AIza-test-key-for-unit-tests-only")
 
 
 def test_load_settings_missing_database_url_names_the_variable() -> None:
@@ -98,6 +99,8 @@ def test_the_uvicorn_entry_point_builds_the_application_from_the_environment(
     monkeypatch.setattr(main_module, "assert_restricted_database_role", checked.append)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@localhost:5432/factory_test")
     monkeypatch.setenv("JWT_SECRET", "t3sT-s3cr3t-only-for-automated-tests-9Zq")
+    monkeypatch.setenv("EMBEDDER_BACKEND", "fake")
+    monkeypatch.setenv("APP_ENV", "test")
 
     app = main_module.app_factory()
 

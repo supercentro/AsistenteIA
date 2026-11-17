@@ -16,13 +16,14 @@ def role_default(url: str) -> str | None:
     return columns(url, "users")["role"][2]
 
 
-def test_0006_is_the_head_and_follows_0005() -> None:
+def test_0006_follows_0005_and_0007_is_the_head() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql+psycopg://x/y_test"))
 
-    assert script.get_heads() == ["0006"]
-    revision = script.get_revision("0006")
-    assert revision is not None
-    assert revision.down_revision == "0005"
+    assert script.get_heads() == ["0007"]
+    for revision_id, parent in (("0006", "0005"), ("0007", "0006")):
+        revision = script.get_revision(revision_id)
+        assert revision is not None
+        assert revision.down_revision == parent
 
 
 def test_upgrade_sets_the_default_and_keeps_every_existing_user(test_db_url: str) -> None:

@@ -40,6 +40,12 @@ LEAST_PRIVILEGE_MODULES = frozenset(
         "test_ingestion_lease_fencing",
         "test_ingestion_heartbeat",
         "test_ingestion_job_repository",
+        "test_chat_endpoint",
+        "test_conversations_api",
+        "test_chat_errors",
+        "test_chat_failures_and_citations",
+        "test_chat_rate_limit",
+        "test_rag_quality",
     }
 )
 
@@ -74,6 +80,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     if config.getoption("--least-privilege"):
         os.environ[ENV_FLAG] = "1"
+    os.environ.setdefault("GOOGLE_API_KEY", "AIza-test-key-for-unit-tests-only")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

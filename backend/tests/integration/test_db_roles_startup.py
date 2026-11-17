@@ -157,6 +157,10 @@ def api_env(url: str, **extra: str) -> dict[str, str]:
         "DATABASE_URL": url,
         "JWT_SECRET": TEST_JWT_SECRET,
         "APP_ENV": "development",
+        "LLM_BACKEND": "fake",
+        "ALLOW_FAKE_LLM": "true",
+        "EMBEDDER_BACKEND": "fake",
+        "ALLOW_FAKE_EMBEDDER": "true",
         "CORS_ORIGINS": "http://localhost:5173",
         **extra,
     }

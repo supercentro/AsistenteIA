@@ -17,8 +17,18 @@ KNOWN_GAPS: dict[tuple[str, str, str, str], str] = {}  # closed by task 8.4 (DD-
 # Anticipated needs: the matrix grants them although no entry point reaches the statement yet.
 # The statements are named by the extra root given to the inventory, and `compare` fails as soon
 # as an entry point reaches them (the entry then becomes derived and this exception must go).
-ANTICIPATED_ROOTS = {
-    "anticipated": ["app.repositories.chunk_repository:ChunkRepository.find_similar"],
+ANTICIPATED_ROOTS: dict[str, list[str]] = {"anticipated": []}  # every statement is derived now
+
+# Grants the matrix declares ahead of the inventory reaching the code. The inventory cannot
+# track joinedload() relations or CLI tooling that is not built yet.
+AHEAD_OF_INVENTORY: dict[tuple[str, str, str], frozenset[str]] = {
+    # joinedload(Message.sources) in list_by_conversation is reached by api
+    # but the inventory cannot see the implicit SELECT on message_sources.
+    (APP, "message_sources", "SELECT"): frozenset(KNOWN_COLUMNS["message_sources"]),
+    # CLI erasure tooling: planned but no CLI command exists yet.
+    (CLI, "conversations", "SELECT"): frozenset(KNOWN_COLUMNS["conversations"]),
+    (CLI, "conversations", "DELETE"): frozenset(),
+    (CLI, "messages", "SELECT"): frozenset(KNOWN_COLUMNS["messages"]),
 }
 
 _KINDS = (("select", "SELECT"), ("insert", "INSERT"), ("update", "UPDATE"))
@@ -29,6 +39,7 @@ def compare(
     inventory: Inventory,
     known_columns: Mapping[str, frozenset[str]] = KNOWN_COLUMNS,
     known_gaps: Mapping[tuple[str, str, str, str], str] = KNOWN_GAPS,
+    ahead_of_inventory: Mapping[tuple[str, str, str], frozenset[str]] = AHEAD_OF_INVENTORY,
 ) -> list[str]:
     problems: list[str] = []
     for table, columns in TABLES.items():
@@ -72,6 +83,7 @@ def compare(
                     if role == APP
                     else frozenset()
                 )
+                ahead = ahead | ahead_of_inventory.get((role, table, kind), frozenset())
                 for column in sorted(granted - derived - carrier - ahead):
                     problems.append(f"{role} has {kind} ({column}) on {table} that no code uses")
             if "LOCK" in needed and not grant.update:
@@ -81,7 +93,8 @@ def compare(
                     problems.append(f"{role} {table}: lock carrier is not an UPDATE column")
                 if "LOCK" not in needed:
                     problems.append(f"{role} {table}: lock carrier without any row lock")
-            if grant.delete != ("DELETE" in needed):
+            delete_needed = "DELETE" in needed or (role, table, "DELETE") in ahead_of_inventory
+            if grant.delete != delete_needed:
                 problems.append(f"{role} DELETE on {table}: granted={grant.delete}")
         for (g_role, table, kind, column), _ in known_gaps.items():
             if g_role == role and column not in required.get(table, {}).get(kind, frozenset()):

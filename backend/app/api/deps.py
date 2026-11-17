@@ -13,6 +13,7 @@ from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.rate_limit import RateLimiter
 from app.core.security import TOKEN_ERROR_MESSAGE, PasswordService, decode_access_token
 from app.models.user import User, UserRole
+from app.rag.embedder import Embedder
 from app.repositories.enrollment_repository import EnrollmentRepository
 from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
@@ -50,6 +51,14 @@ def get_settings(request: Request) -> Settings:
 
 
 AppSettings = Annotated[Settings, Depends(get_settings)]
+
+
+def get_embedder(request: Request) -> Embedder:
+    embedder: Embedder = request.app.state.embedder
+    return embedder
+
+
+AppEmbedder = Annotated[Embedder, Depends(get_embedder)]
 
 
 def get_user_repository(db: DbSession) -> UserRepository:
@@ -97,6 +106,11 @@ def enforce_login_rate_limit(request: Request) -> None:
 
 def enforce_register_rate_limit(request: Request) -> None:
     limiter: RateLimiter = request.app.state.register_rate_limiter
+    limiter.check(_client_key(request))
+
+
+def enforce_chat_rate_limit(request: Request) -> None:
+    limiter: RateLimiter = request.app.state.chat_rate_limiter
     limiter.check(_client_key(request))
 
 

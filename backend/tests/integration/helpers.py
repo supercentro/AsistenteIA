@@ -46,6 +46,10 @@ def build_settings(database_url: str, **overrides: object) -> Settings:
         "login_rate_limit": "1000/minute",
         "register_rate_limit": "1000/minute",
         "upload_rate_limit": "1000/minute",
+        "google_api_key": "AIza-test-key-for-unit-tests-only",
+        "embedder_backend": "fake",
+        "llm_backend": "fake",
+        "app_env": "test",
     }
     values.update(overrides)
     values["database_url"] = role_url("app", str(values["database_url"]))  # roles mode

@@ -43,6 +43,15 @@ API_ONLY = {
     "upload_body_timeout_seconds",
     "upload_body_idle_seconds",
     "db_statement_timeout_api_seconds",
+    "google_api_key",
+    "llm_backend",
+    "allow_fake_llm",
+    "chat_llm_model",
+    "chat_llm_timeout_seconds",
+    "chat_top_k",
+    "chat_relevance_threshold",
+    "chat_history_messages",
+    "chat_rate_limit",
 }
 
 
@@ -50,6 +59,7 @@ API_ONLY = {
 def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     for field in Settings.model_fields:
         monkeypatch.delenv(field.upper(), raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "AIza-test-key-for-unit-tests-only")
 
 
 # --- the split ----------------------------------------------------------------------------------

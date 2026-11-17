@@ -123,3 +123,42 @@ class UploadValidationError(AppError):
 
     def __init__(self, reason: str, message: str) -> None:
         super().__init__(message, details={"reason": str(reason)})
+
+
+class ConsentRequiredError(ForbiddenError):
+    """The student has not accepted the current privacy policy version."""
+
+    code = "CONSENT_REQUIRED"
+
+    def __init__(self) -> None:
+        super().__init__("Current privacy-policy consent is required")
+
+
+class LLMUnavailableError(AppError):
+    """The LLM provider is unreachable or throttled."""
+
+    status_code = 502
+    code = "LLM_UNAVAILABLE"
+
+    def __init__(self) -> None:
+        super().__init__("The language model is temporarily unavailable")
+
+
+class LLMBlockedError(AppError):
+    """The LLM refused to generate because of safety filters."""
+
+    status_code = 502
+    code = "LLM_BLOCKED"
+
+    def __init__(self) -> None:
+        super().__init__("The response was blocked by safety filters")
+
+
+class SearchUnavailableError(AppError):
+    """The vector search backend failed."""
+
+    status_code = 503
+    code = "SEARCH_UNAVAILABLE"
+
+    def __init__(self) -> None:
+        super().__init__("The search service is temporarily unavailable")

@@ -55,7 +55,8 @@ def test_the_decided_least_privilege_properties() -> None:
     assert "role" not in MATRIX[APP]["users"].update
     assert MATRIX[APP]["subjects"].lock_carrier == "description"
     assert not any(g.delete for g in MATRIX[WORKER].values())
-    assert not any(MATRIX[CLI][t] != TableGrant() for t in TABLES if t != "users")
+    cli_allowed = {"users", "conversations", "messages"}
+    assert not any(MATRIX[CLI][t] != TableGrant() for t in TABLES if t not in cli_allowed)
 
 
 def test_no_known_gap_remains_after_task_8_4(inventory: Inventory) -> None:

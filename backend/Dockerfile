@@ -20,7 +20,16 @@ COPY pyproject.toml uv.lock .python-version ./
 
 FROM base AS api
 
-RUN uv sync --frozen --no-dev --no-install-project
+ENV UV_CONCURRENT_DOWNLOADS=4     UV_HTTP_TIMEOUT=120
+RUN uv sync --frozen --no-dev --no-install-project --extra embedding
+
+COPY docker/fetch_model.py /opt/fetch_model.py
+RUN python /opt/fetch_model.py /opt/models/paraphrase-multilingual-MiniLM-L12-v2 \
+    && rm /opt/fetch_model.py
+
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    EMBEDDING_MODEL_PATH=/opt/models/paraphrase-multilingual-MiniLM-L12-v2
 
 COPY . .
 

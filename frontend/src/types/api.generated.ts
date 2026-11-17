@@ -341,6 +341,8 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;
@@ -891,6 +893,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                500: components["responses"]["InternalError"];
                 /** @description LLM provider failed or blocked the answer (retryable) */
                 502: {
                     headers: {
@@ -900,15 +903,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Vector search unavailable */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         delete?: never;
@@ -1026,6 +1021,8 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         options?: never;

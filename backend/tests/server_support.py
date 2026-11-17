@@ -50,12 +50,17 @@ class Server:
 
 
 def base_environment(url: str, **extra: str) -> dict[str, str]:
-    env = {key: value for key, value in os.environ.items() if key in ("PATH", "HOME", "LANG")}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key in ("PATH", "HOME", "LANG", "SYSTEMROOT")
+    }
     env.update(
         APP_ENV="test",
         DATABASE_URL=url,
         JWT_SECRET=TEST_JWT_SECRET,
         EMBEDDER_BACKEND="fake",
+        LLM_BACKEND="fake",
         UPLOAD_RATE_LIMIT="10000/minute",
         LOGIN_RATE_LIMIT="10000/minute",
         PYTHONUNBUFFERED="1",
@@ -117,6 +122,9 @@ def running_server(url: str, script: str | None = None, **env: str) -> Iterator[
 
 def stop(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is None:
+        if sys.platform == "win32":  # the venv launcher leaves its child holding the log open
+            kill_tree = ["taskkill", "/F", "/T", "/PID", str(process.pid)]  # noqa: S607
+            subprocess.run(kill_tree, capture_output=True, check=False)  # noqa: S603
         process.terminate()
         try:
             process.wait(timeout=30)

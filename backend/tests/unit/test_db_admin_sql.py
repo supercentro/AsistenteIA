@@ -208,10 +208,16 @@ def test_nothing_is_granted_beyond_the_matrix() -> None:
     assert not [s for s in sql if "WITH GRANT OPTION" in s]
     assert not [s for s in sql if s.startswith("GRANT") and "PUBLIC" in s]
     cli = f'"{DEFAULT_NAMES.cli}"'
-    assert [s for s in sql if s.startswith("GRANT") and s.endswith(f"TO {cli}")] == [
-        f'GRANT SELECT ON TABLE "public"."users" TO {cli}',
-        f'GRANT INSERT ("email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
-    ]
+    cli_grants = sorted(s for s in sql if s.startswith("GRANT") and s.endswith(f"TO {cli}"))
+    assert cli_grants == sorted(
+        [
+            f'GRANT SELECT ON TABLE "public"."users" TO {cli}',
+            f'GRANT INSERT ("email", "name", "password_hash", "role") ON TABLE "public"."users" TO {cli}',  # noqa: E501
+            f'GRANT SELECT ON TABLE "public"."conversations" TO {cli}',
+            f'GRANT DELETE ON TABLE "public"."conversations" TO {cli}',
+            f'GRANT SELECT ON TABLE "public"."messages" TO {cli}',
+        ]
+    )
 
 
 def test_a_matrix_with_an_unknown_column_is_refused() -> None:
