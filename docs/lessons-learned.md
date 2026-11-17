@@ -448,7 +448,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a few concurrent chats could exhaust the pool or stall every request. High for any endpoint that calls a provider.
 - **Solution applied:** three phases (read, generate, persist), the session closed before the LLM call, a new transaction to persist, synchronous work in the thread pool (OpenSpec `design.md` D3, requirement "No database connection is held while the LLM generates").
 - **Preventive measure:** an endpoint that awaits an external service must prove, from inside the call, that no pooled connection is checked out and no transaction is `idle in transaction` (`ProbeLLM` in `tests/integration/test_chat_phases.py`), and that a concurrent request is served while a CPU-bound step runs. The rule belongs in `docs/backend-standards.md`; it is not written there in this session (standards are not edited), so this lesson stays `pending` for that part.
-- **Evidence:** `backend/tests/integration/test_chat_phases.py`, `openspec/changes/chat-rag-endpoint/reports/2026-11-17-round3-transactions-and-gate.md`.
+- **Evidence:** `backend/tests/integration/test_chat_phases.py`, `openspec/changes/archive/2026-11-17-chat-rag-endpoint/reports/2026-11-17-round3-transactions-and-gate.md`.
 
 ### L42. State checked before a long external call must be revalidated in the transaction that writes
 - **Origin:** chat-rag-endpoint (round 2, decision on finding 7).
@@ -466,7 +466,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a contract break shipped as "done"; found only by an independent reviewer. Medium.
 - **Solution applied:** code aligned to the contract without a migration; the two spec requirements corrected through `/opsx:update` after the owner approved the exact text; `openspec validate --strict` passes.
 - **Preventive measure:** when writing or checking a delta spec, list every status code, field name and privilege in it and compare each with its owning document; treat a difference as a finding, never as a silent edit. Automating the comparison is the pending measure of L06.
-- **Evidence:** `openspec/changes/chat-rag-endpoint/reports/2026-11-17-round2-findings-matrix.md`.
+- **Evidence:** `openspec/changes/archive/2026-11-17-chat-rag-endpoint/reports/2026-11-17-round2-findings-matrix.md`.
 
 ### L44. A task is ticked only when a reproducible run shows the behaviour it names
 - **Origin:** chat-rag-endpoint (apply, 2026-11-16, found by the agent that had ticked them).
@@ -475,7 +475,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a false "done" is worse than an open task; it hides the gap from the reviewer. High for reports that feed GO/NO-GO.
 - **Solution applied:** the boxes were unticked, the missing tests written (with recorded failing runs and mutation checks) and the reports rewritten to separate what ran from what did not.
 - **Preventive measure:** before ticking, quote the command and result that proves each clause; when a clause was not run, say so in the task note. The owning place would be the apply workflow or `docs/openspec-tasks-mandatory-steps.md`; neither is edited in this session, so this stays `pending`.
-- **Evidence:** `openspec/changes/chat-rag-endpoint/tasks.md`, `reports/2026-11-16-step-14-e2e-verification.md`.
+- **Evidence:** `openspec/changes/archive/2026-11-17-chat-rag-endpoint/tasks.md`, `reports/2026-11-16-step-14-e2e-verification.md`.
 
 ### L45. A bind-mounted `--reload` container couples repository edits to a running service; the gate's memory floor is not lowered
 - **Origin:** chat-rag-endpoint (rounds 4 and 5, diagnosis authorised by the owner).
@@ -484,7 +484,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a development service stops, or silently serves a crashed app, without anyone touching it. Medium.
 - **Solution applied:** nothing was restarted or recreated (no safe isolated operation exists, see the round 5 report). `--reload` was removed from the development `backend` command in `docker-compose.yml` and the development guide now says to run `docker compose restart backend` after editing `app/`; it takes effect at the next recreate of the backend, which the owner performs. The mount stays.
 - **Preventive measure:** after a change that adds required settings, recreate or rebuild the services that run the mounted code; do not lower a gate's resource guard to make a disposable run fit (the earlier Linux gate run of this change used a scratch copy with the 6 GB floor lowered to 4 GB; that deviation is documented and was not repeated); run disposable workloads one after another. Rule for `docs/development_guide.md` on resource use: pending.
-- **Evidence:** `docker inspect` and `docker logs` of `asistenteia-backend-1`; `openspec/changes/chat-rag-endpoint/reports/2026-11-17-round5-m2-backend.md`.
+- **Evidence:** `docker inspect` and `docker logs` of `asistenteia-backend-1`; `openspec/changes/archive/2026-11-17-chat-rag-endpoint/reports/2026-11-17-round5-m2-backend.md`.
 
 ### L46. A revalidation is a check, not a guarantee: serialise the write with the competing change, with an advisory lock when the privilege matrix forbids row locks
 - **Origin:** chat-rag-endpoint (residual risk M2, independent review of round 3; owner-approved correction in round 5).
@@ -493,7 +493,7 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** low in probability and impact here, but the same shape (check, then act, across a long external call) exists wherever authorization is revalidated.
 - **Solution applied:** the persist transaction and the enrollment removal take the same `pg_advisory_xact_lock(space, key)` for the student and subject, before the statements that depend on it, and release it at commit or rollback; no table privilege is needed and no lock is held during embedding or generation (design D3, requirement "Persistence and unenrolment are serialised per student and subject").
 - **Preventive measure:** when a write depends on state that another actor can change, decide the serialisation point explicitly, prove both orders with a test that holds the competing transaction open (the waiter is observed in `pg_locks` before the release), and state the lock ordering rule (one lock per transaction, taken before the dependent statements). Rule for `docs/backend-standards.md`: pending.
-- **Evidence:** `backend/tests/integration/test_chat_enrollment_lock.py`, `backend/tests/unit/test_enrollment_lock.py`, `openspec/changes/chat-rag-endpoint/reports/2026-11-17-round5-m2-backend.md`.
+- **Evidence:** `backend/tests/integration/test_chat_enrollment_lock.py`, `backend/tests/unit/test_enrollment_lock.py`, `openspec/changes/archive/2026-11-17-chat-rag-endpoint/reports/2026-11-17-round5-m2-backend.md`.
 
 ### L47. A race test must release the transaction it stands for even when it fails, or the suite hangs instead of failing
 - **Origin:** chat-rag-endpoint (M2 tests, found by running the tests under mutation).
@@ -520,4 +520,4 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Impact / repetition risk:** a student could be shown a source that does not support the answer. Medium.
 - **Solution applied:** blocks are numbered, the model is told to cite them, and only the cited chunks are returned and stored; the residual (answers without markers) is TD-062.
 - **Preventive measure:** when a spec scenario restates a canonical schema, quote the schema's own wording and check each verb of it (used, owned, current) against the code.
-- **Evidence:** `openspec/changes/chat-rag-endpoint/design.md` D5b; `backend/tests/unit/test_rag_service.py` (citation attribution tests); `reports/2026-11-17-round7-pr14-corrections.md`.
+- **Evidence:** `openspec/changes/archive/2026-11-17-chat-rag-endpoint/design.md` D5b; `backend/tests/unit/test_rag_service.py` (citation attribution tests); `reports/2026-11-17-round7-pr14-corrections.md`.
