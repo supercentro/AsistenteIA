@@ -3,7 +3,7 @@
 Date: 2026-11-18. Not legal advice: it records what was read, what the text now says, what is still open and which points need a lawyer. The policy is a draft and is not presented as approved.
 
 ## Context decided by the owner
-Argentine MVP, only for people over 18, commercial projection for Argentine educational institutions. Gemini API in the **free tier**, only with fictitious users and documents. Teachers are not asked for the chat consent. TD-003 stays open and the chat stays closed to real students.
+Argentine MVP operated by its independent developer, only for people over 18. **Two stages:** the MVP uses only fictitious users, documents and data; the future pilot will have real students over 18, possibly with one Argentine educational institution, and its legal and contractual responsibilities are defined before it is enabled. Several institutions and a commercial offer are outside this change. Gemini API in the **free tier**, only with fictitious users and documents. Teachers are not asked for the chat consent. TD-003 stays open and the chat stays closed to real students.
 
 ## Sources read (2026-11-18)
 - Ley 25.326 and Decreto 1558/2001: original texts on `argentina.gob.ar/normativa` (the 2000 and 2001 texts as published). **Later amendments and the consolidated text were not checked.**
@@ -22,7 +22,7 @@ Argentine MVP, only for people over 18, commercial projection for Argentine educ
 | Security and confidentiality measures | arts. 9 and 10 | Not part of the policy; covered by backend standards. Not re-verified in this stage |
 | Transfer of data to a third party needs consent; the transferee has the same obligations | art. 11 | Gemini is described as the service that receives the data; its role is not asserted (TD-063) |
 | International transfer to a country without adequate protection is prohibited, except express consent of the holder (decree) or an approved contract | art. 12, Decreto art. 12, Disposición 60-E/2016 arts. 1 to 3 | The United States is not in the list of adequate countries (art. 3). The text discloses the possible processing abroad. The basis is an owner input with legal review (TD-063) |
-| Service provider: use the data only as the contract says; contract with confidentiality and security | art. 25, Decreto art. 25 | Applies when an institution is the controller and AsistenteIA the processor, and to Google as sub-processor. Not asserted (TD-063) |
+| Service provider: use the data only as the contract says; contract with confidentiality and security | art. 25, Decreto art. 25 | Applies if a pilot institution is the controller and AsistenteIA the processor, and to Google as sub-processor. Not asserted; defined before the pilot (TD-063) |
 | Access in 10 calendar days, free at intervals of at least six months | art. 14 | Stated in the text. No self-service and no defined owner of the requests (TD-064) |
 | Rectification, update and suppression in 5 business days | art. 16 | Stated in the text. Same gap |
 | Registration of the databases | arts. 21 and 24 | Not decided: whether it applies to the controller is a legal question (TD-064) |
@@ -42,10 +42,10 @@ Argentine MVP, only for people over 18, commercial projection for Argentine educ
 
 Consequence: with the free tier, Google cannot be described as a processor and the data may be used for Google's own purposes, which does not fit art. 25. The free tier is acceptable only with fictitious data.
 
-## Conditions for a production use (recorded in `docs/technical-debt.md`)
+## Conditions for the pilot with real students (recorded in `docs/technical-debt.md`; none is needed for the MVP with fictitious data)
 1. TD-003: policy approved by the owner after legal review; chat closed to real students until then.
-2. TD-063: Gemini with billing enabled, terms and addendum evaluated, basis of the international transfer decided, processor contract if an institution is the controller.
-3. TD-064: ways to exercise the rights and to withdraw the consent in the legal deadlines; account deletion; consent at registration; registration with the AAIP; controller and processor roles per institution; the age is a declaration.
+2. TD-063: Gemini with billing enabled, terms and addendum evaluated, basis of the international transfer decided, processor contract if the pilot institution is the controller.
+3. TD-064: ways to exercise the rights and to withdraw the consent in the legal deadlines; account deletion; consent at registration; registration with the AAIP; controller and processor roles in the pilot; the age is a declaration.
 
 ## What changed in the product
 - Review: `2026-11-18-adversarial-review-argentina.md` (PASS WITH GAPS, corrected the same day).
@@ -60,8 +60,8 @@ Six tests written first (`pages/PrivacyPage.test.tsx`): 6 failed before the text
 1. The legal basis, and whether art. 5 allows the account data to be collected at registration without the consent screen.
 2. Whether the express consent of the policy is a valid basis for the transfer to Google, or an approved contract is needed.
 3. The wording of the rights, the deadlines and who answers; whether the AAIP is the authority to name and its contact.
-4. Whether the database must be registered and who is the controller in a commercial use.
-5. The role of Google under the contracted service and the processor contract between institution and AsistenteIA.
+4. Whether the database must be registered and who is the controller in the pilot.
+5. The role of Google under the contracted service and the processor contract between the pilot institution and AsistenteIA, if that is the model chosen.
 6. The consequence of inaccurate data (art. 6 d), not stated.
 7. Teachers: their account data is processed without a consent, a policy acceptance or an age declaration (D7).
 8. Whether the over-18 declaration may share one tick box with the acceptance of the policy, or must be separate.
@@ -69,4 +69,4 @@ Six tests written first (`pages/PrivacyPage.test.tsx`): 6 failed before the text
 10. A security statement (arts. 9 and 10) and a contact for security incidents, absent from the policy.
 
 ## Caveats
-Original texts, not consolidated; summaries for the AAIP resolutions; Gemini terms change over time (re-read before any production decision); the list of adequate countries may be updated by the AAIP.
+Original texts, not consolidated; summaries for the AAIP resolutions; Gemini terms change over time (re-read before the pilot); the list of adequate countries may be updated by the AAIP.

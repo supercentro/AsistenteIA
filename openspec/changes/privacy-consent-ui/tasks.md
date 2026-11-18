@@ -57,6 +57,8 @@
 - [x] 6.7 Corrections of the review: habeas data cited with arts. 33 onwards; the AAIP name removed from the text (owner input 6); the age declaration of students only; "Ley 25.326 y su decreto" for the rights; softened sentence on the United States; teachers, bundled declaration, art. 6 d, security statement, the free-tier use of the questions and the registration regime recorded in TD-063 and TD-064; tests strengthened (checkbox by its 18-year label, six placeholders, no processor or approval wording anywhere); the gates re-run. [done]
 - [ ] 6.6 Legal review of the points marked "legal" in the report (basis of the processing, consent for the transfer, rights wording, registration, consent at registration). Owner task; not done by the agent.
 
+- [x] 6.8 Stages recorded (owner decision of 2026-11-18): MVP with fictitious data only, pilot with real students over 18 possibly with one Argentine institution whose responsibilities are defined before it is enabled; no multi-institution scope. [proposal.md, design D9, reports/2026-11-18-argentina-legal-framework.md, TD-003, TD-063, TD-064, docs/development_guide.md]
+
 ## Workflow follow-up
 
 - Open the pull request against `main`; merge only with the owner's authorization and after 3.2.
