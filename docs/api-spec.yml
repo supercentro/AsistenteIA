@@ -11,7 +11,7 @@ info:
     - Errors use the common `Error` schema. Authorization failures never reveal whether a resource exists
       for another user: accessing someone else's resource returns 404 unless the caller is known to be
       authenticated and the resource type is not user-scoped (see each endpoint).
-    - Chat requires recorded consent (`POST /users/me/consent`), otherwise 403 `CONSENT_REQUIRED`.
+    - Chat requires consent for the current privacy-policy version (`POST /users/me/consent`), otherwise 403 `CONSENT_REQUIRED`.
 servers:
   - url: http://localhost:8000/api/v1
     description: Local development (docker compose)

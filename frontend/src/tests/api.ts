@@ -1,16 +1,32 @@
 import { HttpResponse, http } from 'msw'
+import { PRIVACY_POLICY_VERSION } from '../lib/privacyPolicy'
 import type { ApiErrorBody, Subject, TokenResponse, User } from '../types/api'
 
 /** Base URL used by every test (set through `test.env` in vite.config.ts). */
 export const API = 'http://localhost:8000/api/v1'
 
+/** A student whose consent is current: the gate lets every student route through. */
 export const studentUser: User = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Ana Estudiante',
   email: 'ana@example.com',
   role: 'student',
+  consent_version: PRIVACY_POLICY_VERSION,
+  consent_accepted_at: '2026-11-17T10:00:00Z',
+}
+
+/** A student who never accepted the privacy policy. */
+export const unconsentedStudent: User = {
+  ...studentUser,
   consent_version: null,
   consent_accepted_at: null,
+}
+
+/** A student whose accepted version is not the current one. */
+export const outdatedStudent: User = {
+  ...studentUser,
+  consent_version: '2025-01-v0',
+  consent_accepted_at: '2025-01-10T10:00:00Z',
 }
 
 export const teacherUser: User = {

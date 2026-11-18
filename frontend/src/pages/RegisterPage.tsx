@@ -68,6 +68,9 @@ export default function RegisterPage() {
           {registration.isPending ? strings.auth.register.submitting : strings.auth.register.submit}
         </Button>
       </form>
+      <Link className="text-sm text-slate-900 underline" to="/privacy">
+        {strings.auth.register.privacyLink}
+      </Link>
       <Link className="text-sm text-slate-900 underline" to="/login">
         {strings.auth.register.haveAccount}
       </Link>

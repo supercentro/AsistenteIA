@@ -55,6 +55,14 @@ test.describe('real backend', () => {
   test('register, sign in, list, sign out and reload against the real API', async ({ page }) => {
     await register(page)
     await signIn(page)
+    // A new student is held at the consent screen until the real API records the acceptance.
+    await expect(page).toHaveURL(/\/consent$/)
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Aceptar la política de privacidad' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Aceptar y continuar' })).toBeDisabled()
+    await page.getByRole('checkbox').check()
+    await page.getByRole('button', { name: 'Aceptar y continuar' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Mis asignaturas' })).toBeVisible()
     await expect(page.getByText('Todavía no hay asignaturas')).toBeVisible()
 
