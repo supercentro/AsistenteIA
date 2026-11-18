@@ -128,7 +128,7 @@ class Settings(WorkerSettings):
     google_api_key: SecretStr | None = None
     llm_backend: Literal["gemini", "fake"] = "gemini"
     allow_fake_llm: bool = False
-    chat_llm_model: str = "gemini-2.5-flash"
+    chat_llm_model: str = "gemini-3.1-flash-lite"
     chat_llm_timeout_seconds: int = Field(default=30, ge=5, le=120)
     chat_top_k: int = Field(default=5, ge=1, le=50)
     chat_relevance_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
