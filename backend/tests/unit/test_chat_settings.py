@@ -43,7 +43,7 @@ def test_chat_defaults() -> None:
     settings = load_settings(env_file=None)
 
     assert settings.llm_backend == "fake"
-    assert settings.chat_llm_model == "gemini-2.5-flash"
+    assert settings.chat_llm_model == "gemini-3.1-flash-lite"
     assert settings.chat_llm_timeout_seconds == 30
     assert settings.chat_top_k == 5
     assert settings.chat_relevance_threshold == pytest.approx(0.3)
