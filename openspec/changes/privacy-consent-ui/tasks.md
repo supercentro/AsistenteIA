@@ -26,8 +26,8 @@
 ## 3. Policy text: owner inputs and approval
 
 - [x] 3.1 Table in the change report that maps every statement of the policy text to the code or document that proves it (what is stored, what is sent to Gemini, deletion routes, citation snapshots). [reports/2026-11-17-policy-evidence-table.md]
-- [ ] 3.2 Owner supplies the six placeholders (controller and domicile, legal basis with legal review, Google conditions and basis of the international transfer with legal review, account retention, backups, means to exercise the rights and contact of the supervisory authority) and approves the final text. `POLICY_RELEASE_CHECK=1 npx vitest run src/lib/policyPlaceholders.test.ts` must pass. The agent cannot do this task; the change is not merged and TD-003 is not closed before it is done.
-- [ ] 3.3 Owner confirms or rejects the version string (D6: unchanged recommended). Teachers not gated (D7) was confirmed on 2026-11-18.
+- [ ] 3.2 Owner supplies the six placeholders (controller and domicile, legal basis with legal review, Google conditions and basis of the international transfer with legal review, account retention, backups, means to exercise the rights and contact of the supervisory authority) and approves the final text. `POLICY_RELEASE_CHECK=1 npx vitest run src/lib/policyPlaceholders.test.ts` must pass. The agent cannot do this task. Owner decision of 2026-11-18: it is a condition for the pilot with real students, not for the merge for the MVP; TD-003 is not closed and the chat is not opened to real students before it is done.
+- [ ] 3.3 Owner confirms the definitive version string before the pilot. `2026-10-v1` is kept provisionally for the MVP (D6, decision of 2026-11-18); it is not a definitive policy. Teachers not gated (D7) was confirmed on 2026-11-18.
 
 ## 4. Mandatory steps
 
@@ -58,9 +58,10 @@
 - [ ] 6.6 Legal review of the points marked "legal" in the report (basis of the processing, consent for the transfer, rights wording, registration, consent at registration). Owner task; not done by the agent.
 
 - [x] 6.8 Stages recorded (owner decision of 2026-11-18): MVP with fictitious data only, pilot with real students over 18 possibly with one Argentine institution whose responsibilities are defined before it is enabled; no multi-institution scope. [proposal.md, design D9, reports/2026-11-18-argentina-legal-framework.md, TD-003, TD-063, TD-064, docs/development_guide.md]
+- [x] 6.9 MVP closure (owner decision of 2026-11-18): reconcile the artifacts with the merge for the MVP (3.2 and 3.3 are conditions for the pilot); document the local test circuit and the limits of the MVP in `docs/development_guide.md`; run the circuit against the local stack with Gemini (34 of 34 checks). [docs/development_guide.md section "MVP local test circuit"]
 
 ## Workflow follow-up
 
-- Open the pull request against `main`; merge only with the owner's authorization and after 3.2.
-- After the merge: `/opsx:archive privacy-consent-ui`; close TD-003 in `docs/technical-debt.md` only with the owner's decision.
+- Open the pull request against `main`; merge only with the owner's authorization. The merge integrates the MVP functionality (fictitious data only); 3.2 and 3.3 are conditions for the pilot, not for the merge (decision of 2026-11-18).
+- Archive only with the owner's authorization and once 3.2 and 3.3 are done or moved to another change; close TD-003 in `docs/technical-debt.md` only with the owner's decision. The withdrawal of the consent and the deletion of accounts are done in an independent change before the pilot (decision of 2026-11-18).
 - The chat screen is a separate change; real students still must not use the chat until it exists, TD-003 is closed and the Gemini measurements are reviewed.
