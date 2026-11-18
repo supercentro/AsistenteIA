@@ -66,13 +66,28 @@ export const strings = {
     title: 'Política de privacidad',
     versionLabel: (version: string) => `Versión ${version}`,
     intro:
-      'AsistenteIA responde preguntas con el material que el personal docente sube a cada asignatura. Esta política explica qué datos se guardan, a quién se envían y cómo se borran.',
+      'AsistenteIA responde preguntas con el material que el personal docente sube a cada asignatura. Esta política explica qué datos personales se guardan, a quién se envían, cómo se borran y qué derechos reconoce la Ley 25.326 de Protección de los Datos Personales.',
     back: 'Volver al inicio',
     sections: {
       controller: {
         heading: 'Responsable del tratamiento',
         paragraphs: [
-          '[A COMPLETAR POR LA INSTITUCIÓN: nombre, domicilio y medio de contacto del responsable del tratamiento.]',
+          '[A COMPLETAR POR LA INSTITUCIÓN: nombre, domicilio y medio de contacto del responsable de la base de datos.]',
+        ],
+        items: [] as readonly string[],
+      },
+      audience: {
+        heading: 'A quién está dirigido el servicio',
+        paragraphs: [
+          'AsistenteIA está destinado exclusivamente a personas mayores de 18 años. Los estudiantes lo declaran al aceptar esta política.',
+        ],
+        items: [] as readonly string[],
+      },
+      mandatory: {
+        heading: 'Datos necesarios y consecuencias de no aceptar',
+        paragraphs: [
+          'Los datos de la cuenta (nombre, correo electrónico y contraseña) son necesarios para crearla y usar el servicio.',
+          'La aceptación de esta política se solicita a los estudiantes, que son quienes hacen preguntas al asistente. Aceptar esta política es necesario para usar el asistente: sin la aceptación, la aplicación solo permite leer esta política y cerrar la sesión.',
         ],
         items: [] as readonly string[],
       },
@@ -90,14 +105,14 @@ export const strings = {
         heading: 'Para qué se usan y con qué base',
         paragraphs: [
           'Los datos se usan para dar el servicio: autenticar la cuenta, generar respuestas con el material de la asignatura y mostrar el historial de conversaciones. Por cada fuente citada también se guardan su posición y su puntuación de similitud, para poder analizar la calidad de las respuestas. Los registros técnicos de la aplicación no incluyen el contenido de los mensajes.',
-          '[A COMPLETAR POR LA INSTITUCIÓN: base jurídica del tratamiento.]',
+          '[A COMPLETAR POR LA INSTITUCIÓN (revisión legal): fundamento jurídico del tratamiento conforme a la Ley 25.326, incluido el alcance del consentimiento.]',
         ],
         items: [] as readonly string[],
       },
       processor: {
         heading: 'Tratamiento por Gemini (Google)',
         paragraphs: [
-          'Para generar cada respuesta, el sistema envía a Gemini, el servicio de inteligencia artificial de Google, que actúa como encargado del tratamiento:',
+          'Para generar cada respuesta, el sistema envía a Gemini, el servicio de inteligencia artificial de Google, los siguientes datos:',
         ],
         items: [
           'La pregunta que se escribe.',
@@ -107,7 +122,8 @@ export const strings = {
         notes: [
           'No se envían el nombre, el correo electrónico ni la contraseña de la cuenta.',
           'No se envía nada a Gemini mientras no se haya aceptado esta política.',
-          '[A COMPLETAR POR LA INSTITUCIÓN: condiciones de Google aplicables a este tratamiento y lugar donde se realiza.]',
+          'Gemini es un servicio de un tercero y puede procesar estos datos fuera de la República Argentina, incluso en países que la normativa argentina no reconoce como de protección adecuada; según la lista de la Disposición 60-E/2016, Estados Unidos no figura entre los reconocidos.',
+          '[A COMPLETAR POR LA INSTITUCIÓN (revisión legal): condiciones de Google aplicables a este tratamiento (servicio contratado, acuerdo de tratamiento de datos, conservación y uso de los datos), lugar donde se realiza y fundamento de la transferencia internacional.]',
         ],
       },
       retention: {
@@ -131,13 +147,28 @@ export const strings = {
           '[A COMPLETAR POR LA INSTITUCIÓN: si existen copias de seguridad, cuánto tiempo se conservan y cuándo dejan de contener los datos borrados.]',
         ],
       },
+      rights: {
+        heading: 'Sus derechos',
+        paragraphs: [
+          'La Ley 25.326 y su decreto reglamentario reconocen, entre otros, estos derechos sobre sus datos personales:',
+        ],
+        items: [
+          'Acceso: conocer qué datos suyos se tratan. El responsable debe responder en 10 días corridos y el acceso es gratuito a intervalos de al menos seis meses (art. 14).',
+          'Rectificación, actualización y supresión de sus datos. El responsable debe resolver el pedido en 5 días hábiles (art. 16).',
+          'Retirar en cualquier momento el consentimiento dado, sin efectos retroactivos.',
+          'Si el responsable no responde o la respuesta es insuficiente, puede acudirse a la acción de hábeas data (arts. 14, 16 y 33 y siguientes).',
+        ],
+        notes: [
+          'También puede dirigirse a la autoridad de control en materia de protección de datos personales.',
+        ],
+      },
       notSelfService: {
         heading: 'Lo que todavía no se puede hacer sin ayuda',
         paragraphs: [] as readonly string[],
         items: ['Eliminar la cuenta.', 'Retirar el consentimiento dado.'],
         notes: [
-          'Para estos casos, y para ejercer los derechos de acceso, rectificación, supresión, limitación del tratamiento, oposición y portabilidad, es necesario contactar con el responsable del tratamiento. También se puede presentar una reclamación ante la autoridad de control en materia de protección de datos.',
-          '[A COMPLETAR POR LA INSTITUCIÓN: medio concreto para ejercer estos derechos y autoridad de control competente.]',
+          'Para estos casos, y para ejercer los derechos descritos arriba, es necesario contactar con el responsable de la base de datos.',
+          '[A COMPLETAR POR LA INSTITUCIÓN: medio concreto y responsable de atender los pedidos de acceso, rectificación, supresión y retiro del consentimiento, y nombre y datos de contacto de la autoridad de control competente.]',
         ],
       },
     },
@@ -148,7 +179,7 @@ export const strings = {
     changed:
       'La política de privacidad cambió desde la última vez que se aceptó. Es necesario aceptar la versión vigente para continuar.',
     checkbox: (version: string) =>
-      `He leído y acepto la política de privacidad (versión ${version})`,
+      `He leído y acepto la política de privacidad (versión ${version}) y declaro ser mayor de 18 años`,
     accept: 'Aceptar y continuar',
     accepting: 'Guardando…',
     signOut: 'Cerrar sesión',

@@ -79,3 +79,60 @@ describe('Links to the policy', () => {
     expect(link).toHaveAttribute('href', '/privacy')
   })
 })
+
+describe('PrivacyPage - adapted to Ley 25.326 (Argentina)', () => {
+  async function sectionText(heading: string): Promise<string> {
+    renderApp({ route: '/privacy' })
+    const section = (await screen.findByRole('heading', { name: heading })).closest(
+      'section',
+    ) as HTMLElement
+    return section.textContent ?? ''
+  }
+
+  it('states that the service is only for people over 18', async () => {
+    const text = await sectionText(strings.privacy.sections.audience.heading)
+    expect(text).toMatch(/exclusivamente a personas mayores de 18 años/)
+    expect(text).toMatch(/Los estudiantes lo declaran al aceptar esta política/)
+  })
+
+  it('says which data is needed and what refusing the policy means', async () => {
+    const text = await sectionText(strings.privacy.sections.mandatory.heading)
+    expect(text).toMatch(/nombre, correo electrónico y contraseña/)
+    expect(text).toMatch(/Aceptar esta política es necesario para usar el asistente/)
+  })
+
+  it('discloses that Gemini may process the data outside Argentina and does not assert a processor role', async () => {
+    const text = await sectionText(strings.privacy.sections.processor.heading)
+    expect(text).toMatch(/fuera de la República Argentina/)
+    expect(text).toMatch(/Estados Unidos/)
+    expect(text).toMatch(/lista de la Disposición 60-E\/2016/)
+    expect(text).not.toMatch(/encargado/i)
+  })
+
+  it('lists the rights of Ley 25.326 with their legal deadlines and the revocation', async () => {
+    const text = await sectionText(strings.privacy.sections.rights.heading)
+    expect(text).toMatch(/La Ley 25\.326 y su decreto reglamentario reconocen/)
+    expect(text).toMatch(/10 días corridos/)
+    expect(text).toMatch(/5 días hábiles/)
+    expect(text).toMatch(/retirar en cualquier momento el consentimiento/i)
+    expect(text).toMatch(/sin efectos retroactivos/)
+    expect(text).toMatch(/hábeas data \(arts\. 14, 16 y 33 y siguientes\)/)
+    expect(text).toMatch(/autoridad de control/)
+    expect(text).not.toMatch(/AAIP|Agencia de Acceso/)
+  })
+
+  it('does not present GDPR-only rights as rights of the law', async () => {
+    const text = await sectionText(strings.privacy.sections.rights.heading)
+    expect(text).not.toMatch(/portabilidad|limitación del tratamiento/i)
+  })
+
+  it('never asserts a processor role, an approval or a legal conformity anywhere in the policy', () => {
+    const everything = JSON.stringify(strings.privacy)
+    expect(everything).not.toMatch(/encargado del tratamiento/i)
+    expect(everything).not.toMatch(/aprobad[ao]|cumple con|legalmente/i)
+  })
+
+  it('makes the 18-year declaration part of the consent tick box', () => {
+    expect(strings.consent.checkbox(PRIVACY_POLICY_VERSION)).toMatch(/mayor de 18 años/)
+  })
+})

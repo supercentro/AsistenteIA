@@ -38,20 +38,38 @@ The policy is a typed structure (title, sections of paragraphs and lists) in the
 
 Content, written from what the system does today (each statement is checked against the code and docs when the text is drafted):
 - what is stored: account data, the conversations and messages, the fragments cited by each answer, the consent version and time;
-- what is sent to Gemini as processor: the question, the recent history of the conversation and the retrieved fragments; nothing else; no call is made without consent;
+- what is sent to Gemini: the question, the recent history of the conversation and the retrieved fragments; nothing else; no call is made without consent;
+- audience and obligation (Ley 25.326 art. 6): the service is only for people over 18; which data is needed and what not accepting means (a held student can only read the policy and sign out);
+- the rights of Ley 25.326 (access, rectification, update, suppression, revocation of the consent without retroactive effect, habeas data) with the legal deadlines, and the supervisory authority (AAIP);
 - retention: until the person deletes it; deleting one conversation, deleting all conversations (`DELETE /users/me/conversations`); deletion of a document by the teacher removes its fragments but conversation citations keep a snapshot (design D5 of `chat-rag-endpoint`) — the text must say so;
 - not self-service today: account deletion and withdrawal of consent (contact the controller);
 - the controller, its contact, the legal basis and any retention period beyond "until deleted" are **owner inputs** and appear as marked placeholders until supplied.
 
-### D6. Version string stays `2026-10-v1` (open decision)
-Recommendation: keep it. No real student has accepted anything, so nobody holds a consent that was given without the text; the development database holds test accounts only. Raising it would change the backend default and about 17 backend test files for no protective effect. The rule for the future is stated in the policy module and in `docs/frontend-standards.md`: any change of the text raises the version in the same change. *Alternative:* raise now to `2026-11-v1` (rejected for cost; revisit if the owner knows of a real acceptance).
+### D6. Version string stays `2026-10-v1` (open decision, still not confirmed by the owner)
+The text of this change is the first one ever published, and it was rewritten for Ley 25.326 before any release; no real student has accepted any text, and the only database that holds an acceptance is the development one (test accounts). The owner must confirm that no other deployment exists before the merge. Recommendation: keep it. No real student has accepted anything, so nobody holds a consent that was given without the text; the development database holds test accounts only. Raising it would change the backend default and about 17 backend test files for no protective effect. The rule for the future is stated in the policy module and in `docs/frontend-standards.md`: any change of the text raises the version in the same change. *Alternative:* raise now to `2026-11-v1` (rejected for cost; revisit if the owner knows of a real acceptance).
 
-### D7. Teachers are not gated (assumption)
+### D7. Teachers are not gated (confirmed by the owner on 2026-11-18)
 Teachers upload material (processed by the local embedder) and never send conversational data to Gemini, so the consent that the policy describes does not apply to them. If the owner wants teachers to accept the same text, the gate condition changes in one place.
+
+### D8. Legal frame and what the text may claim
+Frame: Ley 25.326, Decreto 1558/2001 and the AAIP dispositions (Disposición 60-E/2016 on international transfers; Resoluciones 4/2019 and 255/2022 on criteria); the GDPR is a complementary reference. Details, article mapping and sources are in `reports/2026-11-18-argentina-legal-framework.md`.
+
+- The text states facts of the system and the content that art. 6 requires: purpose and recipients, the identity of the controller (owner input), whether the data is needed and the effect of not accepting, and the rights. It cites the articles it relies on only where the law text was read.
+- The text does **not** assert: that Google is a processor (that depends on the Gemini service contracted; the free tier is not covered by a data processing addendum and may use the data to improve products), a legal basis, a transfer mechanism, a retention period or a backup position. These are owner inputs marked `[A COMPLETAR ...]`, and the first three need legal review.
+- The list of rights follows the law and its decree (access, rectification, update, suppression, revocation of consent from Decreto 1558/2001 art. 5, habeas data from art. 33 onwards). Portability and restriction of processing belong to the GDPR and are not listed. The text does not name the supervisory authority: the law and the decree read name the Dirección Nacional de Protección de Datos Personales and the succession by the AAIP was not verified in a norm, so the name is part of owner input 6.
+- The sentence about the United States cites the list of Disposición 60-E/2016 (2016 text); the current list must be checked before approval (TD-063). The possibility of processing abroad comes from the terms of the paid services; the free-tier terms give no location.
+- The tick box also declares being over 18, in the same box as the acceptance of the policy (a bundled declaration: a lawyer must say whether it must be separate). The application does not verify age; evidence kept: version and time only. Teachers are not asked to accept or to declare their age (D7), although their account data is processed: recorded in TD-064.
+
+### D9. Conditions for a production use (not met by this change)
+The change makes the screens and the text exist; it does not make a production use lawful. Recorded in `docs/technical-debt.md`:
+1. TD-003: policy approved (owner and legal review); chat closed to real students until then.
+2. TD-063: Gemini with billing enabled (the free tier only with fictitious users and documents); contractual terms, retention, use of the data and place of processing evaluated; basis of the international transfer (the United States is not in the list of adequate countries of Disposición 60-E/2016 art. 3); processor contract if the institution is the controller (art. 25).
+3. TD-064: effective ways to exercise the rights and to withdraw the consent within the legal deadlines; account deletion (`DELETE /users/me` in the contract, not implemented; no database role may delete from `users`); consent at registration (the account data is collected before the consent screen); registration of the database with the AAIP (arts. 21 and 24) if it applies; who is the controller per institution.
 
 ## Risks / Trade-offs
 
 - **The text is not legal advice.** It is a draft from the system's behaviour; wrong or missing statements would make the consent uninformed. Mitigation: an explicit task for the owner to supply the placeholders and approve the text before the merge; the change does not close TD-003 by itself.
+- **Account data is collected at registration, before the consent screen.** The registration screen links to the policy but does not ask for acceptance. Whether art. 5 requires the consent earlier is a legal question recorded in TD-064; this change does not alter the registration flow.
 - **Blocking the subject list** for students without consent (D1). Mitigation: the consent screen is the only step; copy explains why.
 - **Consent obtained earlier by API calls** (dev accounts) will pass the gate without having seen the text (D6). Acceptable in development; irrelevant for real users.
 - **Drift between UI and backend versions:** covered by the existing paired tests; the gate fails closed in the worst case (a student asked to accept again, `422` shown, no loop).

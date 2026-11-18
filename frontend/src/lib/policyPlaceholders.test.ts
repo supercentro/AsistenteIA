@@ -19,6 +19,14 @@ describe('findOwnerPlaceholders (the detector itself)', () => {
   })
 })
 
+describe('the owner inputs of the draft', () => {
+  // Until the owner supplies them, exactly six inputs are marked; a silently removed marker would let
+  // an unverified statement take its place. Change the count only when an input is supplied and approved.
+  it('are the six agreed inputs', () => {
+    expect(findOwnerPlaceholders(strings.privacy)).toHaveLength(6)
+  })
+})
+
 describe('release check of the policy text', () => {
   // On demand: POLICY_RELEASE_CHECK=1 npx vitest run src/lib/policyPlaceholders.test.ts
   // It fails while the owner inputs are still placeholders, so the draft cannot be released.

@@ -39,3 +39,7 @@ Failing run before the corrections: `npx vitest run src/lib/consent.test.ts src/
 ## Gates after the implementation (Windows host)
 
 Re-run after the review corrections (final state): `npm run lint`, `format:check`, `typecheck`, `check:api-types`, `test:coverage` (22 files, **287 passed, 1 skipped** (the on-demand release check); overall coverage 98.07 % statements, 94.94 % branches), `build`, `npx playwright test consent-flow auth-flow smoke` (16 passed), `openspec validate --all --strict` (21 passed): all pass. The first implementation pass had 21 files and 282 tests.
+
+## Adaptation to Ley 25.326 (2026-11-18)
+
+First round: 6 tests written first failed (6 failed, then the file passed with 14 tests); 4 mutations of the text detected. After the independent review: 3 failed before the corrections, 37 passed after in the three touched files; 6 mutations of the text and 1 of the placeholders detected (`reports/2026-11-18-adversarial-review-argentina.md`). Final gates on the Windows host: `lint`, `format:check`, `typecheck`, `check:api-types`, `build` clean; `test:coverage` 22 files, **296 passed, 1 skipped** (the on-demand release check), 98.07 % statements and 94.94 % branches; Playwright mocked (`consent-flow auth-flow smoke`) 16 passed; `openspec validate --all --strict` 21 passed. The release check (`POLICY_RELEASE_CHECK=1`) fails on purpose while the six owner placeholders remain.

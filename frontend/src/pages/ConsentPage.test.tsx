@@ -63,6 +63,15 @@ describe('ConsentPage - explicit and recorded consent', () => {
     await expectNoSeriousA11yViolations(container)
   })
 
+  it('offers the over-18 declaration in the tick box that gates Accept', async () => {
+    renderApp({ route: '/consent', session: { user: unconsentedStudent } })
+    const box = await screen.findByRole('checkbox', { name: /declaro ser mayor de 18 años/ })
+    const accept = screen.getByRole('button', { name: strings.consent.accept })
+    expect(accept).toBeDisabled()
+    await userEvent.setup().click(box)
+    expect(accept).toBeEnabled()
+  })
+
   it('tells a first-time student apart from one whose policy changed', async () => {
     renderApp({ route: '/consent', session: { user: unconsentedStudent } })
     expect(await screen.findByText(strings.consent.firstTime)).toBeVisible()
