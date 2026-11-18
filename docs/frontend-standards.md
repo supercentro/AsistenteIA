@@ -26,7 +26,7 @@ Versions are pinned via `package-lock.json`.
 
 ```
 frontend/src/
-  pages/        # Route-level views: LoginPage, RegisterPage, SubjectsPage, ForbiddenPage, NotFoundPage (later: ChatPage, TeacherSubjectPage, PrivacyPage)
+  pages/        # Route-level views: LoginPage, RegisterPage, PrivacyPage (public), ConsentPage, SubjectsPage, ForbiddenPage, NotFoundPage (later: ChatPage, TeacherSubjectPage)
   components/   # Reusable UI (ChatWindow, MessageBubble, SourceChip, DocumentUploader, ...)
   hooks/        # React Query hooks (useSubjects, useChat, useConversations, ...)
   services/     # Axios API modules (one per resource), the ONLY place that calls the API
@@ -58,6 +58,8 @@ frontend/src/
 - MUST: render assistant/user text as plain text or sanitised Markdown (no `dangerouslySetInnerHTML` with unsanitised content).
 - MUST: forms use React Hook Form with Zod schemas that mirror the limits of `api-spec.yml` without being stricter or looser (login password 1 to 128, registration password 10 to 128); failed submits focus the first invalid field and link errors with `aria-describedby`; submit controls are disabled while a request is pending.
 - MUST: first-login consent screen blocks chat until accepted (`POST /users/me/consent`); the privacy page names Gemini as a processor and explains deletion options.
+- MUST: a student whose `consent_version` is not `PRIVACY_POLICY_VERSION` is held at `/consent` by the `RequireConsent` layout route around every student route; teachers are not held; a 403 `CONSENT_REQUIRED` from the API re-opens the gate (`markConsentStale`). The gate is usability only: the backend stays the authority.
+- MUST: any change of the policy text raises `PRIVACY_POLICY_VERSION` (UI constant and backend default, kept equal by tests) in the same change, so every student accepts the new text. The policy text lives in the copy module (`privacy` section) and is rendered by one component (`PolicyView`) for `/privacy` and for the consent screen. When the chat screen exists, re-check the text about where conversations are deleted.
 - MUST: deletion actions (conversation, all history, account) require explicit confirmation and state that they are irreversible.
 - MUST: accessibility — semantic elements, labels on inputs, keyboard navigation, visible focus, `aria-live` for new chat messages, sufficient contrast.
 - MUST: UI strings live in one constants/i18n module (Spanish copy), not scattered in JSX.

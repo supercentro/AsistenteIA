@@ -87,6 +87,21 @@ export function setUser(user: User): void {
   publish({ ...snapshot, user })
 }
 
+/**
+ * The API said the consent is not current (the policy changed during the session): keep the
+ * session but forget the accepted version, so the consent gate holds the student again. The
+ * acceptance time stays, which tells "the policy changed" apart from "never accepted".
+ */
+export function markConsentStale(): void {
+  if (snapshot.token === null || snapshot.user === null) {
+    return
+  }
+  publish({
+    ...snapshot,
+    user: { ...snapshot.user, consent_version: null },
+  })
+}
+
 export function endSession(reason: EndReason): void {
   if (snapshot.token === null && snapshot.user === null) {
     return

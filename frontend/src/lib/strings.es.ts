@@ -37,6 +37,7 @@ export const strings = {
       submit: 'Crear cuenta',
       submitting: 'Creando cuenta…',
       haveAccount: 'Iniciar sesión',
+      privacyLink: 'Política de privacidad',
     },
     notices: {
       registered: 'La cuenta se creó correctamente. Ya se puede iniciar sesión.',
@@ -60,6 +61,100 @@ export const strings = {
       passwordTooLong: 'La contraseña no puede superar los 128 caracteres.',
       formInvalid: 'Revise los campos marcados.',
     },
+  },
+  privacy: {
+    title: 'Política de privacidad',
+    versionLabel: (version: string) => `Versión ${version}`,
+    intro:
+      'AsistenteIA responde preguntas con el material que el personal docente sube a cada asignatura. Esta política explica qué datos se guardan, a quién se envían y cómo se borran.',
+    back: 'Volver al inicio',
+    sections: {
+      controller: {
+        heading: 'Responsable del tratamiento',
+        paragraphs: [
+          '[A COMPLETAR POR LA INSTITUCIÓN: nombre, domicilio y medio de contacto del responsable del tratamiento.]',
+        ],
+        items: [] as readonly string[],
+      },
+      stored: {
+        heading: 'Qué datos se guardan',
+        paragraphs: [] as readonly string[],
+        items: [
+          'Los datos de la cuenta: nombre, correo electrónico y contraseña. La contraseña se guarda transformada con un algoritmo de un solo sentido, nunca en texto claro.',
+          'Las conversaciones: cada pregunta que se escribe y cada respuesta del asistente.',
+          'Por cada respuesta, las fuentes citadas: nombre del archivo, página y la referencia al fragmento del material.',
+          'La versión de esta política que se acepta y la fecha y hora de la aceptación.',
+        ],
+      },
+      purpose: {
+        heading: 'Para qué se usan y con qué base',
+        paragraphs: [
+          'Los datos se usan para dar el servicio: autenticar la cuenta, generar respuestas con el material de la asignatura y mostrar el historial de conversaciones. Por cada fuente citada también se guardan su posición y su puntuación de similitud, para poder analizar la calidad de las respuestas. Los registros técnicos de la aplicación no incluyen el contenido de los mensajes.',
+          '[A COMPLETAR POR LA INSTITUCIÓN: base jurídica del tratamiento.]',
+        ],
+        items: [] as readonly string[],
+      },
+      processor: {
+        heading: 'Tratamiento por Gemini (Google)',
+        paragraphs: [
+          'Para generar cada respuesta, el sistema envía a Gemini, el servicio de inteligencia artificial de Google, que actúa como encargado del tratamiento:',
+        ],
+        items: [
+          'La pregunta que se escribe.',
+          'Los mensajes más recientes de la misma conversación, para dar continuidad.',
+          'Los fragmentos del material de la asignatura que son relevantes para la pregunta, con el nombre del archivo y la página de los que provienen.',
+        ],
+        notes: [
+          'No se envían el nombre, el correo electrónico ni la contraseña de la cuenta.',
+          'No se envía nada a Gemini mientras no se haya aceptado esta política.',
+          '[A COMPLETAR POR LA INSTITUCIÓN: condiciones de Google aplicables a este tratamiento y lugar donde se realiza.]',
+        ],
+      },
+      retention: {
+        heading: 'Cuánto tiempo se conservan',
+        paragraphs: [
+          'Las conversaciones se conservan hasta que se borran. Si el personal docente elimina un documento, sus fragmentos se borran, pero las respuestas ya dadas conservan el nombre del archivo y la página como referencia.',
+          'Si el personal docente elimina una asignatura, o si se elimina la cuenta, las conversaciones correspondientes se eliminan con ellas.',
+          'Si se deja de estar inscrito en una asignatura, sus conversaciones dejan de mostrarse, pero no se borran: vuelven a verse si se inscribe de nuevo, y se pueden borrar en cualquier momento.',
+          '[A COMPLETAR POR LA INSTITUCIÓN: plazo máximo de conservación de las cuentas, si lo hay.]',
+        ],
+        items: [] as readonly string[],
+      },
+      deletion: {
+        heading: 'Cómo borrar las conversaciones',
+        paragraphs: [] as readonly string[],
+        items: [
+          'Se puede borrar una conversación concreta: se eliminan sus mensajes y las fuentes asociadas de la base de datos de la aplicación.',
+          'Se pueden borrar todas las conversaciones de una vez.',
+        ],
+        notes: [
+          '[A COMPLETAR POR LA INSTITUCIÓN: si existen copias de seguridad, cuánto tiempo se conservan y cuándo dejan de contener los datos borrados.]',
+        ],
+      },
+      notSelfService: {
+        heading: 'Lo que todavía no se puede hacer sin ayuda',
+        paragraphs: [] as readonly string[],
+        items: ['Eliminar la cuenta.', 'Retirar el consentimiento dado.'],
+        notes: [
+          'Para estos casos, y para ejercer los derechos de acceso, rectificación, supresión, limitación del tratamiento, oposición y portabilidad, es necesario contactar con el responsable del tratamiento. También se puede presentar una reclamación ante la autoridad de control en materia de protección de datos.',
+          '[A COMPLETAR POR LA INSTITUCIÓN: medio concreto para ejercer estos derechos y autoridad de control competente.]',
+        ],
+      },
+    },
+  },
+  consent: {
+    title: 'Aceptar la política de privacidad',
+    firstTime: 'Para usar el asistente es necesario leer y aceptar la política de privacidad.',
+    changed:
+      'La política de privacidad cambió desde la última vez que se aceptó. Es necesario aceptar la versión vigente para continuar.',
+    checkbox: (version: string) =>
+      `He leído y acepto la política de privacidad (versión ${version})`,
+    accept: 'Aceptar y continuar',
+    accepting: 'Guardando…',
+    signOut: 'Cerrar sesión',
+    policyLink: 'Abrir la política en una pestaña nueva',
+    versionChanged:
+      'La política cambió mientras tanto. Recargue la página para ver la versión vigente.',
   },
   subjects: {
     titleStudent: 'Mis asignaturas',

@@ -14,11 +14,22 @@ type User = Schemas['User']
 export const API = 'http://localhost:8000/api/v1'
 const APP_ORIGIN = process.env.E2E_BASE_URL ?? 'http://localhost:5173'
 
+/** Must equal PRIVACY_POLICY_VERSION in src/lib/privacyPolicy.ts (a unit test keeps that one in sync). */
+export const POLICY_VERSION = '2026-10-v1'
+
+/** A student whose consent is current: the consent gate lets every student route through. */
 export const student: User = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Ana Estudiante',
   email: 'ana@example.com',
   role: 'student',
+  consent_version: POLICY_VERSION,
+  consent_accepted_at: '2026-11-17T10:00:00Z',
+}
+
+/** A student who never accepted the privacy policy. */
+export const unconsentedStudent: User = {
+  ...student,
   consent_version: null,
   consent_accepted_at: null,
 }
