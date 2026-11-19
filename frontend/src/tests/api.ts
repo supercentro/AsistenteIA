@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw'
 import { PRIVACY_POLICY_VERSION } from '../lib/privacyPolicy'
-import type { ApiErrorBody, Subject, TokenResponse, User } from '../types/api'
+import type { ApiErrorBody, Document, Subject, TokenResponse, User } from '../types/api'
 
 /** Base URL used by every test (set through `test.env` in vite.config.ts). */
 export const API = 'http://localhost:8000/api/v1'
@@ -55,6 +55,22 @@ export function subject(overrides: Partial<Subject> = {}): Subject {
   }
 }
 
+export function documentItem(overrides: Partial<Document> = {}): Document {
+  return {
+    id: '44444444-4444-4444-8444-444444444444',
+    subject_id: subject().id,
+    filename: 'apuntes.pdf',
+    content_type: 'application/pdf',
+    size_bytes: 2048,
+    status: 'ready',
+    error_code: null,
+    error_message: null,
+    chunks_count: 12,
+    created_at: '2026-11-18T10:00:00Z',
+    ...overrides,
+  }
+}
+
 /** Error body exactly as the backend sends it, so tests also check that its text is never shown. */
 export function errorBody(
   code: string,
@@ -79,6 +95,10 @@ export const handlers = {
     http.post(`${API}/auth/login`, () => HttpResponse.json(tokenResponse(expiresIn))),
   me: (user: User = studentUser) => http.get(`${API}/users/me`, () => HttpResponse.json(user)),
   subjects: (list: Subject[] = []) => http.get(`${API}/subjects`, () => HttpResponse.json(list)),
+  subject: (item: Subject = subject()) =>
+    http.get(`${API}/subjects/${item.id}`, () => HttpResponse.json(item)),
+  documents: (list: Document[] = [], subjectId: string = subject().id) =>
+    http.get(`${API}/subjects/${subjectId}/documents`, () => HttpResponse.json(list)),
   register: (user: User = studentUser) =>
     http.post(`${API}/auth/register`, () => HttpResponse.json(user, { status: 201 })),
 }

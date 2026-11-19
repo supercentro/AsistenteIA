@@ -14,6 +14,7 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
 const ConsentPage = lazy(() => import('./pages/ConsentPage'))
 const SubjectsPage = lazy(() => import('./pages/SubjectsPage'))
+const TeacherSubjectPage = lazy(() => import('./pages/TeacherSubjectPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 export default function App() {
@@ -32,6 +33,9 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route element={<RequireRole roles={['student', 'teacher']} />}>
                 <Route path="/subjects" element={<SubjectsPage />} />
+              </Route>
+              <Route element={<RequireRole roles={['teacher']} />}>
+                <Route path="/subjects/:subjectId" element={<TeacherSubjectPage />} />
               </Route>
             </Route>
           </Route>

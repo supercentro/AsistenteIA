@@ -195,6 +195,107 @@ export const strings = {
     emptyTeacher: 'Todavía no hay asignaturas a cargo de esta cuenta.',
     loadError: 'No se pudieron cargar las asignaturas.',
     listLabel: 'Lista de asignaturas',
+    create: {
+      heading: 'Crear una asignatura',
+      name: 'Nombre',
+      description: 'Descripción (opcional)',
+      submit: 'Crear asignatura',
+      submitting: 'Creando…',
+      nameTaken: 'Ya existe una asignatura con ese nombre.',
+      validation: {
+        nameRequired: 'Ingrese el nombre de la asignatura.',
+        nameTooLong: 'El nombre no puede superar los 150 caracteres.',
+        descriptionTooLong: 'La descripción no puede superar los 2000 caracteres.',
+      },
+    },
+  },
+  materials: {
+    back: 'Volver a las asignaturas',
+    loading: 'Cargando asignatura…',
+    notFound: {
+      title: 'Asignatura no encontrada',
+      body: 'La asignatura no existe o la cuenta no tiene acceso a ella.',
+    },
+    documents: {
+      heading: 'Documentos',
+      loading: 'Cargando documentos…',
+      empty:
+        'Todavía no se subió ningún documento. Use el formulario de arriba para subir el primero.',
+      listLabel: 'Documentos de la asignatura',
+      refresh: 'Actualizar lista',
+      pollFailed: 'No se pudo actualizar la lista. Se muestra la última versión conocida.',
+      chunks: (count: number) => `${count} ${count === 1 ? 'fragmento' : 'fragmentos'}`,
+      size: (bytes: number) =>
+        bytes < 1024
+          ? `${bytes} B`
+          : bytes < 1024 * 1024
+            ? `${Math.round(bytes / 1024)} KB`
+            : `${(bytes / (1024 * 1024)).toFixed(1)} MB`,
+      types: {
+        'application/pdf': 'PDF',
+        'text/plain': 'Texto',
+        'text/markdown': 'Markdown',
+      } as Record<string, string>,
+      otherType: 'Otro',
+    },
+    status: {
+      pending: 'Pendiente',
+      processing: 'Procesando',
+      ready: 'Listo',
+      failed: 'Con error',
+    },
+    announce: {
+      ready: (name: string) => `El documento ${name} está listo.`,
+      failed: (name: string) => `El documento ${name} no se pudo procesar.`,
+    },
+    failures: {
+      NO_EXTRACTABLE_TEXT:
+        'No se pudo extraer texto del archivo. Puede ser un PDF escaneado o sin texto.',
+      ENCRYPTED_PDF: 'El PDF está protegido con contraseña. Suba una versión sin protección.',
+      CORRUPT_FILE: 'El archivo está dañado o no se pudo leer.',
+      TOO_MANY_PAGES: 'El PDF tiene demasiadas páginas. Divídalo en partes más pequeñas.',
+      TEXT_TOO_LARGE: 'El texto del archivo es demasiado extenso. Divídalo en partes más pequeñas.',
+      TOO_MANY_CHUNKS: 'El archivo genera demasiados fragmentos. Divídalo en partes más pequeñas.',
+      PROCESSING_TIMEOUT:
+        'El procesamiento tardó demasiado y se canceló. Inténtelo de nuevo con un archivo más pequeño.',
+      RESOURCE_LIMIT_EXCEEDED: 'El archivo superó los recursos permitidos para procesarlo.',
+      EMBEDDING_FAILED:
+        'No se pudo preparar el contenido para las consultas. Inténtelo de nuevo más tarde.',
+      PROCESSING_INTERRUPTED:
+        'El procesamiento se interrumpió. Elimine el documento y vuelva a subirlo.',
+      JOB_EXPIRED:
+        'El procesamiento no se completó a tiempo. Elimine el documento y vuelva a subirlo.',
+      PROCESSING_FAILED: 'No se pudo procesar el documento. Inténtelo de nuevo.',
+      generic: 'El documento no se pudo procesar.',
+    },
+    upload: {
+      heading: 'Subir material',
+      fileLabel: 'Archivo',
+      notice:
+        'Formatos admitidos: PDF, texto (.txt) y Markdown (.md). Esta versión es un MVP de pruebas: suba únicamente documentos ficticios, sin datos personales ni contenido confidencial.',
+      submit: 'Subir documento',
+      submitting: 'Subiendo…',
+      noFile: 'Elija un archivo para subir.',
+      timeout:
+        'La subida tardó demasiado y no se sabe si el archivo llegó. Revise la lista de documentos antes de volver a intentarlo.',
+      reasons: {
+        MALFORMED_MULTIPART: 'La solicitud de subida no es válida. Vuelva a elegir el archivo.',
+        FILE_PART_MISSING: 'No se recibió ningún archivo. Vuelva a elegirlo.',
+        UNEXPECTED_FIELDS: 'La solicitud incluye datos inesperados. Vuelva a intentarlo.',
+        EMPTY_FILE: 'El archivo está vacío.',
+        INVALID_FILENAME: 'El nombre del archivo no es válido. Cámbielo e inténtelo de nuevo.',
+      },
+    },
+    remove: {
+      action: (name: string) => `Eliminar ${name}`,
+      confirmQuestion: (name: string) => `¿Eliminar «${name}»?`,
+      confirmBody:
+        'Esta acción no se puede deshacer. También se borran los fragmentos del documento.',
+      confirm: 'Eliminar definitivamente',
+      cancel: 'Cancelar',
+      working: 'Eliminando…',
+      gone: 'El documento ya no existía.',
+    },
   },
   states: {
     loading: 'Cargando…',
@@ -212,6 +313,13 @@ export const strings = {
       RATE_LIMITED: 'Se realizaron demasiados intentos. Espere un momento e inténtelo de nuevo.',
       SERVICE_UNAVAILABLE:
         'El servicio no está disponible en este momento. Inténtelo de nuevo más tarde.',
+      PAYLOAD_TOO_LARGE: 'El archivo supera el tamaño máximo permitido.',
+      UNSUPPORTED_MEDIA_TYPE: 'El tipo de archivo no es admitido. Suba un PDF, un .txt o un .md.',
+      DOCUMENT_QUOTA_EXCEEDED:
+        'La asignatura alcanzó el máximo de documentos. Elimine alguno para subir otro.',
+      INGESTION_QUEUE_FULL:
+        'El servicio está procesando muchos documentos. Inténtelo de nuevo en unos minutos.',
+      REQUEST_TIMEOUT: 'La subida tardó demasiado. Compruebe la conexión e inténtelo de nuevo.',
     },
     byStatus: {
       unauthorized: 'La sesión no es válida. Inicie sesión de nuevo.',
@@ -226,6 +334,7 @@ export const strings = {
     network: 'No se pudo conectar con el servidor. Compruebe la conexión e inténtelo de nuevo.',
     timeout: 'El servidor tardó demasiado en responder. Inténtelo de nuevo.',
     unknown: 'Ocurrió un error inesperado. Inténtelo de nuevo.',
+    waitSeconds: (seconds: number) => `Espere ${seconds} segundos antes de intentarlo de nuevo.`,
     rateLimitedIn: (seconds: number) =>
       `Se realizaron demasiados intentos. Espere ${seconds} segundos e inténtelo de nuevo.`,
   },

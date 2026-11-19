@@ -9,7 +9,15 @@ import { RequireRole } from './components/RequireRole'
 import { apiClient } from './lib/apiClient'
 import { getSnapshot } from './lib/session'
 import { strings } from './lib/strings.es'
-import { API, errorResponse, handlers, studentUser, teacherUser, tokenResponse } from './tests/api'
+import {
+  API,
+  TOKEN_VALUE,
+  errorResponse,
+  handlers,
+  studentUser,
+  teacherUser,
+  tokenResponse,
+} from './tests/api'
 import { server } from './tests/server'
 import { renderApp, renderWithProviders } from './tests/utils'
 
@@ -134,8 +142,12 @@ describe('App routing', () => {
   it('ends the session once and shows the login screen with a notice when the API answers 401', async () => {
     let calls = 0
     server.use(
-      http.get(`${API}/subjects`, () => {
-        calls += 1
+      http.get(`${API}/subjects`, ({ request }) => {
+        // Only the requests of this test's session count: a request that an earlier test left in
+        // flight (it carries that session's token) can reach this handler late under load.
+        if (request.headers.get('authorization') === `Bearer ${TOKEN_VALUE}`) {
+          calls += 1
+        }
         return errorResponse(401, 'UNAUTHORIZED')
       }),
     )

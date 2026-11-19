@@ -41,5 +41,23 @@ export const registerSchema = z.object({
     .max(MAX_PASSWORD_LENGTH, validation.passwordTooLong),
 })
 
+const MAX_SUBJECT_NAME_LENGTH = 150
+const MAX_SUBJECT_DESCRIPTION_LENGTH = 2000
+const { validation: subjectValidation } = strings.subjects.create
+
+/** Mirrors POST /subjects without being stricter: control characters are left to the server. */
+export const subjectSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, subjectValidation.nameRequired)
+    .max(MAX_SUBJECT_NAME_LENGTH, subjectValidation.nameTooLong),
+  description: z
+    .string()
+    .trim()
+    .max(MAX_SUBJECT_DESCRIPTION_LENGTH, subjectValidation.descriptionTooLong),
+})
+
 export type LoginValues = z.infer<typeof loginSchema>
 export type RegisterValues = z.infer<typeof registerSchema>
+export type SubjectValues = z.infer<typeof subjectSchema>

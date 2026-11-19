@@ -3,11 +3,22 @@ import { strings } from './strings.es'
 
 export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'unknown'
 
+/** The reasons the API documents for an upload answered with 422; anything else is dropped. */
+export const UPLOAD_REASONS = [
+  'MALFORMED_MULTIPART',
+  'FILE_PART_MISSING',
+  'UNEXPECTED_FIELDS',
+  'EMPTY_FILE',
+  'INVALID_FILENAME',
+] as const
+export type UploadReason = (typeof UPLOAD_REASONS)[number]
+
 interface ApiErrorInit {
   kind: ApiErrorKind
   status?: number | null
   code?: string | null
   retryAfterSeconds?: number | null
+  reason?: UploadReason | null
 }
 
 const CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,39}$/
@@ -22,14 +33,23 @@ export class ApiError extends Error {
   readonly status: number | null
   readonly code: string | null
   readonly retryAfterSeconds: number | null
+  /** Documented reason of a 422 upload answer, chosen from a closed list; never server text. */
+  readonly reason: UploadReason | null
 
-  constructor({ kind, status = null, code = null, retryAfterSeconds = null }: ApiErrorInit) {
+  constructor({
+    kind,
+    status = null,
+    code = null,
+    retryAfterSeconds = null,
+    reason = null,
+  }: ApiErrorInit) {
     super('API request failed')
     this.name = 'ApiError'
     this.kind = kind
     this.status = status
     this.code = code
     this.retryAfterSeconds = retryAfterSeconds
+    this.reason = reason
   }
 
   get isClientError(): boolean {
@@ -54,6 +74,18 @@ function readCode(body: unknown): string | null {
   return typeof code === 'string' && CODE_PATTERN.test(code) ? code : null
 }
 
+function readReason(status: number, body: unknown): UploadReason | null {
+  if (status !== 422 || typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return null
+  }
+  const details = (body as Record<string, unknown>).details
+  if (typeof details !== 'object' || details === null || Array.isArray(details)) {
+    return null
+  }
+  const reason = (details as Record<string, unknown>).reason
+  return UPLOAD_REASONS.find((known) => known === reason) ?? null
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error
@@ -65,7 +97,9 @@ export function toApiError(error: unknown): ApiError {
         kind: 'http',
         status,
         code: readCode(data),
-        retryAfterSeconds: status === 429 ? parseRetryAfter(headers?.['retry-after']) : null,
+        retryAfterSeconds:
+          status === 429 || status === 503 ? parseRetryAfter(headers?.['retry-after']) : null,
+        reason: readReason(status, data),
       })
     }
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
@@ -113,8 +147,9 @@ export function messageFor(error: ApiError, overrides: Record<string, string> = 
     return strings.errors.rateLimitedIn(error.retryAfterSeconds)
   }
   const byCode = strings.errors.byCode as Record<string, string>
-  if (error.code && byCode[error.code]) {
-    return byCode[error.code] as string
+  const base = (error.code && byCode[error.code]) || byStatus(error.status)
+  if (error.status === 503 && error.retryAfterSeconds !== null) {
+    return `${base} ${strings.errors.waitSeconds(error.retryAfterSeconds)}`
   }
-  return byStatus(error.status)
+  return base
 }

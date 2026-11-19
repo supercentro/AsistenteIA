@@ -32,7 +32,7 @@ test('registers a student, is sent to the login screen with a notice and signs i
   await expect(page.getByText('Unidad 1')).toBeVisible()
 })
 
-test('a teacher signs in and sees the teacher view without management controls', async ({
+test('a teacher signs in and sees the create form and a link per subject, with no delete or enrol control', async ({
   page,
 }) => {
   await mockApi(page, signInHandlers(teacher, [subject()]))
@@ -43,8 +43,10 @@ test('a teacher signs in and sees the teacher view without management controls',
   await expect(
     page.getByRole('heading', { level: 1, name: 'Asignaturas a mi cargo' }),
   ).toBeVisible()
-  await expect(page.getByRole('button')).toHaveCount(1)
+  await expect(page.getByRole('button')).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Crear asignatura' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Algebra' })).toBeVisible()
 })
 
 test('sends the token to protected endpoints only', async ({ page }) => {
