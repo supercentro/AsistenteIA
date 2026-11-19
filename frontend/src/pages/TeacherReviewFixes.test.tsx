@@ -7,7 +7,7 @@ import { ApiError } from '../lib/apiError'
 import { strings } from '../lib/strings.es'
 import { documentService } from '../services/documentService'
 import { API, documentItem, errorResponse, subject, teacherUser } from '../tests/api'
-import { SUBJECT, SUBJECT_PAGE, serveSubject } from '../tests/materials'
+import { SUBJECT, SUBJECT_PAGE, serveSubject, noEnrollments } from '../tests/materials'
 import { server } from '../tests/server'
 import { renderApp, renderWithProviders } from '../tests/utils'
 import TeacherSubjectPage from './TeacherSubjectPage'
@@ -72,6 +72,7 @@ describe('Review: an answer that was already on its way does not undo a change',
     let calls = 0
     const gone = new Set<string>()
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, async () => {
         calls += 1
@@ -100,6 +101,7 @@ describe('Review: an answer that was already on its way does not undo a change',
   it('keeps an uploaded document shown when an older refresh answers afterwards', async () => {
     let calls = 0
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, async () => {
         calls += 1
@@ -156,6 +158,7 @@ describe('Review: moving to another subject does not keep the previous refusal',
     serveSubject()
     server.use(
       http.post(`${API}/subjects/${SUBJECT.id}/documents`, () => errorResponse(404, 'NOT_FOUND')),
+      noEnrollments(),
       http.get(`${API}/subjects/${other.id}`, () => HttpResponse.json(other)),
       http.get(`${API}/subjects/${other.id}/documents`, () => HttpResponse.json([])),
     )
@@ -184,6 +187,7 @@ describe('Review: a failed refresh of the subject keeps the page', () => {
   it('keeps the upload form and the documents when the subject cannot be refreshed', async () => {
     let subjectCalls = 0
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => {
         subjectCalls += 1
         return subjectCalls === 1

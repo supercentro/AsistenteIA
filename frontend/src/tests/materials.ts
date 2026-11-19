@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { API, documentItem, subject } from './api'
 import { server } from './server'
-import type { Document } from '../types/api'
+import type { Document, Enrollment } from '../types/api'
 
 export const SUBJECT = subject()
 export const SUBJECT_PAGE = `/subjects/${SUBJECT.id}`
@@ -26,9 +26,19 @@ export const ERROR_CODES = [
  * Serves the subject and a document list the test can change, and counts the list requests.
  * `uploads` receives the document the upload endpoint would store.
  */
-export function serveSubject(initial: Document[] = []) {
-  const state = { documents: [...initial], listCalls: 0, subjectCalls: 0 }
+export function serveSubject(initial: Document[] = [], initialEnrollments: Enrollment[] = []) {
+  const state = {
+    documents: [...initial],
+    enrollments: [...initialEnrollments],
+    listCalls: 0,
+    subjectCalls: 0,
+    enrollmentCalls: 0,
+  }
   server.use(
+    http.get(`${API}/subjects/${SUBJECT.id}/enrollments`, () => {
+      state.enrollmentCalls += 1
+      return HttpResponse.json(state.enrollments)
+    }),
     http.get(`${API}/subjects/${SUBJECT.id}`, () => {
       state.subjectCalls += 1
       return HttpResponse.json(SUBJECT)
@@ -40,6 +50,10 @@ export function serveSubject(initial: Document[] = []) {
   )
   return state
 }
+
+/** An empty enrollment list for any subject, for tests that only care about other parts of the page. */
+export const noEnrollments = () =>
+  http.get(`${API}/subjects/:id/enrollments`, () => HttpResponse.json([]))
 
 export function pdf(overrides: Partial<Document> = {}): Document {
   return documentItem(overrides)

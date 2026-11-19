@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { strings } from '../lib/strings.es'
 import { expectNoSeriousA11yViolations } from '../tests/a11y'
 import { API, documentItem, errorResponse, studentUser, subject, teacherUser } from '../tests/api'
-import { SUBJECT, SUBJECT_PAGE, serveSubject } from '../tests/materials'
+import { SUBJECT, SUBJECT_PAGE, serveSubject, noEnrollments } from '../tests/materials'
 import { server } from '../tests/server'
 import { renderApp } from '../tests/utils'
 
@@ -16,6 +16,7 @@ const TRICKY_NAME = `<img src=x onerror=alert(1)>${'n'.repeat(200)}.pdf`
 describe('TeacherSubjectPage - the owner opens the page', () => {
   it('shows the subject and its documents in the order received', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () =>
         HttpResponse.json(subject({ name: 'Algebra lineal', description: 'Unidad 1' })),
       ),
@@ -51,6 +52,7 @@ describe('TeacherSubjectPage - the owner opens the page', () => {
 
   it('shows file and subject names as text, wrapped, never as markup', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () =>
         HttpResponse.json(subject({ name: '<i>Algebra</i>' })),
       ),
@@ -69,6 +71,7 @@ describe('TeacherSubjectPage - the owner opens the page', () => {
 
   it('shows a loading state, then an empty state that points to the upload', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, async () => {
         await delay(150)
@@ -85,6 +88,7 @@ describe('TeacherSubjectPage - the owner opens the page', () => {
   it('shows an error with a retry control when the documents fail, and recovers', async () => {
     let calls = 0
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () => {
         calls += 1
@@ -118,6 +122,7 @@ describe('TeacherSubjectPage - the owner opens the page', () => {
 describe('TeacherSubjectPage - who may open it', () => {
   it('shows a not-found view without revealing whether the subject exists (404)', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => errorResponse(404, 'NOT_FOUND')),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () => errorResponse(404, 'NOT_FOUND')),
     )
@@ -130,6 +135,7 @@ describe('TeacherSubjectPage - who may open it', () => {
 
   it('shows the not-found view when only the document list answers 404', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () => errorResponse(404, 'NOT_FOUND')),
     )
@@ -157,6 +163,7 @@ describe('TeacherSubjectPage - who may open it', () => {
 
   it('ends the session when the API answers 401, without flashing an error', async () => {
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => errorResponse(401, 'UNAUTHORIZED')),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () => errorResponse(401, 'UNAUTHORIZED')),
     )

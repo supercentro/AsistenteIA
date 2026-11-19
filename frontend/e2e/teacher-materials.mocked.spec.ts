@@ -47,6 +47,7 @@ test('a teacher creates a subject, uploads a file, sees it become ready and dele
       return { status: 201, body: SUBJECT }
     },
     [`GET ${BASE}`]: () => ({ status: 200, body: SUBJECT }),
+    [`GET ${BASE}/enrollments`]: () => ({ status: 200, body: [] }),
     [`GET ${BASE}/documents`]: () => {
       listCalls += 1
       // The worker finishes between two polls: the second answer already says "ready".
@@ -103,6 +104,7 @@ test('every failure of the upload and a failed document are explained in Spanish
   await mockApi(page, {
     ...signInHandlers(teacher, [SUBJECT]),
     [`GET ${BASE}`]: () => ({ status: 200, body: SUBJECT }),
+    [`GET ${BASE}/enrollments`]: () => ({ status: 200, body: [] }),
     [`GET ${BASE}/documents`]: () => ({
       status: 200,
       body: [
@@ -141,6 +143,7 @@ test('the subject page has no horizontal scrolling at 320 px and works with the 
   await mockApi(page, {
     ...signInHandlers(teacher, [SUBJECT]),
     [`GET ${BASE}`]: () => ({ status: 200, body: SUBJECT }),
+    [`GET ${BASE}/enrollments`]: () => ({ status: 200, body: [] }),
     [`GET ${BASE}/documents`]: () => ({
       status: 200,
       body: [
