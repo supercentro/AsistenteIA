@@ -4,7 +4,7 @@ import { HttpResponse, delay, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { strings } from '../lib/strings.es'
 import { API, documentItem, errorResponse, teacherUser } from '../tests/api'
-import { ERROR_CODES, SUBJECT, SUBJECT_PAGE, serveSubject } from '../tests/materials'
+import { ERROR_CODES, SUBJECT, SUBJECT_PAGE, serveSubject, noEnrollments } from '../tests/materials'
 import { server } from '../tests/server'
 import { renderApp } from '../tests/utils'
 
@@ -167,6 +167,7 @@ describe('Following the processing', () => {
     let failing = false
     let calls = 0
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () => {
         calls += 1
@@ -192,6 +193,7 @@ describe('Following the processing', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     let unauthorized = false
     server.use(
+      noEnrollments(),
       http.get(`${API}/subjects/${SUBJECT.id}`, () => HttpResponse.json(SUBJECT)),
       http.get(`${API}/subjects/${SUBJECT.id}/documents`, () =>
         unauthorized

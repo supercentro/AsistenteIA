@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw'
 import { PRIVACY_POLICY_VERSION } from '../lib/privacyPolicy'
-import type { ApiErrorBody, Document, Subject, TokenResponse, User } from '../types/api'
+import type { ApiErrorBody, Document, Enrollment, Subject, TokenResponse, User } from '../types/api'
 
 /** Base URL used by every test (set through `test.env` in vite.config.ts). */
 export const API = 'http://localhost:8000/api/v1'
@@ -55,6 +55,17 @@ export function subject(overrides: Partial<Subject> = {}): Subject {
   }
 }
 
+export function enrollmentItem(overrides: Partial<Enrollment> = {}): Enrollment {
+  return {
+    id: '55555555-5555-4555-8555-555555555555',
+    subject_id: subject().id,
+    student_id: '77777777-7777-4777-8777-777777777777',
+    student_email: 'ana@example.com',
+    created_at: '2026-11-19T10:00:00Z',
+    ...overrides,
+  }
+}
+
 export function documentItem(overrides: Partial<Document> = {}): Document {
   return {
     id: '44444444-4444-4444-8444-444444444444',
@@ -99,6 +110,8 @@ export const handlers = {
     http.get(`${API}/subjects/${item.id}`, () => HttpResponse.json(item)),
   documents: (list: Document[] = [], subjectId: string = subject().id) =>
     http.get(`${API}/subjects/${subjectId}/documents`, () => HttpResponse.json(list)),
+  enrollments: (list: Enrollment[] = [], subjectId: string = subject().id) =>
+    http.get(`${API}/subjects/${subjectId}/enrollments`, () => HttpResponse.json(list)),
   register: (user: User = studentUser) =>
     http.post(`${API}/auth/register`, () => HttpResponse.json(user, { status: 201 })),
 }

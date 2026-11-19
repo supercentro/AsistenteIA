@@ -58,6 +58,10 @@ export const subjectSchema = z.object({
     .max(MAX_SUBJECT_DESCRIPTION_LENGTH, subjectValidation.descriptionTooLong),
 })
 
+/** The e-mail of a student to enroll: exactly the rule of the registration e-mail. */
+export const enrollmentSchema = z.object({ studentEmail: email })
+
 export type LoginValues = z.infer<typeof loginSchema>
 export type RegisterValues = z.infer<typeof registerSchema>
 export type SubjectValues = z.infer<typeof subjectSchema>
+export type EnrollmentValues = z.infer<typeof enrollmentSchema>

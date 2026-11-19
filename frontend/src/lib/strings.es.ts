@@ -297,6 +297,32 @@ export const strings = {
       gone: 'El documento ya no existía.',
     },
   },
+  enrollments: {
+    heading: 'Estudiantes inscritos',
+    loading: 'Cargando estudiantes…',
+    empty:
+      'Todavía no hay estudiantes inscritos. Use el formulario de arriba para inscribir al primero.',
+    listLabel: 'Estudiantes inscritos en la asignatura',
+    form: {
+      field: 'Correo electrónico del estudiante',
+      hint: 'La cuenta del estudiante ya debe existir: la persona se registra primero.',
+      submit: 'Inscribir estudiante',
+      submitting: 'Inscribiendo…',
+    },
+    errors: {
+      notFound: 'No se encontró un estudiante registrado con ese correo.',
+      alreadyEnrolled: 'Ese estudiante ya está inscrito en la asignatura.',
+    },
+    remove: {
+      action: (email: string) => `Quitar a ${email}`,
+      question: (email: string) => `¿Quitar a ${email} de la asignatura?`,
+      body: 'El estudiante dejará de ver la asignatura y sus conversaciones en ella. No se borra nada: si se lo vuelve a inscribir, las recupera.',
+      confirm: 'Quitar de la asignatura',
+      cancel: 'Cancelar',
+      working: 'Quitando…',
+      gone: 'La inscripción ya no existía.',
+    },
+  },
   states: {
     loading: 'Cargando…',
     retry: 'Reintentar',

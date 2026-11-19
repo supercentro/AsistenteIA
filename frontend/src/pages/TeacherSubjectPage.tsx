@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { DocumentUploadForm } from '../components/DocumentUploadForm'
 import { DocumentsSection } from '../components/DocumentsSection'
+import { EnrollmentsSection } from '../components/EnrollmentsSection'
 import { ErrorState } from '../components/ErrorState'
 import { LoadingState } from '../components/LoadingState'
 import { useDocuments } from '../hooks/useDocuments'
+import { useEnrollments } from '../hooks/useEnrollments'
 import { useSession } from '../hooks/useSession'
 import { useSubject } from '../hooks/useSubject'
 import { ApiError, messageFor } from '../lib/apiError'
@@ -38,15 +40,16 @@ export default function TeacherSubjectPage() {
   return <SubjectContent key={subjectId} subjectId={subjectId} />
 }
 
-/** A teacher's page for one subject: its upload form and its documents with their status. */
+/** A teacher's page for one subject: its upload form, its documents and its enrolled students. */
 function SubjectContent({ subjectId }: { subjectId: string }) {
   const { user } = useSession()
   const userId = user?.id ?? ''
   const subject = useSubject(userId, subjectId)
   const documents = useDocuments(userId, subjectId)
+  const enrollments = useEnrollments(userId, subjectId)
   const [unavailable, setUnavailable] = useState<403 | 404 | null>(null)
 
-  const statuses = [subject.error, documents.error]
+  const statuses = [subject.error, documents.error, enrollments.error]
     .filter((error): error is ApiError => error instanceof ApiError)
     .map((error) => error.status)
   if (unavailable === 403 || statuses.includes(403)) {
@@ -86,6 +89,12 @@ function SubjectContent({ subjectId }: { subjectId: string }) {
         onSubjectUnavailable={setUnavailable}
       />
       <DocumentsSection userId={userId} subjectId={subjectId} documents={documents} />
+      <EnrollmentsSection
+        userId={userId}
+        subjectId={subjectId}
+        enrollments={enrollments}
+        onSubjectUnavailable={() => setUnavailable(403)}
+      />
     </div>
   )
 }
