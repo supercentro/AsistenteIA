@@ -4,6 +4,9 @@ import type { components, paths } from './api.generated'
 export type User = components['schemas']['User']
 export type UserRole = NonNullable<User['role']>
 export type Subject = components['schemas']['Subject']
+export type SubjectCreate = components['schemas']['SubjectCreate']
+export type Document = components['schemas']['Document']
+export type DocumentStatus = Document['status']
 export type TokenResponse = components['schemas']['TokenResponse']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type ApiErrorBody = components['schemas']['Error']

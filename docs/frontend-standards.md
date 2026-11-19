@@ -26,7 +26,7 @@ Versions are pinned via `package-lock.json`.
 
 ```
 frontend/src/
-  pages/        # Route-level views: LoginPage, RegisterPage, PrivacyPage (public), ConsentPage, SubjectsPage, ForbiddenPage, NotFoundPage (later: ChatPage, TeacherSubjectPage)
+  pages/        # Route-level views: LoginPage, RegisterPage, PrivacyPage (public), ConsentPage, SubjectsPage (teachers also get the create form), TeacherSubjectPage (teachers: upload and document status), ForbiddenPage, NotFoundPage (later: ChatPage)
   components/   # Reusable UI (ChatWindow, MessageBubble, SourceChip, DocumentUploader, ...)
   hooks/        # React Query hooks (useSubjects, useChat, useConversations, ...)
   services/     # Axios API modules (one per resource), the ONLY place that calls the API
@@ -60,7 +60,9 @@ frontend/src/
 - MUST: first-login consent screen blocks chat until accepted (`POST /users/me/consent`); the privacy page names Gemini as the service that receives the questions, the recent history and the fragments (its role as processor depends on the Gemini service contracted, TD-063), explains the deletion options and the rights of Ley 25.326, and states that the service is only for people over 18. The text never asserts what only the owner or a lawyer can state: those items stay as `[A COMPLETAR ...]` placeholders until approved.
 - MUST: a student whose `consent_version` is not `PRIVACY_POLICY_VERSION` is held at `/consent` by the `RequireConsent` layout route around every student route; teachers are not held; a 403 `CONSENT_REQUIRED` from the API re-opens the gate (`markConsentStale`). The gate is usability only: the backend stays the authority.
 - MUST: any change of the policy text raises `PRIVACY_POLICY_VERSION` (UI constant and backend default, kept equal by tests) in the same change, so every student accepts the new text (the first text, introduced by `privacy-consent-ui`, has not been released, so it does not raise it). The policy text lives in the copy module (`privacy` section) and is rendered by one component (`PolicyView`) for `/privacy` and for the consent screen. When the chat screen exists, re-check the text about where conversations are deleted.
-- MUST: deletion actions (conversation, all history, account) require explicit confirmation and state that they are irreversible.
+- MUST: deletion actions (document, conversation, all history, account) require explicit confirmation and state that they are irreversible. The confirmation is an inline panel in the row (a `role="group"` that takes the focus and returns it to the trigger on cancel); no modal dependency is installed.
+- MUST: the document list of a subject refreshes by itself every 3 seconds only while some document is `pending` or `processing` (`useDocuments`), never in a background tab and never after the page is left; the status is always shown as text; the Spanish explanation of a `failed` document is chosen by `error_code` and the server `error_message` is never shown.
+- MUST: an upload sends one file in the single multipart field `file` and the client decides neither type nor size (the API does); the upload 422 is explained from the closed list of `details.reason` values, which `ApiError.reason` keeps only when it is one of them.
 - MUST: accessibility — semantic elements, labels on inputs, keyboard navigation, visible focus, `aria-live` for new chat messages, sufficient contrast.
 - MUST: UI strings live in one constants/i18n module (Spanish copy), not scattered in JSX.
 - SHOULD: responsive layout, mobile-first.

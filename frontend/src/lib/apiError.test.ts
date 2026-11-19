@@ -132,3 +132,75 @@ describe('messageFor', () => {
     expect(messageFor(error, { CONFLICT: 'custom' })).toBe('custom')
   })
 })
+
+describe('toApiError - the reason of an upload 422', () => {
+  it.each([
+    'MALFORMED_MULTIPART',
+    'FILE_PART_MISSING',
+    'UNEXPECTED_FIELDS',
+    'EMPTY_FILE',
+    'INVALID_FILENAME',
+  ])('keeps the documented reason %s', (reason) => {
+    const error = toApiError(
+      httpError(422, { code: 'VALIDATION_ERROR', message: 'x', details: { reason } }),
+    )
+    expect(error.reason).toBe(reason)
+  })
+
+  it.each([
+    ['an unlisted value', { reason: 'SOMETHING_ELSE' }],
+    ['markup', { reason: '<b>EMPTY_FILE</b>' }],
+    ['a lowercase value', { reason: 'empty_file' }],
+    ['a non-string value', { reason: 42 }],
+    ['no reason', { other: 'EMPTY_FILE' }],
+  ])('drops %s', (_name, details) => {
+    const error = toApiError(httpError(422, { code: 'VALIDATION_ERROR', message: 'x', details }))
+    expect(error.reason).toBeNull()
+  })
+
+  it('keeps a reason only on a 422', () => {
+    const error = toApiError(
+      httpError(409, { code: 'CONFLICT', message: 'x', details: { reason: 'EMPTY_FILE' } }),
+    )
+    expect(error.reason).toBeNull()
+  })
+
+  it('still keeps no other detail and no server text', () => {
+    const error = toApiError(
+      httpError(422, {
+        code: 'VALIDATION_ERROR',
+        message: 'secret-file.pdf is empty',
+        details: { reason: 'EMPTY_FILE', filename: 'secret-file.pdf' },
+      }),
+    )
+    expect(JSON.stringify(error)).not.toContain('secret-file')
+  })
+})
+
+describe('Retry-After on a 503', () => {
+  it('is kept for a 429 and a 503 and ignored for other statuses', () => {
+    expect(
+      toApiError(httpError(503, { code: 'X' }, { 'retry-after': '9' })).retryAfterSeconds,
+    ).toBe(9)
+    expect(
+      toApiError(httpError(429, { code: 'X' }, { 'retry-after': '9' })).retryAfterSeconds,
+    ).toBe(9)
+    expect(
+      toApiError(httpError(500, { code: 'X' }, { 'retry-after': '9' })).retryAfterSeconds,
+    ).toBeNull()
+  })
+
+  it('adds the wait to the message of a 503', () => {
+    const error = toApiError(
+      httpError(503, { code: 'INGESTION_QUEUE_FULL', message: 'x' }, { 'retry-after': '9' }),
+    )
+    expect(messageFor(error)).toBe(
+      `${strings.errors.byCode.INGESTION_QUEUE_FULL} ${strings.errors.waitSeconds(9)}`,
+    )
+  })
+
+  it('keeps the plain message of a 503 without the header', () => {
+    const error = toApiError(httpError(503, { code: 'INGESTION_QUEUE_FULL', message: 'x' }))
+    expect(messageFor(error)).toBe(strings.errors.byCode.INGESTION_QUEUE_FULL)
+  })
+})

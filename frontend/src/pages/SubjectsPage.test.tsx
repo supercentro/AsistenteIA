@@ -112,9 +112,9 @@ describe('SubjectsPage - content', () => {
     expect(body.className).toContain('whitespace-pre-line')
   })
 
-  it('offers no way to create, edit, delete or enrol and no detail link', async () => {
+  it('offers a student no way to create, edit, delete or enrol and no detail link', async () => {
     server.use(handlers.subjects([subject()]))
-    renderApp({ route: '/subjects', session: { user: teacherUser } })
+    renderApp({ route: '/subjects', session: { user: studentUser } })
 
     await screen.findByText('Algebra')
     const buttons = screen.getAllByRole('button').map((button) => button.textContent)
@@ -122,6 +122,19 @@ describe('SubjectsPage - content', () => {
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       strings.nav.subjects,
     ])
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('offers a teacher the create form and a link per subject, and no delete, edit or enrol', async () => {
+    server.use(handlers.subjects([subject()]))
+    renderApp({ route: '/subjects', session: { user: teacherUser } })
+
+    await screen.findByText('Algebra')
+    const buttons = screen.getAllByRole('button').map((button) => button.textContent)
+    expect(buttons).toEqual([strings.nav.signOut, strings.subjects.create.submit])
+    const links = screen.getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual([strings.nav.subjects, 'Algebra'])
+    expect(links[1]).toHaveAttribute('href', `/subjects/${subject().id}`)
   })
 
   it('uses a cache key per user', async () => {

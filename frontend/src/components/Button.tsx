@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** A request is in flight: the control is disabled so it cannot be activated twice. */
@@ -12,17 +12,21 @@ const VARIANTS = {
     'border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 disabled:opacity-60',
 } as const
 
-export function Button({
-  pending = false,
-  variant = 'primary',
-  type = 'button',
-  disabled,
-  className = '',
-  children,
-  ...rest
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    pending = false,
+    variant = 'primary',
+    type = 'button',
+    disabled,
+    className = '',
+    children,
+    ...rest
+  },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type={type}
       disabled={disabled || pending}
       aria-busy={pending}
@@ -32,4 +36,4 @@ export function Button({
       {children}
     </button>
   )
-}
+})
