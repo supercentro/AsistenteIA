@@ -323,6 +323,74 @@ export const strings = {
       gone: 'La inscripción ya no existía.',
     },
   },
+  chat: {
+    back: 'Volver a las asignaturas',
+    loading: 'Cargando asignatura…',
+    unavailable: {
+      title: 'Asignatura no disponible',
+      body: 'La asignatura no existe o la cuenta ya no tiene acceso a ella.',
+    },
+    notice:
+      'Versión de prueba: las preguntas y los fragmentos del material se envían a Gemini (Google) para generar la respuesta. Use solo datos ficticios. Mencione el tema en cada pregunta: el asistente no usa la conversación anterior para buscar en el material.',
+    policyLink: 'Política de privacidad (borrador)',
+    openChat: (name: string) => `Preguntar sobre ${name}`,
+    box: {
+      label: 'Pregunta',
+      send: 'Enviar',
+      sending: 'Enviando…',
+      required: 'Escriba una pregunta.',
+      tooLong: 'La pregunta no puede superar los 2000 caracteres.',
+      counter: (count: number) => `${count} de 2000 caracteres`,
+    },
+    answering: 'El asistente está respondiendo…',
+    thread: {
+      label: 'Mensajes de la conversación',
+      empty: 'Escriba la primera pregunta de esta conversación.',
+      you: 'Usted',
+      assistant: 'Asistente',
+    },
+    sources: {
+      label: 'Material consultado',
+      page: (page: number) => `página ${page}`,
+      snippet: 'Ver fragmento',
+      note: 'Fragmentos del material asociados a esta respuesta. Compruebe la información en el documento original.',
+    },
+    conversations: {
+      heading: 'Conversaciones',
+      loading: 'Cargando conversaciones…',
+      empty: 'Todavía no hay conversaciones en esta asignatura.',
+      listLabel: 'Conversaciones de la asignatura',
+      new: 'Nueva conversación',
+      // The API gives no preview today (last_message_preview is null): the date tells them apart.
+      untitled: (createdAt: string) =>
+        `Conversación del ${new Date(createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}`,
+      messagesUnavailable: 'Esta conversación ya no está disponible.',
+      gone: 'La conversación ya no existía.',
+      remove: {
+        action: (preview: string) => `Eliminar la conversación «${preview}»`,
+        question: (preview: string) => `¿Eliminar la conversación «${preview}»?`,
+        body: 'Se borran la conversación y todos sus mensajes. No se puede deshacer.',
+        confirm: 'Eliminar conversación',
+        cancel: 'Cancelar',
+        working: 'Eliminando…',
+      },
+    },
+    history: {
+      heading: 'Mi historial',
+      action: 'Borrar todo mi historial',
+      question: '¿Borrar todo el historial de conversaciones?',
+      body: 'Se borran todas las conversaciones de la cuenta en todas las asignaturas, también las de asignaturas que ya no ve. No se puede deshacer. La cuenta no se elimina.',
+      confirm: 'Borrar todo el historial',
+      cancel: 'Cancelar',
+      working: 'Borrando…',
+      done: 'Se borró todo el historial de conversaciones.',
+    },
+    errors: {
+      sharedLimit: 'El límite puede compartirse con otras personas que usen la misma conexión.',
+      timeout:
+        'La consulta tardó demasiado y la respuesta puede haberse guardado. Revise la conversación abierta y la lista de conversaciones antes de volver a preguntar.',
+    },
+  },
   states: {
     loading: 'Cargando…',
     retry: 'Reintentar',
@@ -346,6 +414,8 @@ export const strings = {
       INGESTION_QUEUE_FULL:
         'El servicio está procesando muchos documentos. Inténtelo de nuevo en unos minutos.',
       REQUEST_TIMEOUT: 'La subida tardó demasiado. Compruebe la conexión e inténtelo de nuevo.',
+      LLM_UNAVAILABLE: 'El asistente no está disponible en este momento. Inténtelo de nuevo.',
+      LLM_BLOCKED: 'No se pudo dar una respuesta a esa pregunta. Reformúlela e inténtelo de nuevo.',
     },
     byStatus: {
       unauthorized: 'La sesión no es válida. Inicie sesión de nuevo.',

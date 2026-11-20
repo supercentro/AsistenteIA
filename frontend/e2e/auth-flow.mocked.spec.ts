@@ -157,7 +157,7 @@ test.describe('narrow viewport', () => {
     expect(loginFits).toBe(true)
 
     await signIn(page, 'ana@example.com')
-    await expect(page.getByRole('heading', { level: 2 })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'N'.repeat(140) })).toBeVisible()
 
     const listFits = await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

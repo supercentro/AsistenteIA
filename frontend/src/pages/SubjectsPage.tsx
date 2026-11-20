@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { CreateSubjectForm } from '../components/CreateSubjectForm'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorState } from '../components/ErrorState'
+import { HistorySection } from '../components/HistorySection'
 import { LoadingState } from '../components/LoadingState'
 import { useSession } from '../hooks/useSession'
 import { useSubjects } from '../hooks/useSubjects'
@@ -10,7 +11,8 @@ import { strings } from '../lib/strings.es'
 
 /**
  * The subjects the API returns to the signed-in user. A teacher also gets the create form and a
- * link to the page of each subject; a student's list stays read-only.
+ * link to the page of each subject; a student gets a link to the chat of each subject and the
+ * action to delete the whole history.
  */
 export default function SubjectsPage() {
   const { user } = useSession()
@@ -57,6 +59,16 @@ export default function SubjectsPage() {
                 {subject.description}
               </p>
             ) : null}
+            {isTeacher ? null : (
+              <p className="mt-2">
+                <Link
+                  className="break-words text-sm underline [overflow-wrap:anywhere]"
+                  to={`/subjects/${subject.id}/chat`}
+                >
+                  {strings.chat.openChat(subject.name)}
+                </Link>
+              </p>
+            )}
           </li>
         ))}
       </ul>
@@ -70,6 +82,7 @@ export default function SubjectsPage() {
       </h1>
       {isTeacher ? <CreateSubjectForm userId={userId} /> : null}
       {content}
+      {isTeacher ? null : <HistorySection userId={userId} />}
     </div>
   )
 }

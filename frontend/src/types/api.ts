@@ -7,6 +7,16 @@ export type Subject = components['schemas']['Subject']
 export type SubjectCreate = components['schemas']['SubjectCreate']
 export type Document = components['schemas']['Document']
 export type Enrollment = components['schemas']['Enrollment']
+// The contract does not mark the fields of these four schemas as required, but the API always sends
+// them (spec `rag-chat` and `conversation-history`): `Required` states what the backend guarantees.
+export type Source = Required<components['schemas']['Source']>
+export type Conversation = Required<components['schemas']['Conversation']>
+export type Message = Omit<Required<components['schemas']['Message']>, 'sources'> & {
+  sources: Source[]
+}
+export type ChatResponse = Omit<components['schemas']['ChatResponse'], 'sources'> & {
+  sources: Source[]
+}
 export type DocumentStatus = Document['status']
 export type TokenResponse = components['schemas']['TokenResponse']
 export type RegisterRequest = components['schemas']['RegisterRequest']
