@@ -21,7 +21,7 @@ A signed-in user SHALL see a layout with the application name, a navigation that
 - **THEN** the Spanish not-found view is shown with a link back to the start
 
 ### Requirement: Read-only subject list
-The interface SHALL show the subjects returned by `GET /subjects` to students and teachers in the order received, with name and description, and SHALL provide no control to create, edit, delete or enrol.
+The interface SHALL show the subjects returned by `GET /subjects` to students and teachers in the order received, with name and description, plus the role-specific entry points described in the scenarios below (capabilities `frontend-student-chat` and `frontend-teacher-materials`). It SHALL NOT offer control to edit or delete a subject from the list.
 
 #### Scenario: Subjects are shown
 - **WHEN** the API returns subjects
@@ -40,8 +40,20 @@ The interface SHALL show the subjects returned by `GET /subjects` to students an
 - **THEN** the markup is shown literally, long text wraps inside its container without horizontal scrolling, and line breaks are preserved in the description
 
 #### Scenario: No management controls
-- **WHEN** the list is shown to either role
-- **THEN** no create, delete, edit or enrollment control and no subject detail link is present
+- **WHEN** the list is shown to a student
+- **THEN** no create, edit or enrollment control is present and the only subject links lead to the chat of that subject, and for a teacher no delete, edit or enrollment control is present
+
+#### Scenario: Student entry points
+- **WHEN** the list is shown to a student
+- **THEN** each card has a link to the chat of that subject and the list has the action to delete the whole history
+
+#### Scenario: Teacher sees the create form and the links only
+- **WHEN** the list is shown to a teacher
+- **THEN** the create-subject form and a link to each subject page are present, and no delete, edit or enrollment control is present
+
+#### Scenario: Student sees the chat links and the history action
+- **WHEN** the list is shown to a student
+- **THEN** each subject has a link to its chat and the list offers the delete-history action
 
 ### Requirement: Shared loading, error and empty states
 Every data-driven view SHALL show a loading state while waiting, an error state with a retry control when the request fails, and an empty state when there is nothing to show.
