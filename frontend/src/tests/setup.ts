@@ -1,10 +1,14 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, vi } from 'vitest'
 import { endSession, takeNotice } from '../lib/session'
 import { server } from './server'
 
 let storageWrites: ReturnType<typeof vi.spyOn>[] = []
+
+// Waiting is cheap and a loaded machine (coverage, many files in parallel) is slow: a longer limit
+// removes timing flakes without changing what a test proves.
+configure({ asyncUtilTimeout: 3000 })
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 

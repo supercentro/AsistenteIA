@@ -106,23 +106,34 @@ describe('SubjectsPage - content', () => {
     server.use(handlers.subjects([subject({ name: 'N'.repeat(150), description })]))
     renderApp({ route: '/subjects', session: { user: studentUser } })
 
-    const heading = await screen.findByRole('heading', { level: 2 })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'N'.repeat(150) })
     expect(heading.className).toContain('break-words')
     const body = screen.getByText((_content, element) => element?.textContent === description)
     expect(body.className).toContain('whitespace-pre-line')
   })
 
-  it('offers a student no way to create, edit, delete or enrol and no detail link', async () => {
+  it('offers a student the chat link and the history action, and no way to create, edit or enrol', async () => {
     server.use(handlers.subjects([subject()]))
     renderApp({ route: '/subjects', session: { user: studentUser } })
 
     await screen.findByText('Algebra')
     const buttons = screen.getAllByRole('button').map((button) => button.textContent)
-    expect(buttons).toEqual([strings.nav.signOut])
+    expect(buttons).toEqual([strings.nav.signOut, strings.chat.history.action])
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       strings.nav.subjects,
+      strings.chat.openChat('Algebra'),
     ])
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('lets the chat link of a subject with a very long name wrap', async () => {
+    server.use(handlers.subjects([subject({ name: 'N'.repeat(150) })]))
+    renderApp({ route: '/subjects', session: { user: studentUser } })
+
+    const link = await screen.findByRole('link', { name: strings.chat.openChat('N'.repeat(150)) })
+
+    expect(link.className).toContain('break-words')
+    expect(link.className).toContain('[overflow-wrap:anywhere]')
   })
 
   it('offers a teacher the create form and a link per subject, and no delete, edit or enrol', async () => {

@@ -61,7 +61,20 @@ export const subjectSchema = z.object({
 /** The e-mail of a student to enroll: exactly the rule of the registration e-mail. */
 export const enrollmentSchema = z.object({ studentEmail: email })
 
+const MAX_QUESTION_LENGTH = 2000
+const { box: questionMessages } = strings.chat
+
+/** Mirrors POST /chat (1 to 2000 characters) without being stricter. */
+export const questionSchema = z.object({
+  message: z
+    .string()
+    .trim()
+    .min(1, questionMessages.required)
+    .max(MAX_QUESTION_LENGTH, questionMessages.tooLong),
+})
+
 export type LoginValues = z.infer<typeof loginSchema>
 export type RegisterValues = z.infer<typeof registerSchema>
 export type SubjectValues = z.infer<typeof subjectSchema>
 export type EnrollmentValues = z.infer<typeof enrollmentSchema>
+export type QuestionValues = z.infer<typeof questionSchema>
