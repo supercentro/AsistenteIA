@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse, delay, http } from 'msw'
+import { delay, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { strings } from '../lib/strings.es'
 import { API, errorResponse, studentUser } from '../tests/api'
@@ -110,7 +110,7 @@ describe('Review: a 404 on a question of an open conversation is the conversatio
 
   it('sends the kept question as a new conversation the next time', async () => {
     const { state } = await openChat()
-    server.use(http.post(`${API}/chat`, () => errorResponse(404, 'NOT_FOUND')))
+    state.ask = () => errorResponse(404, 'NOT_FOUND')
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Primera conversacion' }))
     await screen.findByText('Respuesta uno')
@@ -118,23 +118,12 @@ describe('Review: a 404 on a question of an open conversation is the conversatio
     await user.paste('Mi pregunta')
     await user.click(screen.getByRole('button', { name: text.box.send }))
     await screen.findByText(text.conversations.messagesUnavailable)
-    server.use(
-      http.post(`${API}/chat`, async ({ request }) => {
-        state.asked.push((await request.json()) as never)
-        return HttpResponse.json({
-          conversation_id: 'fresh',
-          message_id: 'a-fresh',
-          answer: 'Respuesta nueva',
-          no_material: false,
-          sources: [],
-        })
-      }),
-    )
+    state.ask = defaultAsk
 
     await user.click(screen.getByRole('button', { name: text.box.send }))
 
-    expect(await screen.findByText('Respuesta nueva')).toBeVisible()
-    expect(state.asked[0]).not.toHaveProperty('conversation_id')
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    expect(state.asked[state.asked.length - 1]).not.toHaveProperty('conversation_id')
   })
 
   it('still says the subject is not available for a 404 on a new conversation', async () => {
