@@ -64,14 +64,7 @@ function ChatContent({ subjectId }: { subjectId: string }) {
     )
   }
 
-  // The mutation stays pending a moment after the answer is cached: the saved question is shown
-  // then, so the pending copy is hidden to avoid showing the same question twice.
-  const savedAlready = (messages.data ?? []).some(
-    (message) =>
-      message.id.startsWith('local-') && Date.parse(message.created_at) >= ask.submittedAt,
-  )
-  const pendingQuestion =
-    ask.isPending && ask.variables && !savedAlready ? ask.variables.message : null
+  const pendingQuestion = ask.isPending && ask.variables ? ask.variables.message : null
 
   return (
     <div className="flex flex-col gap-6">

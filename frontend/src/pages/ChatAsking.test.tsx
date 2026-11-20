@@ -140,7 +140,8 @@ describe('Asking a question', () => {
     expect(answer.textContent).toContain('<img src=x onerror=alert(1)>')
     expect(document.querySelector('main b')).toBeNull()
     expect(document.querySelector('main img')).toBeNull()
-    expect(screen.getByText(markup)).toBeVisible()
+    // The conversation list can show the same text as its label, so look inside the thread.
+    expect(within(screen.getByRole('log')).getByText(markup)).toBeVisible()
   })
 
   it('announces the messages in a polite log', async () => {
