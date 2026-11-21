@@ -1,0 +1,36 @@
+DETECTED  isolation check always passes: 1 failed, 23 passed in 0.55s
+DETECTED  not-enrolled students are not required to be denied: 1 failed, 25 passed in 0.53s
+DETECTED  call cap never exceeded: 1 failed, 45 passed in 0.52s
+DETECTED  MRR off by one: 1 failed, 16 passed in 0.49s
+DETECTED  secrets are not scrubbed: 1 failed, 50 passed in 0.51s
+DETECTED  url passwords are not scrubbed: 1 failed, 51 passed in 0.49s
+DETECTED  database guard removed: 1 failed, 47 passed in 0.52s
+DETECTED  real model allowed without flag: 1 failed, 43 passed in 0.48s
+DETECTED  subjects not cleaned: 1 failed, 83 passed in 4.98s
+DETECTED  users not cleaned: 1 failed, 87 passed in 8.85s
+DETECTED  generation bypasses the production phase: 1 failed, 84 passed in 5.78s
+DETECTED  citation selection reimplemented: 1 failed, 27 passed in 0.51s
+DETECTED  follow-up history not stored: 1 failed, 85 passed in 6.58s
+DETECTED  forbidden access treated as empty retrieval: 1 failed, 83 passed in 5.03s
+DETECTED  counting wrapper without cap: 1 failed, 56 passed in 0.51s
+DETECTED  model asked even in retrieval mode: 1 failed, 90 passed in 12.79s
+DETECTED  one event loop per case: 1 failed, 93 passed in 15.22s
+DETECTED  ceiling removed: 1 failed, 58 passed in 0.53s
+DETECTED  passage check removed: 1 failed, 96 passed in 18.96s
+DETECTED  catch-all removed: 1 failed, 66 passed in 4.04s
+DETECTED  enrolled-elsewhere student is the own-subject one: 1 failed, 83 passed in 5.09s
+DETECTED  stale markers never reported: 1 failed, 39 passed in 0.54s
+DETECTED  fallback counted as wrong citation: 1 failed, 28 passed in 0.54s
+DETECTED  abort after errors disabled: 1 failed, 94 passed in 15.93s
+DETECTED  budget check removed from the run: 1 failed, 98 passed in 19.52s
+DETECTED  calls not reserved before the first call: 1 failed, 100 passed in 21.81s
+DETECTED  early ledger check removed: 1 failed, 68 passed in 3.89s
+DETECTED  ledger not required: 1 failed, 69 passed in 3.88s
+DETECTED  budget compares with the wrong side: 1 failed, 68 passed in 4.02s
+DETECTED  settling replaces instead of adjusting: 1 failed, 80 passed in 3.92s
+DETECTED  reservation never settled: 1 failed, 100 passed in 20.60s
+DETECTED  in-place fallback removed: 1 failed, 81 passed in 3.90s
+DETECTED  unwritable ledger does not stop the run: 1 failed, 81 passed in 3.93s
+DETECTED  settle failure hides the report: 1 failed, 102 passed in 22.86s
+DETECTED  password forms not registered: 1 failed, 70 passed in 3.86s
+DETECTED  fallback not detected: 1 failed, 28 passed in 0.51s

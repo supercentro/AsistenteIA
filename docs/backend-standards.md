@@ -171,7 +171,8 @@ The contract is `api-spec.yml` and the behaviour is specified in `openspec/chang
 - MUST (unit): `RAGService` — normal answer with sources; no-material path does not call the LLM; history window; LLM failure; prompt contains delimited context.
 - MUST (integration): each endpoint's happy path plus authorization negatives (wrong role, other teacher, non-enrolled student, other student's conversation, conversation/subject mismatch); isolation test proving a question in subject A never retrieves chunks of subject B; deletion tests (conversation, all conversations, account) assert physical removal; upload tests for unsupported type, oversize, empty PDF.
 - MUST: migrations test — upgrade to head on a clean DB and downgrade to base.
-- SHOULD: retrieval-quality check on a golden set (≥ 15 Q→expected-document pairs) using the real embedding model, run manually or in a nightly job (not in the PR pipeline).
+- SHOULD: retrieval-quality check on a golden set (≥ 15 Q→expected-document pairs) using the real embedding model, run manually or in a nightly job (not in the PR pipeline). The harness is `backend/tests/evaluation/` (change `rag-golden-set-evaluation`; how to run it: `docs/development_guide.md`, section "RAG evaluation").
+- SHOULD: a change that alters the prompt, the retrieval (top-k, threshold, query construction), the embedding model, the chat model or the source selection compares the evaluation report before and after, and records both in its reports. The harness calls the production functions (`RAGService.prepare` and `generate`, `build_prompt`, `select_cited`), never a copy of them, so such a change needs no edit of the harness; the real model is called only with `--allow-real-llm`, on the free tier with fictitious data, never from CI.
 - SHOULD: coverage ≥ 80% on `services/` and `repositories/`.
 
 ## 11. Performance

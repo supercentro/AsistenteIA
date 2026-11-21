@@ -1,0 +1,515 @@
+{
+  "attribution": {
+    "answerable": {
+      "fallback": 0.3333333333333333,
+      "n": 12,
+      "supported": 0.6666666666666666,
+      "unsupported": 0.3333333333333333,
+      "valid_marker": 0.6666666666666666
+    },
+    "follow_up": {
+      "fallback": 0.25,
+      "n": 4,
+      "supported": 0.75,
+      "unsupported": 0.75,
+      "valid_marker": 0.75
+    },
+    "other": {
+      "fallback": 1.0,
+      "n": 3,
+      "supported": null,
+      "unsupported": null,
+      "valid_marker": 0.0
+    },
+    "trap": {
+      "fallback": 0.0,
+      "n": 3,
+      "supported": 1.0,
+      "unsupported": 0.0,
+      "valid_marker": 1.0
+    }
+  },
+  "fallback_cases": [
+    "ans-ia03",
+    "ans-ia06",
+    "ans-bd04",
+    "ans-hi05",
+    "unans-01",
+    "unans-04",
+    "unans-07",
+    "follow-01"
+  ],
+  "header": {
+    "cases": 75,
+    "date": "2026-11-20",
+    "embedder": "local",
+    "golden_set_version": "v0.1-draft",
+    "mode": "answers",
+    "model": "gemini-3.1-flash-lite",
+    "model_calls": 44,
+    "revision": "8d028ce-dirty",
+    "threshold": 0.3,
+    "top_k": 5
+  },
+  "isolation_violations": [],
+  "problems": [
+    "ans-ia02: the model call failed (LLMUnavailableError)",
+    "ans-ia04: the model call failed (LLMUnavailableError)",
+    "ans-ia07: the model call failed (LLMUnavailableError)",
+    "ans-ia09: the model call failed (LLMUnavailableError)",
+    "ans-bd03: the model call failed (LLMUnavailableError)",
+    "ans-bd06: the model call failed (LLMUnavailableError)",
+    "ans-bd08: the model call failed (LLMUnavailableError)",
+    "ans-bd12: the model call failed (LLMUnavailableError)",
+    "ans-hi02: the model call failed (LLMUnavailableError)",
+    "ans-hi04: the model call failed (LLMUnavailableError)",
+    "ans-hi06: the model call failed (LLMUnavailableError)",
+    "ans-hi09: the model call failed (LLMUnavailableError)",
+    "unans-02: the model call failed (LLMUnavailableError)",
+    "unans-05: the model call failed (LLMUnavailableError)",
+    "unans-08: the model call failed (LLMUnavailableError)",
+    "follow-02: the model call failed (LLMUnavailableError)",
+    "follow-04: the model call failed (LLMUnavailableError)",
+    "follow-06: the model call failed (LLMUnavailableError)",
+    "follow-08: the model call failed (LLMUnavailableError)",
+    "trap-doc-02: the model call failed (LLMUnavailableError)",
+    "trap-hist-02: the model call failed (LLMUnavailableError)",
+    "inj-doc-02: the model call failed (LLMUnavailableError)"
+  ],
+  "review": [
+    {
+      "answer": "El material proporcionado no contiene información sobre qué son las redes generativas antagónicas ni cómo se entrenan.",
+      "case_id": "unans-01",
+      "question": "Que son las redes generativas antagonicas y como se entrenan?"
+    },
+    {
+      "answer": "El material proporcionado no contiene información sobre qué es una base de datos de grafos ni para qué se utiliza.",
+      "case_id": "unans-04",
+      "question": "Que es una base de datos de grafos y para que se usa?"
+    },
+    {
+      "answer": "El contexto proporcionado no contiene información sobre la batalla de Trafalgar, por lo que no es posible responder a tu pregunta.",
+      "case_id": "unans-07",
+      "question": "Que ocurrio en la batalla de Trafalgar?"
+    }
+  ],
+  "rows": [
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7925925925925925,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9333333333333333
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.625,
+        "mrr": 0.5,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.625
+      },
+      "threshold": 0.2,
+      "top_k": 3,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.7,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7925925925925925,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9333333333333333
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.625,
+        "mrr": 0.5,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.625
+      },
+      "threshold": 0.3,
+      "top_k": 3,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.6,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6666666666666666,
+        "hit3": 0.8666666666666667,
+        "hit5": 0.8666666666666667,
+        "mrr": 0.7555555555555555,
+        "n": 45,
+        "refused": 0.044444444444444446,
+        "supported": 0.8666666666666667
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.375,
+        "mrr": 0.3125,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.375
+      },
+      "threshold": 0.4,
+      "top_k": 3,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.4,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.5111111111111111,
+        "hit3": 0.6,
+        "hit5": 0.6,
+        "mrr": 0.5481481481481482,
+        "n": 45,
+        "refused": 0.26666666666666666,
+        "supported": 0.6
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 3,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.1,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7925925925925925,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9333333333333333
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.875,
+        "mrr": 0.55625,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.875
+      },
+      "threshold": 0.2,
+      "top_k": 5,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.7,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7925925925925925,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9333333333333333
+      },
+      "default": true,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.75,
+        "mrr": 0.53125,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.75
+      },
+      "threshold": 0.3,
+      "top_k": 5,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.6,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6666666666666666,
+        "hit3": 0.8666666666666667,
+        "hit5": 0.8666666666666667,
+        "mrr": 0.7555555555555555,
+        "n": 45,
+        "refused": 0.044444444444444446,
+        "supported": 0.8666666666666667
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.5,
+        "mrr": 0.34375,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.5
+      },
+      "threshold": 0.4,
+      "top_k": 5,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.4,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.5111111111111111,
+        "hit3": 0.6,
+        "hit5": 0.6,
+        "mrr": 0.5481481481481482,
+        "n": 45,
+        "refused": 0.26666666666666666,
+        "supported": 0.6
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 5,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.1,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7957671957671958,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9555555555555556
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.875,
+        "mrr": 0.55625,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.875
+      },
+      "threshold": 0.2,
+      "top_k": 8,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.7,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6888888888888889,
+        "hit3": 0.9333333333333333,
+        "hit5": 0.9333333333333333,
+        "mrr": 0.7957671957671958,
+        "n": 45,
+        "refused": 0.0,
+        "supported": 0.9555555555555556
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.75,
+        "mrr": 0.53125,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.75
+      },
+      "threshold": 0.3,
+      "top_k": 8,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 0.6,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.6666666666666666,
+        "hit3": 0.8666666666666667,
+        "hit5": 0.8666666666666667,
+        "mrr": 0.7587301587301588,
+        "n": 45,
+        "refused": 0.044444444444444446,
+        "supported": 0.8888888888888888
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.5,
+        "mrr": 0.34375,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.5
+      },
+      "threshold": 0.4,
+      "top_k": 8,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.4,
+      "unanswerable_total": 10
+    },
+    {
+      "answerable": {
+        "hit1": 0.5111111111111111,
+        "hit3": 0.6,
+        "hit5": 0.6,
+        "mrr": 0.5481481481481482,
+        "n": 45,
+        "refused": 0.26666666666666666,
+        "supported": 0.6
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 8,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.1,
+      "unanswerable_total": 10
+    }
+  ],
+  "unsupported_cases": [
+    "ans-ia03",
+    "ans-ia06",
+    "ans-bd04",
+    "ans-hi05",
+    "follow-01",
+    "follow-03",
+    "follow-07"
+  ]
+}
