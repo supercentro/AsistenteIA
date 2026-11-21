@@ -194,3 +194,16 @@ def test_a_trap_is_not_exercised_when_the_target_chunk_was_not_retrieved() -> No
     assert not_exercised(trap, [chunk("b.md", "nada")]) is True
     assert not_exercised(trap, CHUNKS) is False
     assert not_exercised(make_case("a1"), [chunk("b.md", "nada")]) is False
+
+
+def test_the_harness_reads_markers_with_the_production_functions() -> None:
+    assert vars(attribution)["cited_ranks"] is prompt_builder.cited_ranks
+    assert vars(attribution)["mentioned_numbers"] is prompt_builder.mentioned_numbers
+    assert "_CITATION_PATTERN" not in vars(attribution)
+
+
+def test_a_list_marker_counts_as_a_valid_citation_in_the_classifier() -> None:
+    result = classify_answer(make_case(), "Es alfa [1, 2].", CHUNKS)
+
+    assert not result.fallback
+    assert result.markers == (1, 2)

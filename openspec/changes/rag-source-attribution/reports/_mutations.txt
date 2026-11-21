@@ -1,0 +1,12 @@
+DETECTED  history not neutralised: 1 failed, 58 passed in 0.43s
+DETECTED  chunk text not neutralised: 1 failed, 59 passed in 0.34s
+DETECTED  filename not neutralised: 1 failed, 59 passed in 0.35s
+DETECTED  list form not read: 1 failed, 38 passed in 0.36s
+DETECTED  range accepted: 1 failed, 44 passed in 0.32s
+DETECTED  spaces next to the brackets accepted: 1 failed, 33 passed in 0.37s
+DETECTED  block labels altered: 1 failed, 36 passed in 0.33s
+DETECTED  current question neutralised: 1 failed, 60 passed in 0.37s
+DETECTED  snippet altered: 1 failed, 95 passed in 0.61s
+DETECTED  fallback removed: 1 failed, 31 passed in 0.32s
+DETECTED  out of range kept: 1 failed, 32 passed in 0.32s
+DETECTED  harness reads no markers: 1 failed, 97 passed in 0.61s

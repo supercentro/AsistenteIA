@@ -1142,7 +1142,7 @@ export interface components {
             created_at: string;
         };
         /**
-         * @description Citation of a chunk used for an answer: the chunks whose `[n]` marker the answer contains, with
+         * @description Citation of a chunk used for an answer: the chunks whose `[n]` marker the answer contains (a list such as `[1, 2]` or adjacent markers `[1][2]` cite each rank; a range such as `[1-3]` cites none), with
          *     `rank` the retrieval rank of the chunk (ranks can have gaps). An answer with no valid marker lists
          *     every retrieved chunk of its context.
          */

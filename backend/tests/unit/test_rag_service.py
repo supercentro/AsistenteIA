@@ -677,3 +677,25 @@ async def test_the_no_material_answer_has_no_sources_whatever_it_contains() -> N
 
     assert result.sources == []
     assert result.no_material is True
+
+
+@pytest.mark.asyncio
+async def test_a_document_marker_is_neutralised_in_the_prompt_but_not_in_the_stored_snippet() -> (
+    None
+):
+    chunks = [
+        _make_chunk(content="alpha says [3] here", filename="a[2].pdf"),
+        _make_chunk(content="beta", filename="b.pdf"),
+        _make_chunk(content="gamma", filename="c.pdf"),
+    ]
+    service, mocks = _build_service(chunks=chunks, llm_response="Alpha and gamma [1, 3].")
+
+    result = await _answer(service, student_id=uuid.uuid4(), subject_id=uuid.uuid4(), message="q")
+
+    call = mocks["llm"].generate.await_args
+    system = call.args[0]
+    assert "alpha says (3) here" in system
+    assert "a(2).pdf" in system
+    assert [s.rank for s in result.sources] == [1, 3]
+    assert result.sources[0].snippet == "alpha says [3] here"
+    assert result.sources[0].document_filename == "a[2].pdf"
