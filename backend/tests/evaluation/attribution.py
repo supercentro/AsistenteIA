@@ -10,7 +10,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.repositories.chunk_repository import ScoredChunk
-from app.services.prompt_builder import _CITATION_PATTERN, SYSTEM_PROMPT, select_cited
+from app.services.prompt_builder import (
+    SYSTEM_PROMPT,
+    cited_ranks,
+    mentioned_numbers,
+    select_cited,
+)
 from tests.evaluation.cases import Case, normalize
 from tests.evaluation.metrics import FOLLOW_UP, SELF_CONTAINED, TRAPS, supports
 
@@ -43,9 +48,7 @@ class AttributionStats:
 
 def classify_answer(case: Case, answer: str, chunks: Sequence[ScoredChunk]) -> Attribution:
     count = len(chunks)
-    markers = tuple(
-        sorted({n for n in (int(m) for m in _CITATION_PATTERN.findall(answer)) if 1 <= n <= count})
-    )
+    markers = tuple(cited_ranks(answer, count))
     cited = tuple(select_cited(answer, count))
     fallback = not markers
     expected = case.expected.sources
@@ -78,7 +81,7 @@ def classify_answer(case: Case, answer: str, chunks: Sequence[ScoredChunk]) -> A
 
 
 def _markers_in(texts: Sequence[str]) -> set[int]:
-    return {int(m) for text in texts for m in _CITATION_PATTERN.findall(text)}
+    return {number for text in texts for number in mentioned_numbers(text)}
 
 
 TRAP_KINDS = {"trap_history_marker", "trap_document_marker", "injection_document"}

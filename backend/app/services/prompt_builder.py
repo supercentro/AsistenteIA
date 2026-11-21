@@ -36,21 +36,38 @@ def neutralize_delimiters(text: str) -> str:
     return _DELIMITER_PATTERN.sub(lambda m: m.group().replace("<", "[").replace(">", "]"), visible)
 
 
-_CITATION_PATTERN = re.compile(r"\[(\d{1,3})\]")
+# A citation is `[n]` or a comma-separated list `[n, m]`: no space between a bracket and the
+# digits, spaces around a comma allowed. Adjacent markers `[1][2]` are two citations. A range such
+# as `[1-3]` is not a citation.
+_CITATION_PATTERN = re.compile(r"\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\]")
+
+
+def mentioned_numbers(text: str) -> set[int]:
+    """Every number written as a citation marker in ``text``, valid for a turn or not."""
+    return {int(number) for group in _CITATION_PATTERN.findall(text) for number in group.split(",")}
+
+
+def cited_ranks(answer: str, chunk_count: int) -> list[int]:
+    """Ranks (1-based) of the context blocks an answer cites, in rank order (none if invalid)."""
+    return sorted(number for number in mentioned_numbers(answer) if 1 <= number <= chunk_count)
+
+
+def neutralize_markers(text: str) -> str:
+    """Rewrite citation markers as ``(n)`` so that only the labels of the current turn use ``[n]``.
+
+    Applied to the history, the text of the retrieved chunks and the filenames, whose markers
+    belong to another turn or to a document and must not be mistaken for a citation of this turn.
+    """
+    return _CITATION_PATTERN.sub(lambda match: f"({match.group(1)})", text)
 
 
 def select_cited(answer: str, chunk_count: int) -> list[int]:
-    """Ranks (1-based) of the context blocks an answer cites with ``[n]``, in rank order.
+    """Ranks (1-based) of the context blocks an answer cites with ``[n]`` or ``[n, m]``.
 
     Markers outside ``1..chunk_count`` are ignored. An answer with no valid marker cites every
     retrieved block, so that an answer is never stored without traceable sources.
     """
-    cited = {
-        number
-        for number in (int(match) for match in _CITATION_PATTERN.findall(answer))
-        if 1 <= number <= chunk_count
-    }
-    return sorted(cited) if cited else list(range(1, chunk_count + 1))
+    return cited_ranks(answer, chunk_count) or list(range(1, chunk_count + 1))
 
 
 def build_prompt(
@@ -62,8 +79,8 @@ def build_prompt(
 ) -> list[dict[str, str]]:
     context_parts: list[str] = []
     for number, chunk in enumerate(chunks, start=1):
-        safe_content = neutralize_delimiters(chunk["content"])
-        source = neutralize_delimiters(str(chunk.get("filename", "unknown")))
+        safe_content = neutralize_markers(neutralize_delimiters(chunk["content"]))
+        source = neutralize_markers(neutralize_delimiters(str(chunk.get("filename", "unknown"))))
         page = chunk.get("page_number")
         header = f"[{number}] [Source: {source}"
         if page is not None:
@@ -79,7 +96,12 @@ def build_prompt(
 
     trimmed_history = history[-max_history:] if max_history > 0 else []
     for msg in trimmed_history:
-        messages.append({"role": msg["role"], "content": neutralize_delimiters(msg["content"])})
+        messages.append(
+            {
+                "role": msg["role"],
+                "content": neutralize_markers(neutralize_delimiters(msg["content"])),
+            }
+        )
 
     safe_user_message = neutralize_delimiters(user_message)
     messages.append({"role": "user", "content": safe_user_message})
