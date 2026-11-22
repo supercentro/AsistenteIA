@@ -29,4 +29,11 @@
 - [x] 3.6 Independent review (`adversarial-review` skill): focus management, keyboard and screen-reader behaviour, regressions of the first-answer focus
 - [ ] 3.7 Final gates of `docs/base-standards.md` section 9 re-run after the last change; `openspec validate --all --strict`; CI on Linux watched over several runs after the pull request
 
+## 4. Diagnosis of the CI failure that remains (owner's decision of 2026-11-22, option 1)
+
+- [x] 4.1 `frontend/e2e/support/diagnostics.ts`: a recorder that only listens (focus, key, click, group added or removed, navigations and reloads, console errors, API responses) and prints the timeline and a last snapshot of the page when the keyboard test fails; the expectations of the test are unchanged, no wait, no retry, no workflow change
+- [x] 4.2 Validated locally by forcing a failure (the dump shows the timeline and the snapshot); the suite passes and 150 repetitions of the chat spec pass with the recorder on
+- [ ] 4.3 Push to the branch of PR #24, run the CI several times (reruns allowed) and read the dump of a failing run; analyse it before proposing any other correction
+- [ ] 4.4 Report the cause or the remaining hypotheses; ask for approval before any further functional change. Remove or keep the recorder by the owner's decision
+
 > Notes: 3.4 was run with the committed Playwright suite in real Chromium against the mocked API (no real model, no call to the local stack); 3.6 independent review PASS WITH GAPS, its Major (the new e2e test lacked the answer in its mocked thread) fixed and the test repeated 60 times with 6 workers (300 of 300). Open: **3.7** (the CI of PR #24 failed once more in the keyboard test at the commit with the fix, with a different signature, so the flake is not explained and 3.7 cannot be closed) and TD-068, which stays open until its cause is found. D-F2 decided: the other asynchronous focus moves are documented in TD-068, not changed.

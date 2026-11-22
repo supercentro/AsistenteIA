@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { components } from '../src/types/api.generated.ts'
+import { printDiagnosticsOnFailure, recordDiagnostics } from './support/diagnostics.ts'
 import { API, errorBody, mockApi, signInHandlers, student, subject } from './support/mockApi.ts'
 
 type Conversation = components['schemas']['Conversation']
@@ -39,9 +40,15 @@ function chatHandlers(state: {
   }
 }
 
+// TD-068: the timeline of the keyboard test is printed when it fails (it changes no expectation).
+test.afterEach(async ({ page }, testInfo) => {
+  await printDiagnosticsOnFailure(page, testInfo)
+})
+
 test('a student asks, reads the sources, continues and deletes a conversation with the keyboard', async ({
   page,
-}) => {
+}, testInfo) => {
+  await recordDiagnostics(page, testInfo)
   const state = {
     conversations: [] as Conversation[],
     messages: {} as Record<string, Message[]>,

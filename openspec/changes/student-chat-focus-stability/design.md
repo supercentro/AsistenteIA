@@ -45,3 +45,7 @@ On a successful answer: `resetField('message')`, `onAnswered(...)`, and then `se
 - **D-F1**: approve B (recommended) over A or C.
 - **D-F2**: whether the other focus moves after asynchronous results (see risks) get their own review.
 - **D-F3**: whether a lesson is added to `docs/lessons-learned.md` (recommended).
+
+## Diagnosis after PR #24 (2026-11-22)
+
+The fix removes a real defect (focus taken by a late answer), but the keyboard test still failed once in CI with the fix and with another signature (`element(s) not found`: the confirmation group never appeared). Locally nothing reproduces it. The owner approved a diagnostic recorder in the test (option 1): it listens and prints a timeline when the test fails. It may change timing slightly (listeners and a function exposed to the page); a pass with the recorder on is therefore weaker evidence than a pass without it, and the owner decides later whether to keep it.
