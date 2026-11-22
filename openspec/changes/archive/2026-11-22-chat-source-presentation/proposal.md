@@ -20,7 +20,7 @@ Proposed after Explore (2026-11-22); **not implemented** and awaiting the owner'
 
 ### Modified Capabilities
 - `rag-chat`: the answer and the history say whether their sources were cited or only retrieved.
-- `frontend-student-chat`: the requirement "Sources are shown as provided, without guarantees" gains the distinction and the marker numbers.
+- `frontend-student-chat`: the requirement "Sources are shown as provided, without guarantees" drops its fixed "material consulted" label, and a new requirement says that cited sources show their marker number and that retrieved fragments are shown apart and collapsed (split in two so that each requirement stays under the 500 characters that strict validation accepts).
 
 ## Impact
 
