@@ -27,3 +27,24 @@ Unconditional `focus()` after an asynchronous result in `ConversationList`, `Doc
 ## Update after the CI of PR #24 (2026-11-22)
 
 The keyboard test failed again in CI at the commit with the fix (`186f914`, one of two runs; the other passed) at `expect(group).toBeFocused()` with `element(s) not found` (the confirmation group never appeared). The reproduced defect ends with `Received: inactive`, so it does not explain this failure. Local checks that did not reproduce it, with the old and the new code: the original test at CPU slowdowns of 6, 10 and 14 (30 runs each), the whole mocked suite four times against a cold Vite server, and 300 repetitions of the chat spec. CI uploads no trace, so the cause of the CI failure is **open**. Hypotheses, unverified: another focus or remount between `focus()` and Enter, or a dev-server reload during the run. TD-068 stays open and the fix is presented as the correction of a real defect, not as the end of the flake.
+
+## First CI dump (2026-11-22, run of commit 3f6cfcd, the fix in place)
+
+The recorder printed this timeline for the failing keyboard test (times in ms since the start of the test):
+
+```
+1201  click   button "Enviar"                       (second question)
+1219  response POST /chat 200
+1223  focusout button "Enviando…"                   (the test focuses the delete trigger)
+1224  focusin  button "Eliminar la conversación …"
+1230  group-added  the second answer is rendered
+1233  focusout button "Eliminar la conversación …"  <- the trigger loses the focus
+1234  focusin  textarea                             <- 1 ms later: a programmatic focus() on the question box
+1244  keydown  Enter on textarea                    (the test presses Enter: it lands in the question box)
+```
+
+Reading: the test focuses the trigger about 6 ms after the answer arrived and before React rendered it. About 3 ms after the render, the focus goes from the trigger to the question box although the guard of the fix is in place, so Enter is typed into the box and the confirmation never opens (`element(s) not found`). The failure is therefore still a focus move to the question box when the answer arrives; the open question is **why `focusIsFree` allowed it**. Hypotheses, not yet distinguished: (a) the trigger was replaced in the DOM when the answer was rendered, which leaves `document.activeElement` on the body and makes the focus "free"; (b) the guard ran at a moment when the focus was elsewhere. In the jsdom probe (a throw-away test, not kept) the trigger survives the answer and keeps the focus, and locally the window between the answer and its render was never hit (0 failures in hundreds of runs), so only CI shows it.
+
+## Second recorder version and the CI block
+
+The recorder was extended (commit 1c8e79d) to log every programmatic `focus()` with the element that had the focus and the first frames of the stack, and the addition or removal of the delete buttons (a remount). It was validated locally by forcing a failure. The CI runs of that commit did not start: GitHub reports "recent account payments have failed or your spending limit needs to be increased" (billing of the account, outside the authorised scope). The next step needs the CI to run again, several times, until a failing run prints the new dump.
