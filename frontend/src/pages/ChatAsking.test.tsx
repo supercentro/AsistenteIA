@@ -365,3 +365,124 @@ describe('Failures never lose the question', () => {
     await expectNoSeriousA11yViolations(container)
   })
 })
+
+describe('The focus when an answer arrives', () => {
+  function heldAnswer() {
+    const state = serveChat({
+      conversations: [
+        conversationItem({ id: 'old-1', last_message_preview: 'Vieja conversacion' }),
+      ],
+    })
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    state.ask = async (body, current) => {
+      await gate
+      return defaultAsk(body, current)
+    }
+    return { state, release }
+  }
+
+  it('leaves the focus in an open delete confirmation', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    const user = await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+
+    await user.click(
+      screen.getByRole('button', {
+        name: text.conversations.remove.action('Vieja conversacion'),
+      }),
+    )
+    const group = screen.getByRole('group', {
+      name: text.conversations.remove.question('Vieja conversacion'),
+    })
+    await waitFor(() => expect(group).toHaveFocus())
+
+    release()
+
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    expect(group).toHaveFocus()
+    expect(box).not.toHaveFocus()
+  })
+
+  it('leaves the focus on a control the student moved to', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    const link = screen.getByRole('link', { name: text.policyLink })
+    link.focus()
+
+    release()
+
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    expect(link).toHaveFocus()
+  })
+
+  it('still gives the focus to the box when it fell to the page body', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    // A disabled button cannot be blurred in jsdom: move the focus to a link and drop it.
+    const link = screen.getByRole('link', { name: text.policyLink })
+    link.focus()
+    link.blur()
+    expect(document.body).toHaveFocus()
+
+    release()
+
+    await waitFor(() => expect(box).toHaveFocus())
+  })
+
+  it('never moves the focus to the box while the student has it on another control, even through a deferred focus', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    const trigger = screen.getByRole('button', {
+      name: text.conversations.remove.action('Vieja conversacion'),
+    })
+    // Any timer scheduled by the box or by react-hook-form (its setFocus defers the focus) opens a
+    // window between the decision and the move: the student chooses the delete trigger in it.
+    const nativeSetTimeout = window.setTimeout.bind(window)
+    vi.spyOn(window, 'setTimeout').mockImplementation(((
+      handler: TimerHandler,
+      ...rest: unknown[]
+    ) => {
+      if (/react-hook-form|QuestionBox/.test(new Error().stack ?? '')) {
+        nativeSetTimeout(() => trigger.focus(), 0)
+      }
+      return nativeSetTimeout(handler, ...(rest as [number?]))
+    }) as typeof window.setTimeout)
+    // What had the focus each time the box was focused by code.
+    const activeWhenTheBoxWasFocused: (Element | null)[] = []
+    const nativeFocus = HTMLTextAreaElement.prototype.focus
+    vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+      options?: FocusOptions,
+    ) {
+      activeWhenTheBoxWasFocused.push(document.activeElement)
+      nativeFocus.call(this, options)
+    })
+
+    release()
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    // Let the timers that were already queued run: two turns of the task queue.
+    await new Promise((resolve) => nativeSetTimeout(resolve, 0))
+    await new Promise((resolve) => nativeSetTimeout(resolve, 0))
+
+    for (const active of activeWhenTheBoxWasFocused) {
+      expect(
+        active === null ||
+          active === document.body ||
+          (box as HTMLTextAreaElement).form?.contains(active),
+      ).toBe(true)
+    }
+  })
+})
