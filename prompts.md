@@ -993,3 +993,65 @@ Los siete ejemplos siguientes están demostrados en los informes y las lecciones
 8. Tras archivar, la validación estricta global dio 17 de 18 por avisos de longitud en tres requisitos de `dev-environment`; la IA los acortó moviendo el detalle a escenarios y volvió a 18 de 18.
 
 **Riesgos y deuda conservados (ninguno aceptado ni cerrado por esta intervención):** TD-052 y TD-053 pendientes de aceptación; TD-043, TD-054, TD-055 (las imágenes de los contenedores persistentes no se reconstruyeron) y TD-056 abiertas; M-1, M-2 y L-1 a L-5 sin remediar; `PUBLIC` sobre tablas completas y `USAGE` de roles externos en el esquema sin comprobar en `db-verify`; `JWT_SECRET` (TD-038), la prueba E2E del flujo principal (TD-041) y la protección de ramas (TD-045) pendientes; la limpieza de `*.pre-17b` sigue sin autorizar; el hilo de Codex sobre `config.py` sigue sin resolver en GitHub. El *merge* no es un despliegue: no se ejecutó `db-bootstrap` ni `db-adopt` fuera de recursos desechables y el CI verde no autoriza hacerlo sobre un PostgreSQL persistente o de producción (el bootstrap cierra `PUBLIC` en todas las bases del clúster y solo debe usarse en un clúster dedicado).
+
+
+---
+
+## 17. Calidad de las respuestas RAG: atribución de fuentes y foco del chat (`rag-source-attribution`, `student-chat-focus-stability`, `chat-source-presentation`)
+
+**Herramienta y modelo:** Claude Code (CLI) con el flujo OpenSpec 1.15.0 del repositorio. Según la transcripción de la sesión, el modelo es `claude-sonnet-5-5` en los 531 turnos de la IA registrados entre las líneas 95019 y 98835 (21 y 22/11/2026). El contexto lo daban `CLAUDE.md` → `docs/base-standards.md` y los estándares de backend y frontend.
+
+**Skills y subagentes usados:**
+- Flujo OpenSpec con Explore antes de cada cambio (como pidió el usuario), los artefactos creados con `openspec new change` y la validación con `openspec validate --strict`.
+- Skill `adversarial-review` mediante **cuatro subagentes de contexto limpio y solo lectura**: uno para `rag-source-attribution`, dos para `student-chat-focus-stability` (la segunda sobre el segundo arreglo) y uno para `chat-source-presentation`. Los cuatro dieron *PASS WITH GAPS*; el de la primera revisión del foco encontró un hallazgo mayor (la prueba nueva era inestable) y el de `rag-source-attribution` no halló bloqueantes ni mayores.
+- Otras herramientas: Playwright (suite simulada, repeticiones y un registrador de diagnóstico en la prueba), Vitest, la API de GitHub (`gh`) para leer y volver a ejecutar el CI, y mutaciones manuales de código (scripts desechables fuera del repositorio).
+
+**Formato de esta sección:** resumen redactado por la IA a partir de la sesión, **no textual**, salvo los tres fragmentos marcados *(fragmento textual)*, comprobados con una búsqueda exacta contra la transcripción (`~/.claude/projects/<proyecto>/37b9475e-8000-414a-a563-2a3020e73979.jsonl`, fuera del repositorio, con su línea y su fecha local UTC-3). La transcripción no se adjunta.
+
+### 17.1 Prompts y decisiones del usuario
+
+**Prompt 1 — primer corte de atribución de fuentes (transcripción, línea 95190, 2026-11-21 19:31; fragmento textual):**
+
+```
+D-A1: aprobar la alternativa A como primer corte independiente.
+```
+
+**Prompt 2 — aceptación del diagnóstico del foco (transcripción, línea 97167, 2026-11-22 16:24; fragmento textual):**
+
+```
+Acepto el diagnóstico sustentado por la reproducción local y la corrección que elimina el foco diferido.
+```
+
+**Prompt 3 — etiquetas de la presentación de fuentes (transcripción, línea 97970, 2026-11-22 19:05; fragmento textual):**
+
+```
+D-S3: aprobar las etiquetas propuestas: «Material citado en la respuesta» y «Material recuperado (la respuesta no indica cuáles fragmentos usó)».
+```
+
+**Otras decisiones del usuario (resumidas, no textuales):** admitir las citas `[1, 2]` y `[1][2]` pero no los rangos `[1-3]`; no ampliar el alcance a otros movimientos de foco y documentar los hallazgos; autorizar una instrumentación diagnóstica acotada en la prueba afectada cuando el CI siguió fallando; autorizar la reproducción local determinista; derivar la atribución sin migraciones y clasificar también los mensajes históricos; diferir los marcadores convertidos en enlaces; mantener abiertas TD-062 y TD-068.
+
+### 17.2 Decisiones técnicas principales
+
+- **`rag-source-attribution` (PR #23, `2afdfbd`):** el prompt reescribe como `(n)` los marcadores del historial, del texto de los fragmentos y de los nombres de archivo, y `[n, m]` y `[n][m]` se leen como citas; no se tocan los datos guardados ni el contrato.
+- **`student-chat-focus-stability` (PR #24, `f8f28b0`):** tras una respuesta, el foco vuelve a la caja de preguntas solo si estaba en el formulario o en el `body`, y se decide y se mueve en la misma tarea, porque `setFocus` de react-hook-form difiere el `focus()` con un temporizador.
+- **`chat-source-presentation` (PR #25, `4f17dfa`):** campo aditivo `attribution` (`cited`, `retrieved` o `null`), derivado del texto guardado y de los rangos guardados, sin migración; el chat muestra las fuentes citadas con su número de marcador y las solo recuperadas aparte y plegadas.
+
+### 17.3 Correcciones, desviaciones y hallazgos
+
+Correcciones de la IA reconocidas:
+1. En el PR #23, el primer CI falló porque se cambió la descripción de `docs/api-spec.yml` sin regenerar `frontend/src/types/api.generated.ts` (puerta `check:api-types`); se regeneró (una línea de comentario) y el usuario lo aceptó.
+2. El primer commit del registrador de diagnóstico rompió el CI por un error de TypeScript que `tsc --noEmit` local no detectó y `npm run typecheck` del CI sí; desde entonces se ejecuta el mismo comando que el CI.
+3. El primer arreglo del foco se presentó como causa raíz reproducida; corregía un defecto real, pero el fallo del CI persistió con otra firma. La IA lo reconoció y corrigió la descripción del PR, TD-068 y la lección L50; la causa verdadera (el `focus()` diferido de `setFocus`) se encontró con el volcado del registrador en el CI y se reprodujo localmente en Chromium.
+4. La primera versión de la prueba e2e nueva era inestable (el hilo simulado no incluía la respuesta tardía; 1 de 15 a 30 ejecuciones) y la evidencia de "40 repeticiones" correspondía a la prueba antigua; lo halló el revisor independiente y se corrigió (300 de 300).
+5. En `chat-source-presentation`, una prueba reveló que la respuesta en vivo perdía el campo `attribution` en el mensaje guardado en caché del frontend; y los deltas de especificación no pasaban la validación estricta (un escenario omitido y un requisito de más de 500 caracteres); se corrigieron.
+6. Una prueba de `LoginPage` falló una vez con cobertura y no volvió a fallar; no se investigó por quedar fuera del alcance y se dejó registrada.
+
+### 17.4 Resultados de validación
+
+- **`rag-source-attribution`:** pruebas escritas antes (18 fallaban), 12 de 12 mutaciones detectadas, revisión independiente *PASS WITH GAPS*, CI de Linux verde.
+- **`student-chat-focus-stability`:** 5 de 5 mutaciones detectadas, 300 de 300 repeticiones locales y el trabajo de frontend del CI en 11 de 11 ejecuciones tras el segundo arreglo (antes fallaba en 5 de 8).
+- **`chat-source-presentation`:** 13 de 13 mutaciones, prueba de propiedades con 3.000 casos (la bandera en vivo y la derivada coinciden), 1.642 pruebas unitarias y 984 de integración en el backend, 594 en el frontend y 29 pruebas de Playwright; CI de Linux verde en el PR y en `main`.
+
+### 17.5 Riesgos residuales
+
+TD-062 sigue abierta: «citado» significa que la respuesta lleva un marcador válido, no que la fuente respalde la afirmación; el efecto con Gemini real no está medido (la línea base 3.3b de `rag-golden-set-evaluation` está pendiente y no se hicieron llamadas reales). TD-068 queda en observación. El bloque plegado de fuentes recuperadas no se probó con un lector de pantalla real. Una respuesta anterior al primer corte cuyo único marcador cubría todos los rangos se deriva como citada, con los mismos rangos mostrados.

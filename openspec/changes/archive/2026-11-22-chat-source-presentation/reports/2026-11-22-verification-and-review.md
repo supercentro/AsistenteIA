@@ -22,3 +22,6 @@ Branch `feature/chat-source-presentation` from `main` f8f28b0. Nothing committed
 | Minor | No explicit test that the spec enum equals the Pydantic `Literal` | Already covered by `test_the_response_models_publish_the_same_values_as_the_contract` (the reviewer did not see it) |
 
 Suggestion not taken: showing how many fragments the retrieved block holds.
+
+## Pull request and merge (2026-11-22)
+PR #25, head `69f48bcfe82e1c2e95634c92780b9baed393e561`: backend, frontend and privileges green in the `push` and the `pull_request` runs (about 36 billable minutes); the recorder of TD-068 printed no dump. Squash merge into `main` as `4f17dfae1eb7dbdea6d4911486f33ac6ab0a944b`, pinned to that head after checking again that the checks were green and that there were no conflicts. CI of `main` at `4f17dfa`: backend, frontend and privileges passed.

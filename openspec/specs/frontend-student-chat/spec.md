@@ -64,11 +64,11 @@ The message box SHALL accept 1 to 2000 characters, send `POST /chat` with the su
 - **THEN** it is announced politely to assistive technology
 
 ### Requirement: Sources are shown as provided, without guarantees
-Each assistant message SHALL list the sources given by the API as "material consulted": file name, page when there is one, and the snippet in an expandable detail. The interface SHALL NOT state or imply that a source proves a statement, and SHALL show a neutral note that the information must be checked in the original document.
+Each assistant message SHALL list the sources given by the API: file name, page when there is one, and the snippet in an expandable detail. The interface SHALL NOT state or imply that a source proves a statement, and SHALL show a neutral note that the information must be checked in the original document.
 
 #### Scenario: Answer with sources
 - **WHEN** an answer has sources
-- **THEN** each source shows its file name and page (when not null) and an expandable snippet shown as text, in the order given by the API, under a label that says material consulted
+- **THEN** each source shows its file name and page (when not null) and an expandable snippet shown as text, in the order given by the API
 
 #### Scenario: Source whose document was deleted
 - **WHEN** a source has no chunk or document id
@@ -194,3 +194,34 @@ Every new screen and message SHALL use the single Spanish copy module, accessibl
 #### Scenario: Nothing sensitive in diagnostics
 - **WHEN** a question fails
 - **THEN** diagnostics contain only method, path without query, and status
+
+### Requirement: The arrival of an answer does not take the focus from another control
+
+After an answer arrives, the question box SHALL receive the focus only when the focus is on the question form or has fallen to the page body. A control the student moved to, such as the confirmation of a deletion or a conversation button, SHALL keep the focus.
+
+#### Scenario: The focus returns to the box after a normal answer
+- **WHEN** the student sends a question and the focus is on the form or the send button, which becomes disabled while the answer is pending
+- **THEN** the box receives the focus when the answer arrives
+
+#### Scenario: An open confirmation keeps the focus
+- **WHEN** the student opens the delete confirmation of a conversation while an answer is pending and the answer arrives
+- **THEN** the confirmation group keeps the focus, the answer is shown, and the confirm control stays disabled until the answer has arrived
+
+#### Scenario: A conversation button keeps the focus
+- **WHEN** the focus is on another control of the page when the answer arrives
+- **THEN** that control keeps the focus
+
+### Requirement: Cited sources show their marker and retrieved fragments are shown apart
+Sources cited by the answer (`attribution` cited) SHALL be shown under a label that says material cited in the answer, each with its marker number. Sources that were only retrieved (`attribution` retrieved, absent or null) SHALL be shown apart, collapsed, under a label that says the answer does not indicate which fragments it used, without marker numbers.
+
+#### Scenario: Answer with cited sources
+- **WHEN** an answer has sources with `attribution` cited
+- **THEN** each source shows its marker number, in the order given by the API, under the label of material cited in the answer
+
+#### Scenario: Answer with retrieved fragments only
+- **WHEN** an answer has sources with `attribution` retrieved
+- **THEN** they are inside a collapsed detail whose label says that the answer does not indicate which fragments it used, each with file name, page and snippet but no marker number
+
+#### Scenario: Answer from an older server without the field
+- **WHEN** the API gives sources and no `attribution`
+- **THEN** they are shown as retrieved material, without marker numbers
