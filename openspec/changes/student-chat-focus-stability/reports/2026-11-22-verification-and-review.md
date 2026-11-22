@@ -23,3 +23,7 @@ Condition removed, condition inverted, body case ignored, form case ignored: all
 
 ## Findings outside the scope (D-F2), documented in TD-068
 Unconditional `focus()` after an asynchronous result in `ConversationList`, `DocumentsSection`, `EnrollmentsSection` (heading after a deletion) and `DocumentUploadForm` (input and submit button after an upload). Not changed.
+
+## Update after the CI of PR #24 (2026-11-22)
+
+The keyboard test failed again in CI at the commit with the fix (`186f914`, one of two runs; the other passed) at `expect(group).toBeFocused()` with `element(s) not found` (the confirmation group never appeared). The reproduced defect ends with `Received: inactive`, so it does not explain this failure. Local checks that did not reproduce it, with the old and the new code: the original test at CPU slowdowns of 6, 10 and 14 (30 runs each), the whole mocked suite four times against a cold Vite server, and 300 repetitions of the chat spec. CI uploads no trace, so the cause of the CI failure is **open**. Hypotheses, unverified: another focus or remount between `focus()` and Enter, or a dev-server reload during the run. TD-068 stays open and the fix is presented as the correction of a real defect, not as the end of the flake.
