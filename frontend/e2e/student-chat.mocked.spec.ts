@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { components } from '../src/types/api.generated.ts'
-import { errorBody, mockApi, signInHandlers, student, subject } from './support/mockApi.ts'
+import { API, errorBody, mockApi, signInHandlers, student, subject } from './support/mockApi.ts'
 
 type Conversation = components['schemas']['Conversation']
 type Message = components['schemas']['Message']
@@ -226,4 +226,107 @@ test('the chat has no horizontal scrolling at 320 px with a long answer and a lo
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
   expect(overflow).toBe(false)
+})
+
+test('an answer that arrives after the delete confirmation was opened does not take its focus', async ({
+  page,
+}) => {
+  const state = {
+    conversations: [
+      {
+        id: 'c1',
+        subject_id: SUBJECT.id,
+        created_at: '2026-11-20T10:00:00Z',
+        last_message_preview: 'Que son las mitocondrias?',
+      },
+    ] as Conversation[],
+    messages: {
+      c1: [
+        {
+          id: 'u0',
+          role: 'user',
+          content: 'Que son las mitocondrias?',
+          created_at: '2026-11-20T10:00:00Z',
+          sources: [],
+        },
+        {
+          id: 'a0',
+          role: 'assistant',
+          content: 'Respuesta anterior.',
+          created_at: '2026-11-20T10:00:01Z',
+          sources: [source],
+        },
+      ],
+    } as Record<string, Message[]>,
+  }
+  // The answer is held back by an explicit gate that the test releases: no fixed wait.
+  let release: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await mockApi(page, {
+    ...chatHandlers(state),
+    'POST /chat': (request) => {
+      const asked = request.postDataJSON() as { message: string }
+      // The thread of the server holds the answer too: the page refetches it after the answer.
+      state.messages['c1']?.push(
+        {
+          id: 'u1',
+          role: 'user',
+          content: asked.message,
+          created_at: '2026-11-20T10:01:00Z',
+          sources: [],
+        },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: 'Respuesta tardia.',
+          created_at: '2026-11-20T10:01:01Z',
+          sources: [source],
+        },
+      )
+      return {
+        status: 200,
+        body: {
+          conversation_id: 'c1',
+          message_id: 'a1',
+          answer: 'Respuesta tardia.',
+          no_material: false,
+          sources: [source],
+        },
+      }
+    },
+    'DELETE /conversations/c1': () => {
+      state.conversations = []
+      return { status: 204 }
+    },
+  })
+  await page.route(`${API}/chat`, async (route) => {
+    await gate
+    await route.fallback()
+  })
+
+  await openChat(page)
+  await page.getByRole('button', { name: 'Que son las mitocondrias?', exact: true }).click()
+  await expect(page.getByText('Respuesta anterior.')).toBeVisible()
+  await page.getByRole('textbox', { name: 'Pregunta' }).fill('Y la membrana?')
+  await page.getByRole('button', { name: 'Enviar' }).click()
+  await expect(page.getByRole('button', { name: 'Enviando…' })).toBeDisabled()
+
+  await page
+    .getByRole('button', { name: /Eliminar la conversación «Que son las mitocondrias\?»/ })
+    .focus()
+  await page.keyboard.press('Enter')
+  const group = page.getByRole('group', { name: /¿Eliminar la conversación/ })
+  await expect(group).toBeFocused()
+  // The confirm control cannot be used while the answer is on its way.
+  await expect(group.getByRole('button', { name: 'Eliminar conversación' })).toBeDisabled()
+
+  release()
+
+  await expect(page.getByText('Respuesta tardia.')).toBeVisible()
+  await expect(group).toBeFocused()
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Todavía no hay conversaciones en esta asignatura.')).toBeVisible()
 })

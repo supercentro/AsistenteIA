@@ -365,3 +365,77 @@ describe('Failures never lose the question', () => {
     await expectNoSeriousA11yViolations(container)
   })
 })
+
+describe('The focus when an answer arrives', () => {
+  function heldAnswer() {
+    const state = serveChat({
+      conversations: [
+        conversationItem({ id: 'old-1', last_message_preview: 'Vieja conversacion' }),
+      ],
+    })
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    state.ask = async (body, current) => {
+      await gate
+      return defaultAsk(body, current)
+    }
+    return { state, release }
+  }
+
+  it('leaves the focus in an open delete confirmation', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    const user = await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+
+    await user.click(
+      screen.getByRole('button', {
+        name: text.conversations.remove.action('Vieja conversacion'),
+      }),
+    )
+    const group = screen.getByRole('group', {
+      name: text.conversations.remove.question('Vieja conversacion'),
+    })
+    await waitFor(() => expect(group).toHaveFocus())
+
+    release()
+
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    expect(group).toHaveFocus()
+    expect(box).not.toHaveFocus()
+  })
+
+  it('leaves the focus on a control the student moved to', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    const link = screen.getByRole('link', { name: text.policyLink })
+    link.focus()
+
+    release()
+
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    expect(link).toHaveFocus()
+  })
+
+  it('still gives the focus to the box when it fell to the page body', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    // A disabled button cannot be blurred in jsdom: move the focus to a link and drop it.
+    const link = screen.getByRole('link', { name: text.policyLink })
+    link.focus()
+    link.blur()
+    expect(document.body).toHaveFocus()
+
+    release()
+
+    await waitFor(() => expect(box).toHaveFocus())
+  })
+})

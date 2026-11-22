@@ -521,3 +521,12 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Solution applied:** blocks are numbered, the model is told to cite them, and only the cited chunks are returned and stored; the residual (answers without markers) is TD-062.
 - **Preventive measure:** when a spec scenario restates a canonical schema, quote the schema's own wording and check each verb of it (used, owned, current) against the code.
 - **Evidence:** `openspec/changes/archive/2026-11-17-chat-rag-endpoint/design.md` D5b; `backend/tests/unit/test_rag_service.py` (citation attribution tests); `reports/2026-11-17-round7-pr14-corrections.md`.
+
+### L50. A focus moved after an asynchronous result must first check where the focus is
+- **Origin:** student-chat-ui, found as TD-068 (change `student-chat-focus-stability`).
+- **Problem:** a keyboard test of the chat failed in CI in 5 of 8 runs and never locally. It was first read as a flaky test.
+- **Root cause:** `QuestionBox` called `setFocus` on every answer. A student (or the test) who had opened the delete confirmation while the answer was pending lost the focus when the answer arrived. The test did not wait for the answer, so the order of the two events depended on the speed of the runner.
+- **Impact / repetition risk:** an unexpected focus change for keyboard and screen-reader users, and a red CI that trains people to rerun. Medium; the same unconditional `focus()` exists in four other components after asynchronous results.
+- **Solution applied:** the focus returns to the box only when it is on the form or on the body; the late-answer case is a deterministic test with an explicit gate.
+- **Preventive measure:** a focus move after an asynchronous result checks `document.activeElement` first and moves only if the student has not chosen another control; a flaky test is investigated as a possible product defect before it is given a longer wait, and its race is reproduced with a held response (a gate released by the test), not with a sleep. A new test written for such a fix is itself repeated at least 40 times.
+- **Evidence:** `frontend/src/pages/ChatAsking.test.tsx` ("The focus when an answer arrives"), `frontend/e2e/student-chat.mocked.spec.ts` (the late answer); the review found that the first version of the new e2e test was flaky (its mocked thread lacked the answer) and it was fixed; `openspec/changes/student-chat-focus-stability/reports/`.

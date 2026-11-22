@@ -23,6 +23,16 @@ interface QuestionBoxProps {
 
 const text = strings.chat
 
+/**
+ * The focus may go back to the question box only when the student has not moved it elsewhere: it is
+ * on the form, or it fell to the page body (a send button that becomes disabled drops it there). A
+ * control the student chose, such as an open delete confirmation, keeps it.
+ */
+function focusIsFree(form: HTMLFormElement | null): boolean {
+  const active = document.activeElement
+  return active === null || active === document.body || (form !== null && form.contains(active))
+}
+
 function chatErrorMessage(error: Error): string {
   if (!(error instanceof ApiError)) {
     return strings.errors.unknown
@@ -54,10 +64,12 @@ export function QuestionBox({
     defaultValues: { message: '' },
   })
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = handleSubmit((values, event) => {
     if (ask.isPending) {
       return
     }
+    // The form that was submitted: the focus rule below asks whether the focus is still inside it.
+    const form = event?.target instanceof HTMLFormElement ? event.target : null
     ask.mutate(
       { conversationId, message: values.message },
       {
@@ -65,7 +77,9 @@ export function QuestionBox({
           // resetField keeps the field registered, so the focus can go back to it at once.
           resetField('message')
           onAnswered(response.conversation_id)
-          setFocus('message')
+          if (focusIsFree(form)) {
+            setFocus('message')
+          }
         },
         onError: (error) => {
           if (!(error instanceof ApiError) || error.code === 'CONSENT_REQUIRED') {
