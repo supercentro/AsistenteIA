@@ -50,9 +50,42 @@ export async function recordDiagnostics(page: Page, testInfo: TestInfo): Promise
     )
     document.addEventListener('click', (event) => send('click', describe(event.target)), true)
     window.addEventListener('pagehide', () => send('pagehide', location.href))
+    // Who moves the focus, and from where: every programmatic focus() is logged with the element
+    // that had the focus and the first frames of the stack.
+    const nativeFocus = HTMLElement.prototype.focus
+    HTMLElement.prototype.focus = function (this: HTMLElement, ...args: [FocusOptions?]) {
+      const frames = (new Error().stack ?? '')
+        .split('\n')
+        .slice(2, 6)
+        .map((line) =>
+          line
+            .trim()
+            .replace(/^at /, '')
+            .replace(/\(?https?:\/\/[^/]+/, '('),
+        )
+        .join(' < ')
+      send(
+        'focus()',
+        `${describe(this)} (active was ${describe(document.activeElement)}) ${frames}`,
+      )
+      return nativeFocus.apply(this, args)
+    }
     new MutationObserver((records) => {
       for (const record of records) {
         for (const node of [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)]) {
+          if (
+            node instanceof HTMLElement &&
+            Array.from(node.querySelectorAll('button')).some((button) =>
+              (button.innerText ?? '').startsWith('Eliminar la conversación'),
+            )
+          ) {
+            send(
+              Array.from(record.addedNodes).includes(node)
+                ? 'delete-button-added'
+                : 'delete-button-removed',
+              describe(node),
+            )
+          }
           if (
             node instanceof HTMLElement &&
             (node.getAttribute('role') === 'group' || node.querySelector('[role=group]'))
