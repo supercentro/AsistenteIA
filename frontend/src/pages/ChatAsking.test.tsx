@@ -438,4 +438,51 @@ describe('The focus when an answer arrives', () => {
 
     await waitFor(() => expect(box).toHaveFocus())
   })
+
+  it('never moves the focus to the box while the student has it on another control, even through a deferred focus', async () => {
+    const { state, release } = heldAnswer()
+    const { box } = await openChat(state)
+    await ask(box, 'Una pregunta')
+    await waitFor(() => expect(state.asked).toHaveLength(1))
+    const trigger = screen.getByRole('button', {
+      name: text.conversations.remove.action('Vieja conversacion'),
+    })
+    // Any timer scheduled by the box or by react-hook-form (its setFocus defers the focus) opens a
+    // window between the decision and the move: the student chooses the delete trigger in it.
+    const nativeSetTimeout = window.setTimeout.bind(window)
+    vi.spyOn(window, 'setTimeout').mockImplementation(((
+      handler: TimerHandler,
+      ...rest: unknown[]
+    ) => {
+      if (/react-hook-form|QuestionBox/.test(new Error().stack ?? '')) {
+        nativeSetTimeout(() => trigger.focus(), 0)
+      }
+      return nativeSetTimeout(handler, ...(rest as [number?]))
+    }) as typeof window.setTimeout)
+    // What had the focus each time the box was focused by code.
+    const activeWhenTheBoxWasFocused: (Element | null)[] = []
+    const nativeFocus = HTMLTextAreaElement.prototype.focus
+    vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+      options?: FocusOptions,
+    ) {
+      activeWhenTheBoxWasFocused.push(document.activeElement)
+      nativeFocus.call(this, options)
+    })
+
+    release()
+    expect(await screen.findByText('La fotosintesis ocurre en los cloroplastos [1].')).toBeVisible()
+    await waitFor(() => expect(box).toHaveValue(''))
+    // Let the timers that were already queued run: two turns of the task queue.
+    await new Promise((resolve) => nativeSetTimeout(resolve, 0))
+    await new Promise((resolve) => nativeSetTimeout(resolve, 0))
+
+    for (const active of activeWhenTheBoxWasFocused) {
+      expect(
+        active === null ||
+          active === document.body ||
+          (box as HTMLTextAreaElement).form?.contains(active),
+      ).toBe(true)
+    }
+  })
 })

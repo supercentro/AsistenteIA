@@ -56,7 +56,6 @@ export function QuestionBox({
     register,
     handleSubmit,
     resetField,
-    setFocus,
     control,
     formState: { errors },
   } = useForm<QuestionValues>({
@@ -77,8 +76,11 @@ export function QuestionBox({
           // resetField keeps the field registered, so the focus can go back to it at once.
           resetField('message')
           onAnswered(response.conversation_id)
-          if (focusIsFree(form)) {
-            setFocus('message')
+          // Decided and done in the same task: react-hook-form's setFocus moves the focus in a later
+          // timer, a window in which the student may have chosen another control.
+          const box = form?.elements.namedItem('message')
+          if (box instanceof HTMLTextAreaElement && focusIsFree(form)) {
+            box.focus()
           }
         },
         onError: (error) => {

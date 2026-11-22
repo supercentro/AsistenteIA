@@ -48,3 +48,13 @@ Reading: the test focuses the trigger about 6 ms after the answer arrived and be
 ## Second recorder version and the CI block
 
 The recorder was extended (commit 1c8e79d) to log every programmatic `focus()` with the element that had the focus and the first frames of the stack, and the addition or removal of the delete buttons (a remount). It was validated locally by forcing a failure. The CI runs of that commit did not start: GitHub reports "recent account payments have failed or your spending limit needs to be increased" (billing of the account, outside the authorised scope). The next step needs the CI to run again, several times, until a failing run prints the new dump.
+
+## Root cause found and second fix (2026-11-22, local, nothing pushed)
+
+Cause: react-hook-form 7.91 `setFocus` moves the focus in a `setTimeout`; the guard of the first fix was evaluated before it (see `design.md`, "Root cause of the CI failure"). Local evidence: a real-browser spec (throw-away) that focuses the delete trigger in the window of the deferred focus fails on the committed first fix with the box focused, as in CI; the second fix focuses in the same task, so the window does not exist. Component test with the timer window: fails on the first fix and on the mutant "focus deferred again"; mutations 5 of 5 detected (`_mutations.txt`; the earlier survivor `form === null` no longer exists because the code path changed: with a null form nothing is focused, which no test covers and is accepted).
+
+Controls: PASS locally, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run check:api-types`, vitest with coverage (589 passed; the thresholds hold), Playwright mocked suite 28 passed, the chat spec 60 times with 6 workers (300 of 300). Note: one run of the coverage command failed once in `LoginPage.test.tsx` ("sends one request when submitted twice", a file this change does not touch) and passed in the next three runs, with and without this change; it is a separate intermittent test to record if it recurs.
+
+Independent review of the second fix: PASS WITH GAPS (no Blocker or Major). Gaps: documentation of the root cause (fixed here), the limits of the timer window in the component test (stated in the design), the silent no-op if the textarea is not found (stated), the removed surviving mutant (stated above).
+
+BLOCKED: the remote controls (CI of the pull request, several runs of the frontend job) cannot run while the GitHub account billing blocks the jobs; TD-068 stays open until they pass.
