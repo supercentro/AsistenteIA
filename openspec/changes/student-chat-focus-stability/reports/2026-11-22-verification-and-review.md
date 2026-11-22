@@ -58,3 +58,7 @@ Controls: PASS locally, `npm run typecheck`, `npm run lint`, `npm run format:che
 Independent review of the second fix: PASS WITH GAPS (no Blocker or Major). Gaps: documentation of the root cause (fixed here), the limits of the timer window in the component test (stated in the design), the silent no-op if the textarea is not found (stated), the removed surviving mutant (stated above).
 
 BLOCKED: the remote controls (CI of the pull request, several runs of the frontend job) cannot run while the GitHub account billing blocks the jobs; TD-068 stays open until they pass.
+
+## CI confirmation (2026-11-22, commit 011f852)
+
+After the account budget was raised the jobs started again. Frontend: 5 of 5 executions passed (3 of the `push` run, 2 of the `pull_request` run). Backend and privileges passed in both runs (those of the `pull_request` run had failed only because the jobs never started). The recorder printed no dump because no run failed. Approximate consumption of the reruns of this check: about 60 minutes of runner time. TD-068 stays open in observation until the CI of `main` is stable after the merge.
