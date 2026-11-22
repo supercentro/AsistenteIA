@@ -52,13 +52,13 @@ export async function recordDiagnostics(page: Page, testInfo: TestInfo): Promise
     window.addEventListener('pagehide', () => send('pagehide', location.href))
     new MutationObserver((records) => {
       for (const record of records) {
-        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+        for (const node of [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)]) {
           if (
             node instanceof HTMLElement &&
             (node.getAttribute('role') === 'group' || node.querySelector('[role=group]'))
           ) {
             send(
-              record.addedNodes.length > 0 && [...record.addedNodes].includes(node)
+              record.addedNodes.length > 0 && Array.from(record.addedNodes).includes(node)
                 ? 'group-added'
                 : 'group-removed',
               describe(node),
@@ -113,7 +113,7 @@ export async function printDiagnosticsOnFailure(page: Page, testInfo: TestInfo):
           ? `${active.tagName.toLowerCase()} "${(active as HTMLElement).innerText?.slice(0, 40) ?? ''}"`
           : null,
         groups: document.querySelectorAll('[role=group]').length,
-        deleteButtons: [...document.querySelectorAll('button')]
+        deleteButtons: Array.from(document.querySelectorAll('button'))
           .map((button) => button.innerText.slice(0, 50))
           .filter((label) => label.startsWith('Eliminar')),
         box:
