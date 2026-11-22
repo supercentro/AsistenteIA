@@ -99,7 +99,12 @@ test.describe('student chat on the real backend', () => {
       // The model's answer is not predictable: only its shape is checked.
       const log = page.getByRole('log', { name: 'Mensajes de la conversación' })
       await expect(log.getByText('Asistente')).toBeVisible({ timeout: 60_000 })
-      await expect(log.getByText('Material consultado')).toBeVisible()
+      // Whether the model cited a block or not decides which of the two labels appears.
+      const sourcesLabel = log.getByText(/Material (citado en la respuesta|recuperado)/)
+      await expect(sourcesLabel).toBeVisible()
+      if ((await sourcesLabel.textContent())?.startsWith('Material recuperado')) {
+        await sourcesLabel.click()
+      }
       await expect(log.getByText('mitocondrias.txt').first()).toBeVisible()
       await expect(
         page.getByText('Fragmentos del material asociados a esta respuesta', { exact: false }),

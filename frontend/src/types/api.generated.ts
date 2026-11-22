@@ -1183,6 +1183,11 @@ export interface components {
             answer: string;
             no_material: boolean;
             sources: components["schemas"]["Source"][];
+            /**
+             * @description Whether the sources were cited by the answer (`cited`: they are the chunks whose valid marker the answer contains) or are only the retrieved chunks because the answer holds no valid marker (`retrieved`). Null when there are no sources. It says nothing about whether a source supports a statement. Optional: clients that do not know it still receive the same `sources`.
+             * @enum {string|null}
+             */
+            attribution?: "cited" | "retrieved" | null;
         };
         Conversation: {
             /** Format: uuid */
@@ -1202,6 +1207,11 @@ export interface components {
             /** Format: date-time */
             created_at?: string;
             sources?: components["schemas"]["Source"][];
+            /**
+             * @description Whether the sources were cited by the answer (`cited`: they are the chunks whose valid marker the answer contains) or are only the retrieved chunks because the answer holds no valid marker (`retrieved`). Null when there are no sources. It says nothing about whether a source supports a statement. Optional: clients that do not know it still receive the same `sources`.
+             * @enum {string|null}
+             */
+            attribution?: "cited" | "retrieved" | null;
         };
     };
     responses: {

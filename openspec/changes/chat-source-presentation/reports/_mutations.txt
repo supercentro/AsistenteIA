@@ -1,0 +1,14 @@
+DETECTED  attribution always cited: 1 failed, 5 passed in 0.32s
+DETECTED  attribution always retrieved: 1 failed in 0.34s
+DETECTED  derivation without the highest rank: 1 failed, 13 passed in 0.33s
+DETECTED  derivation accepts any marker: 1 failed, 9 passed in 0.33s
+DETECTED  no sources still flagged: 1 failed, 10 passed in 0.36s
+DETECTED  chat answer without the flag: 1 failed, 85 passed in 1.14s
+DETECTED  history without the flag: 1 failed, 85 passed in 1.21s
+DETECTED  everything shown as cited: Tests  4 failed | 60 passed (64)
+DETECTED  everything shown as retrieved: Tests  3 failed | 61 passed (64)
+marker numbers for every source ANCHOR 0
+DETECTED  flag not passed to the block: Tests  3 failed | 61 passed (64)
+DETECTED  thread drops the flag: Tests  3 failed | 61 passed (64)
+DETECTED  live answer drops the flag: Tests  2 failed | 62 passed (64)
+DETECTED  marker numbers for every source: Tests  1 failed | 63 passed (64)   (rerun with the anchor as formatted by Prettier)

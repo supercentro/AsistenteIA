@@ -37,6 +37,7 @@ export function useAskQuestion(userId: string, subjectId: string) {
         content: response.answer,
         created_at: now,
         sources: response.sources,
+        attribution: response.attribution ?? null,
       }
       const current = queryClient.getQueryData<Message[]>(messagesKey)
       if (current) {

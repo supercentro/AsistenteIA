@@ -74,6 +74,7 @@ test('a student asks, reads the sources, continues and deletes a conversation wi
           content: 'Respuesta de prueba.',
           created_at: '2026-11-20T10:00:01Z',
           sources: [source],
+          attribution: 'cited',
         },
       )
       state.messages['c1'] = thread
@@ -93,6 +94,7 @@ test('a student asks, reads the sources, continues and deletes a conversation wi
           answer: 'Respuesta de prueba.',
           no_material: false,
           sources: [source],
+          attribution: 'cited',
         },
       }
     },
@@ -110,7 +112,7 @@ test('a student asks, reads the sources, continues and deletes a conversation wi
   await page.getByRole('button', { name: 'Enviar' }).click()
 
   await expect(page.getByText('Respuesta de prueba.')).toBeVisible()
-  await expect(page.getByText('Material consultado')).toBeVisible()
+  await expect(page.getByText('Material citado en la respuesta')).toBeVisible()
   await expect(box).toBeFocused()
   await expect(page.getByText('mitocondrias.txt')).toBeVisible()
   await page.getByText('Ver fragmento').click()
@@ -219,6 +221,15 @@ test('the chat has no horizontal scrolling at 320 px with a long answer and a lo
           content: long,
           created_at: '2026-11-20T10:00:01Z',
           sources: [{ ...source, filename: `${long}.txt` }],
+          attribution: 'cited',
+        },
+        {
+          id: 'a2',
+          role: 'assistant',
+          content: long,
+          created_at: '2026-11-20T10:00:02Z',
+          sources: [{ ...source, filename: `${long}.pdf`, rank: 2 }],
+          attribution: 'retrieved',
         },
       ],
     } as Record<string, Message[]>,
@@ -228,7 +239,8 @@ test('the chat has no horizontal scrolling at 320 px with a long answer and a lo
 
   await openChat(page)
   await page.getByRole('button', { name: long, exact: true }).click()
-  await expect(page.getByText('Material consultado')).toBeVisible()
+  await expect(page.getByText('Material citado en la respuesta')).toBeVisible()
+  await page.getByText('Material recuperado (la respuesta no indica cuáles fragmentos usó)').click()
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
@@ -262,6 +274,7 @@ test('an answer that arrives after the delete confirmation was opened does not t
           content: 'Respuesta anterior.',
           created_at: '2026-11-20T10:00:01Z',
           sources: [source],
+          attribution: 'cited',
         },
       ],
     } as Record<string, Message[]>,
@@ -290,6 +303,7 @@ test('an answer that arrives after the delete confirmation was opened does not t
           content: 'Respuesta tardia.',
           created_at: '2026-11-20T10:01:01Z',
           sources: [source],
+          attribution: 'cited',
         },
       )
       return {
@@ -300,6 +314,7 @@ test('an answer that arrives after the delete confirmation was opened does not t
           answer: 'Respuesta tardia.',
           no_material: false,
           sources: [source],
+          attribution: 'cited',
         },
       }
     },
@@ -336,4 +351,68 @@ test('an answer that arrives after the delete confirmation was opened does not t
   await page.keyboard.press('Tab')
   await page.keyboard.press('Enter')
   await expect(page.getByText('Todavía no hay conversaciones en esta asignatura.')).toBeVisible()
+})
+
+test('sources that were only retrieved are collapsed and open with the keyboard; cited ones show their marker', async ({
+  page,
+}) => {
+  const state = {
+    conversations: [
+      {
+        id: 'c1',
+        subject_id: SUBJECT.id,
+        created_at: '2026-11-20T10:00:00Z',
+        last_message_preview: 'Que son las mitocondrias?',
+      },
+    ] as Conversation[],
+    messages: {
+      c1: [
+        {
+          id: 'u0',
+          role: 'user',
+          content: 'Que son las mitocondrias?',
+          created_at: '2026-11-20T10:00:00Z',
+          sources: [],
+        },
+        {
+          id: 'a0',
+          role: 'assistant',
+          content: 'Segun el material [1].',
+          created_at: '2026-11-20T10:00:01Z',
+          sources: [source],
+          attribution: 'cited',
+        },
+        {
+          id: 'u1',
+          role: 'user',
+          content: 'Y la membrana?',
+          created_at: '2026-11-20T10:01:00Z',
+          sources: [],
+        },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: 'No tengo informacion sobre eso.',
+          created_at: '2026-11-20T10:01:01Z',
+          sources: [{ ...source, filename: 'otro-documento.txt', rank: 2 }],
+          attribution: 'retrieved',
+        },
+      ],
+    } as Record<string, Message[]>,
+  }
+  await mockApi(page, chatHandlers(state))
+
+  await openChat(page)
+  await page.getByRole('button', { name: 'Que son las mitocondrias?', exact: true }).click()
+
+  await expect(page.getByText('Material citado en la respuesta')).toBeVisible()
+  await expect(page.getByText('[1]', { exact: true })).toBeVisible()
+  const label = page.getByText('Material recuperado (la respuesta no indica cuáles fragmentos usó)')
+  await expect(label).toBeVisible()
+  await expect(page.getByText('otro-documento.txt')).toBeHidden()
+
+  await label.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('otro-documento.txt')).toBeVisible()
+  await expect(page.getByText('[2]', { exact: true })).toHaveCount(0)
 })

@@ -350,7 +350,9 @@ export const strings = {
       assistant: 'Asistente',
     },
     sources: {
-      label: 'Material consultado',
+      cited: 'Material citado en la respuesta',
+      retrieved: 'Material recuperado (la respuesta no indica cuáles fragmentos usó)',
+      marker: (rank: number) => `[${rank}]`,
       page: (page: number) => `página ${page}`,
       snippet: 'Ver fragmento',
       note: 'Fragmentos del material asociados a esta respuesta. Compruebe la información en el documento original.',

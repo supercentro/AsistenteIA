@@ -686,6 +686,12 @@ components:
         sources:
           type: array
           items: { $ref: '#/components/schemas/Source' }
+        attribution:
+          type: string
+          nullable: true
+          enum: [cited, retrieved, null]
+          description: |
+            Whether the sources were cited by the answer (`cited`: they are the chunks whose valid marker the answer contains) or are only the retrieved chunks because the answer holds no valid marker (`retrieved`). Null when there are no sources. It says nothing about whether a source supports a statement. Optional: clients that do not know it still receive the same `sources`.
       example:
         conversation_id: 9a8b7c6d-4444-5555-6666-abcdef123456
         message_id: 1f2e3d4c-7777-8888-9999-abcdef123456
@@ -710,6 +716,12 @@ components:
         sources:
           type: array
           items: { $ref: '#/components/schemas/Source' }
+        attribution:
+          type: string
+          nullable: true
+          enum: [cited, retrieved, null]
+          description: |
+            Whether the sources were cited by the answer (`cited`: they are the chunks whose valid marker the answer contains) or are only the retrieved chunks because the answer holds no valid marker (`retrieved`). Null when there are no sources. It says nothing about whether a source supports a statement. Optional: clients that do not know it still receive the same `sources`.
 
 security:
   - bearerAuth: []

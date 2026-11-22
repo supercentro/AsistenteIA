@@ -38,6 +38,7 @@ const thread1 = () => [
     role: 'assistant',
     content: 'Respuesta uno',
     sources: [sourceItem()],
+    attribution: 'cited',
   }),
 ]
 const thread2 = () => [
@@ -106,7 +107,7 @@ describe('Conversations of the subject', () => {
       .setup()
       .click(await screen.findByRole('button', { name: 'Primera conversacion' }))
 
-    expect(await screen.findByText(text.sources.label)).toBeVisible()
+    expect(await screen.findByText(text.sources.cited)).toBeVisible()
     expect(screen.getByText('fotosintesis.txt')).toBeVisible()
   })
 

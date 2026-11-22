@@ -121,7 +121,8 @@ describe('Asking a question', () => {
     await ask(box, 'Pregunta fuera de tema')
 
     expect(await screen.findByText('No encontre material relevante.')).toBeVisible()
-    expect(screen.queryByText(text.sources.label)).not.toBeInTheDocument()
+    expect(screen.queryByText(text.sources.cited)).not.toBeInTheDocument()
+    expect(screen.queryByText(text.sources.retrieved)).not.toBeInTheDocument()
   })
 
   it('shows questions and answers literally: markup, Markdown, long text and line breaks', async () => {
@@ -159,22 +160,29 @@ describe('Sources: shown as provided, without guarantees', () => {
       sourceItem(),
       sourceItem({ filename: 'otro.pdf', page_number: 4, rank: 3, snippet: 'Segundo fragmento.' }),
     ],
+    attribution: 'cited' | 'retrieved' | null | 'absent' = 'cited',
   ) {
     const state = serveChat()
-    state.ask = answerWith({ answer: 'Respuesta con fuentes.', sources })
+    state.ask = answerWith({
+      answer: 'Respuesta con fuentes [1][3].',
+      sources,
+      attribution: attribution === 'absent' ? undefined : attribution,
+    })
     const { box } = await openChat(state)
     await ask(box, 'Pregunta')
-    return screen.findByText('Respuesta con fuentes.')
+    return screen.findByText('Respuesta con fuentes [1][3].')
   }
 
-  it('lists file name and page (when there is one) and the snippet in an expandable detail, in the order given', async () => {
+  it('lists the cited sources with their marker, file name, page (when there is one) and the snippet in an expandable detail, in the order given', async () => {
     await answered()
 
-    const block = screen.getByRole('group', { name: text.sources.label })
+    const block = screen.getByRole('group', { name: text.sources.cited })
     const items = within(block).getAllByRole('listitem')
     expect(items).toHaveLength(2)
+    expect(items[0]).toHaveTextContent(text.sources.marker(1))
     expect(items[0]).toHaveTextContent('fotosintesis.txt')
     expect(items[0]).not.toHaveTextContent(/página/)
+    expect(items[1]).toHaveTextContent(text.sources.marker(3))
     expect(items[1]).toHaveTextContent('otro.pdf')
     expect(items[1]).toHaveTextContent(text.sources.page(4))
     const detail = items[1]?.querySelector('details') as HTMLDetailsElement
@@ -183,29 +191,81 @@ describe('Sources: shown as provided, without guarantees', () => {
     expect(detail.open).toBe(false)
   })
 
+  it('shows the sources that were only retrieved apart, collapsed, with no marker numbers', async () => {
+    await answered(undefined, 'retrieved')
+
+    const label = screen.getByText(text.sources.retrieved)
+    const outer = label.closest('details') as HTMLDetailsElement
+    expect(outer).not.toBeNull()
+    expect(outer.open).toBe(false)
+    expect(screen.queryByText(text.sources.cited)).not.toBeInTheDocument()
+    const items = within(outer).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    for (const item of items) {
+      expect(item).not.toHaveTextContent(/\[\d+\]/)
+    }
+    expect(items[1]).toHaveTextContent('otro.pdf')
+  })
+
+  it('keeps the retrieved fragments reachable with the keyboard (Tab reaches the summary)', async () => {
+    await answered(undefined, 'retrieved')
+    const user = userEvent.setup()
+    const summary = screen.getByText(text.sources.retrieved)
+
+    for (let step = 0; step < 40 && document.activeElement !== summary; step += 1) {
+      await user.tab()
+    }
+
+    expect(summary).toHaveFocus()
+    await user.click(summary)
+    expect((summary.closest('details') as HTMLDetailsElement).open).toBe(true)
+    expect(screen.getByText('fotosintesis.txt')).toBeVisible()
+  })
+
+  it.each(['absent', null] as const)(
+    'shows the sources as retrieved material when the attribution is %s',
+    async (attribution) => {
+      await answered(undefined, attribution)
+
+      expect(screen.getByText(text.sources.retrieved)).toBeInTheDocument()
+      expect(screen.queryByText(text.sources.cited)).not.toBeInTheDocument()
+    },
+  )
+
   it('shows a source of a deleted document like any other', async () => {
     await answered([sourceItem({ chunk_id: null, document_id: null, filename: 'borrado.pdf' })])
 
     expect(screen.getByText('borrado.pdf')).toBeVisible()
   })
 
-  it('says material consulted, adds the neutral note and never claims support', async () => {
+  it('adds the neutral note and never claims support, in either state', async () => {
     await answered()
 
     expect(screen.getByText(text.sources.note)).toBeVisible()
     const page = document.body.textContent ?? ''
     expect(page).not.toMatch(/respald|demuestr|garantiz|comprueba que|confirma|verificad[ao]s?\b/i)
-    expect(text.sources.label).toMatch(/consultado/i)
+    for (const label of [text.sources.cited, text.sources.retrieved]) {
+      expect(label).not.toMatch(/respald|demuestr|garantiz|prueba|confirma|verific/i)
+    }
+    expect(text.sources.cited).toBe('Material citado en la respuesta')
+    expect(text.sources.retrieved).toBe(
+      'Material recuperado (la respuesta no indica cuáles fragmentos usó)',
+    )
   })
 
   it('shows file names and snippets as text, with direction characters isolated', async () => {
     await answered([
-      sourceItem({ filename: '<i>x</i>‮fdp.txt', snippet: '<script>alert(1)</script>' }),
+      sourceItem({ filename: '<i>x</i>\u202efdp.txt', snippet: '<script>alert(1)</script>' }),
     ])
 
     expect(document.querySelector('main i')).toBeNull()
     expect(document.querySelector('main script')).toBeNull()
     expect(document.querySelector('bdi')?.textContent).toContain('fdp.txt')
+  })
+
+  it('has no serious accessibility violation in either state', async () => {
+    await answered()
+    await expectNoSeriousA11yViolations(document.body)
   })
 })
 

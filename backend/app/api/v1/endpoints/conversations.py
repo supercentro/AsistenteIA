@@ -13,6 +13,7 @@ from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.message_repository import MessageRepository
 from app.schemas.chat import SourceSchema
 from app.schemas.conversation import ConversationResponse, MessageResponse
+from app.services.prompt_builder import attribution_of
 
 SNIPPET_MAX_LENGTH = 300
 
@@ -62,6 +63,7 @@ def get_messages(
                 )
                 for s in sorted(m.sources, key=lambda source: source.rank)
             ],
+            attribution=attribution_of(m.content, [s.rank for s in m.sources]),
         )
         for m in messages
     ]

@@ -20,6 +20,7 @@ from app.models.user import User
 from app.rag.embedder import Embedder
 from app.schemas.chat import ChatRequest, ChatResponse, SourceSchema
 from app.services.llm_service import LLMService
+from app.services.prompt_builder import attribution_of
 from app.services.rag_service import ChatResult, RAGService, RetrievedContext
 
 router = APIRouter(tags=["Chat"])
@@ -106,4 +107,5 @@ async def ask_question(
             )
             for s in result.sources
         ],
+        attribution=attribution_of(result.answer, [s.rank for s in result.sources]),
     )

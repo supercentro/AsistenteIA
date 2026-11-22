@@ -1,0 +1,31 @@
+# Failing run before the backend implementation (2026-11-22, branch feature/chat-source-presentation from main f8f28b0)
+$ uv run --no-sync python -m pytest tests/unit/test_source_attribution.py tests/integration/test_chat_attribution.py -q
+ImportError while importing test module 'C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\tests\unit\test_source_attribution.py'.
+E   ImportError: cannot import name 'attribution_of' from 'app.services.prompt_builder' (C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\app\services\pro
+ERROR tests/unit/test_source_attribution.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.46s
+
+$ uv run --no-sync python -m pytest tests/integration/test_chat_attribution.py -q
+E       KeyError: 'attribution'
+tests\integration\test_chat_attribution.py:101: KeyError
+E       KeyError: 'attribution'
+tests\integration\test_chat_attribution.py:101: KeyError
+E       KeyError: 'attribution'
+tests\integration\test_chat_attribution.py:121: KeyError
+FAILED tests/integration/test_chat_attribution.py::test_the_chat_answer_and_the_history_carry_the_same_flag[According to the notes [1].-cited]
+FAILED tests/integration/test_chat_attribution.py::test_the_chat_answer_and_the_history_carry_the_same_flag[According to the notes.-retrieved]
+
+# Failing run before the frontend implementation
+$ npx vitest run src/pages/ChatAsking.test.tsx src/pages/ChatConversations.test.tsx
+     × shows an answer without material as a normal message and without a sources list 164ms
+     × lists the cited sources with their marker, file name, page (when there is one) and the snippet in an expandable detail, in the order given 196ms
+     × shows the sources that were only retrieved apart, collapsed, with no marker numbers 135ms
+     × keeps the retrieved fragments reachable with the keyboard 167ms
+     × shows the sources as retrieved material when the attribution is undefined 130ms
+     × shows the sources as retrieved material when the attribution is null 163ms
+     × adds the neutral note and never claims support, in either state 168ms
+     × shows the sources of the messages of an opened conversation 3129ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  8 failed | 56 passed (64)
