@@ -69,6 +69,7 @@ export function defaultAsk(body: AskBody, state: ChatState): Response {
     answer: 'La fotosintesis ocurre en los cloroplastos [1].',
     sources: [sourceItem()],
     noMaterial: false,
+    attribution: 'cited',
   })
 }
 
@@ -76,6 +77,8 @@ interface Answer {
   answer: string
   sources: Source[]
   noMaterial: boolean
+  /** Absent: a server that does not know the field. */
+  attribution?: 'cited' | 'retrieved' | null
 }
 
 function storeTurn(body: AskBody, state: ChatState, id: string, given: Answer): Response {
@@ -88,6 +91,7 @@ function storeTurn(body: AskBody, state: ChatState, id: string, given: Answer): 
       role: 'assistant',
       content: given.answer,
       sources: given.sources,
+      ...(given.attribution === undefined ? {} : { attribution: given.attribution }),
     }),
   )
   state.messages[id] = thread
@@ -97,6 +101,7 @@ function storeTurn(body: AskBody, state: ChatState, id: string, given: Answer): 
     answer: given.answer,
     no_material: given.noMaterial,
     sources: given.sources,
+    ...(given.attribution === undefined ? {} : { attribution: given.attribution }),
   }
   return HttpResponse.json(response)
 }

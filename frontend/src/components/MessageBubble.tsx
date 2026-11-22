@@ -6,6 +6,7 @@ interface MessageBubbleProps {
   author: Message['role']
   content: string
   sources?: readonly Message['sources'][number][]
+  attribution?: Message['attribution']
   /** The question is on its way: it is shown as sent but not saved yet. */
   pending?: boolean
 }
@@ -17,6 +18,7 @@ export function MessageBubble({
   author,
   content,
   sources = [],
+  attribution = null,
   pending = false,
 }: MessageBubbleProps) {
   const mine = author === 'user'
@@ -27,7 +29,7 @@ export function MessageBubble({
     >
       <p className="text-xs font-semibold text-slate-600">{mine ? text.you : text.assistant}</p>
       <p className="whitespace-pre-wrap break-words">{content}</p>
-      {mine ? null : <SourcesBlock sources={sources} />}
+      {mine ? null : <SourcesBlock sources={sources} attribution={attribution} />}
     </div>
   )
 }

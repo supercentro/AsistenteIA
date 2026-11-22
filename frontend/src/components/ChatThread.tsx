@@ -28,6 +28,7 @@ export function ChatThread({ messages, pendingQuestion }: ChatThreadProps) {
           author={message.role}
           content={message.content}
           sources={message.sources}
+          attribution={message.attribution}
         />
       ))}
       {pendingQuestion === null ? null : (

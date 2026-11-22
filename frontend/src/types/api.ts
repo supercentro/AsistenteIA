@@ -11,8 +11,15 @@ export type Enrollment = components['schemas']['Enrollment']
 // them (spec `rag-chat` and `conversation-history`): `Required` states what the backend guarantees.
 export type Source = Required<components['schemas']['Source']>
 export type Conversation = Required<components['schemas']['Conversation']>
-export type Message = Omit<Required<components['schemas']['Message']>, 'sources'> & {
+/** Whether the sources of an answer were cited by it or only retrieved (null: no sources). */
+export type SourceAttribution = NonNullable<components['schemas']['Message']['attribution']>
+export type Message = Omit<
+  Required<components['schemas']['Message']>,
+  'sources' | 'attribution'
+> & {
   sources: Source[]
+  /** Absent when the server does not send it: the sources are then shown as retrieved. */
+  attribution?: SourceAttribution | null
 }
 export type ChatResponse = Omit<components['schemas']['ChatResponse'], 'sources'> & {
   sources: Source[]

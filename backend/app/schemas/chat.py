@@ -2,6 +2,7 @@
 
 import unicodedata
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -36,9 +37,14 @@ class SourceSchema(BaseModel):
     snippet: str = Field(max_length=300)
 
 
+Attribution = Literal["cited", "retrieved"]
+
+
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
     message_id: uuid.UUID
     answer: str
     no_material: bool
     sources: list[SourceSchema]
+    # Whether the sources were cited by the answer or only retrieved; null without sources.
+    attribution: Attribution | None = None

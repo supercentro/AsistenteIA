@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.chat import SourceSchema
+from app.schemas.chat import Attribution, SourceSchema
 
 
 class ConversationResponse(BaseModel):
@@ -25,3 +25,4 @@ class MessageResponse(BaseModel):
     content: str
     created_at: datetime
     sources: list[SourceSchema] = []
+    attribution: Attribution | None = None

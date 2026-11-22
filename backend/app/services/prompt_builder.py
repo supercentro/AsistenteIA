@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, Literal
 
 _DELIMITER_PATTERN = re.compile(r"<\s*/?\s*(?:CONTEXT|SYSTEM)\b[^>]*(?:>|$)", re.IGNORECASE)
 
@@ -68,6 +69,21 @@ def select_cited(answer: str, chunk_count: int) -> list[int]:
     retrieved block, so that an answer is never stored without traceable sources.
     """
     return cited_ranks(answer, chunk_count) or list(range(1, chunk_count + 1))
+
+
+def attribution_of(content: str, ranks: Iterable[int]) -> Literal["cited", "retrieved"] | None:
+    """Whether the stored sources of an answer were cited by it or only retrieved.
+
+    Derived from the stored answer and the stored ranks, with no stored flag, so that the answer of
+    the chat and the history agree, also for answers stored before the list form was read. With
+    ``top`` the highest stored rank, the sources are cited when the valid markers of the answer
+    inside ``1..top`` are exactly the stored ranks; an answer with no valid marker stores every
+    retrieved rank (``select_cited``) and so is retrieved. No stored ranks, no attribution.
+    """
+    stored = sorted(set(ranks))
+    if not stored:
+        return None
+    return "cited" if cited_ranks(content, stored[-1]) == stored else "retrieved"
 
 
 def build_prompt(
