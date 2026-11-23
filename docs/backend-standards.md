@@ -163,6 +163,9 @@ The contract is `api-spec.yml` and the behaviour is specified in `openspec/chang
 - MUST: deletion endpoints perform physical deletion (see cascades in `data-model.md`), covered by tests that assert rows are gone.
 - MUST: logs contain ids only, never message text.
 - SHOULD: document in the privacy text whether the Gemini tier used trains on submitted data (verify the current provider terms).
+- MUST: teacher analytics are aggregate-only (see `base-standards.md` section 9.4): at least 5 distinct students behind every figure that is shown (a smaller figure, including one with no student at all, is withheld, and a rate whose denominator has fewer students is null); weekly buckets over a window of whole weeks of at most 12 weeks (84 days, within the 90-day limit); only students currently enrolled; nothing stored by the computation (no table, no counter, no event); and no message text, student identifier or per-student figure in the response.
+- MUST: the analytics capability is switched off by a setting (`TEACHER_ACTIVITY_ENABLED`, default `false`) until the privacy text, the legal review and the consent version are in place; while it is off a teacher gets 404 and a student or an anonymous caller keeps the usual refusal.
+- SHOULD: a per-document figure is the number of answers whose cited sources include the document; it is never presented as semantic support or as evidence that the material was used.
 
 ## 10. Testing Standards
 

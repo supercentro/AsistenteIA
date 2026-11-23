@@ -135,6 +135,10 @@ class Settings(WorkerSettings):
     chat_history_messages: int = Field(default=10, ge=0, le=50)
     chat_rate_limit: str = "20/minute"
 
+    # Aggregate activity for teachers (change activity-events-and-metrics). Switched off until the
+    # privacy text, the legal review and the consent version are in place (design D-M2).
+    teacher_activity_enabled: bool = False
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: Any) -> Any:

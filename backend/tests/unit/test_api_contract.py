@@ -28,6 +28,7 @@ DOCUMENT_PATHS = [
     "/subjects/{subject_id}/documents",
     "/subjects/{subject_id}/documents/{document_id}",
 ]
+ACTIVITY_PATHS = ["/subjects/{subject_id}/activity"]
 Spec = Mapping[str, Any]
 
 
@@ -200,3 +201,30 @@ def test_the_application_publishes_the_document_contract(spec: Spec) -> None:
     app = create_app(build_settings("postgresql+psycopg://user:pw@localhost:5432/contract_test"))
 
     assert differences(spec, app.openapi()) == []
+
+
+def test_the_application_publishes_the_activity_contract(spec: Spec) -> None:
+    app = create_app(build_settings("postgresql+psycopg://user:pw@localhost:5432/contract_test"))
+
+    found = contract_differences(spec, app.openapi(), ACTIVITY_PATHS, server_prefix(spec))
+
+    assert found == []
+
+
+def test_the_activity_schemas_have_no_property_with_an_unexpected_key(spec: Spec) -> None:
+    """A comma inside an unquoted flow-mapping description silently adds bogus keys."""
+    allowed = {
+        "type",
+        "format",
+        "nullable",
+        "description",
+        "minimum",
+        "maximum",
+        "enum",
+        "$ref",
+        "items",
+    }
+    schemas = spec["components"]["schemas"]
+    for name in ("ActivityWindow", "ActivityPeriod", "ActivityDocument", "ActivityResponse"):
+        for field, definition in schemas[name]["properties"].items():
+            assert set(definition) <= allowed, (name, field, set(definition) - allowed)

@@ -125,6 +125,16 @@ class UploadValidationError(AppError):
         super().__init__(message, details={"reason": str(reason)})
 
 
+class InvalidActivityWindowError(AppError):
+    """The window of the teacher activity is reversed or longer than the allowed maximum."""
+
+    status_code = 422
+    code = "VALIDATION_ERROR"
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message, details={"reason": str(reason)})
+
+
 class ConsentRequiredError(ForbiddenError):
     """The student has not accepted the current privacy policy version."""
 

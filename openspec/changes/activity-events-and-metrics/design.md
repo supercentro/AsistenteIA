@@ -82,3 +82,17 @@ R-D1 was approved by the owner on 2026-11-23 only for the aggregate teacher metr
 | 6 | `readme.md` (academic deliverable) | the approved MVP scope | Not modified (owner's decision of 2026-11-23) |
 | 7 | `backend/app/core/config.py`, `backend/.env.example` | no such setting | A setting that switches the capability on, default off (implementation change) |
 
+## Implementation notes (2026-11-23)
+
+Implemented switched off by default; no table, no migration, no change of privileges. The contract as built differs from the sketch above in these points, all inside the owner's decisions:
+
+| Sketch | As built | Why |
+|---|---|---|
+| query `from`, `to` | `start`, `end` (dates) | `from` is a reserved word in the code; the response states the window actually computed |
+| `granularity=week\|day` | `week` only | the owner approved weekly aggregation; a daily bucket needs its own decision |
+| window of at most 90 days | whole weeks, at most 12 (84 days) | a window of whole weeks keeps the cells fixed, so two requests cannot isolate a few days of one student by shifting the window |
+| `suppressed` for the cells | `suppressed` is true when at least one figure is null | a flag that told "one to four" from "none" would leak what the withholding hides, so a figure with no student at all is withheld too |
+| `consultations` | `cited_appearances` | the name says what is counted (answers that cite the document) and avoids implying use |
+| period `{period, count}` | `{period_start, count}` | the Monday of the week |
+
+`no_cited_source_rate` is the share of answers that cite none of their sources and includes the answers with no material, so it is at least `no_material_rate`; it is not a quality measure (TD-062). Only ready documents are listed; a deleted document that was cited stays listed by its stored name with no identifier. The residual risks are TD-069 (re-identification, to close before enabling) and TD-070 (aggregation in the application process).
