@@ -25,11 +25,11 @@
 ## 3. Verification
 
 - [x] 3.1 Step N: review the existing tests that touch the chat tables and the teacher routes
-- [ ] 3.2 Step N+1: unit, integration and role-bound suites; database state before and after (the change writes nothing) (unit and integration suites pass locally; the role-bound scenario runs only in CI against a disposable cluster, so this stays open until the CI of the pull request)
+- [x] 3.2 Step N+1: unit, integration and role-bound suites; database state before and after (the change writes nothing) (evidence: unit and integration suites green locally; the role-bound scenario `test_the_teacher_activity_route_reads_under_the_app_role_and_writes_nothing` and the real-server tests ran in the CI of PR #30 at `cca1187` (job `privileges` and `backend` green, two runs); the call writes nothing, checked by row counts before and after)
 - [x] 3.3 Step N+2: manual endpoint test with a teacher, another teacher and a student on the development stack with fictitious data
 - [x] 3.4 Step N+3: not applicable (no user-facing flow in this change)
 - [x] 3.5 Step N+4: documentation: API contract, data protection section of `docs/data-model.md`, `docs/technical-debt.md` (residual re-identification risk), `docs/roadmap.md`
 - [x] 3.6 Independent adversarial review with a privacy focus: re-identification, differencing, authorisation, the shape of the response, erasure (report: `reports/2026-11-23-adversarial-review.md`; F1 needs the owner's decision)
-- [ ] 3.7 Final gates of `docs/base-standards.md` section 9 re-run after the last change; `openspec validate --all --strict`; CI on Linux after the pull request
+- [x] 3.7 Final gates of `docs/base-standards.md` section 9 re-run after the last change; `openspec validate --all --strict`; CI on Linux after the pull request (evidence: `ruff check --no-cache`, `ruff format --check`, `mypy --strict app tests` (the CI form), `check:api-types`, `typecheck` and `openspec validate --all --strict` clean after the last change; CI of PR #30 at `cca1187` green; CI of `main` at the squash merge `5799194` green (backend, frontend, privileges). The capability stays switched off; F1 (Major) is open in TD-069, F6 and F7 (TD-070) documented, so the change is NOT archivable as a release of the feature for real students)
 
 > Open decisions: R-D1, D-M1 (N), D-M2 (policy, legal review, consent version, switched off until then), D-M3, D-M5, D-M6, D-M7, R-D7 (no new storage in this slice).
