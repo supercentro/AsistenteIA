@@ -13,6 +13,7 @@ Planning only; nothing is implemented. Approved by the owner on 2026-11-23:
 - Priority: **demonstrate with tests** F1, F8 and the comparison between windows, before any mitigation.
 - Mitigations are weighed as **preventive, detective or organisational**, keeping the right of erasure and the existing privacy limits.
 - Keeping enrolments, raising N, limiting queries or logging accesses are **not assumed to resolve a risk on their own**.
+- **P2 / A2** (a non-personal marker of the last unenrolment; figures only over whole weeks after it) is the priority for F1. It keeps D-M5, keeps no enrolment after a removal and keeps the right of erasure; it is specified in `design.md` and `spec.md` and **not implemented**. F1 stays open until its demonstration passes. A second validation round (2026-11-23) fixed two defects of the first draft (the order of the writes against the deletion of a subject, and the single snapshot of the read), described how the new column grant reaches existing environments (`db-migrate` then `db-verify`, not applied), checked `weeks = 0` against the contract, and evaluated V5 and A2b (the rule that only ended weeks are shown), which is a separate decision.
 
 Pending owner approval, **not decided here** (see `design.md`, D-P1 to D-P8): any migration; any change of contract; keeping enrolments after unenrolment (this reverses the approved D-M5); identity verification of students; a persistent access record; any change of the meaning or precision of a figure.
 
