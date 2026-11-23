@@ -1,0 +1,554 @@
+{
+  "answers": [
+    {
+      "answer": "Si la tasa de aprendizaje (que controla el tamaño de cada paso del descenso de gradiente) es demasiado grande, el entrenamiento oscila o diverge [1].\n\nFuente: ia-unidad-2.md, página 1.",
+      "case_id": "ans-ia07",
+      "cited_files": [
+        "ia-unidad-2.md"
+      ],
+      "cited_ranks": [
+        1
+      ],
+      "fallback": false,
+      "kind": "answerable",
+      "markers": [
+        1
+      ],
+      "question": "¿Qué ocurre si los pasos de ajuste durante el entrenamiento son demasiado grandes?"
+    },
+    {
+      "answer": "El mecanismo que permite que cada palabra pondere la importancia de las demás para construir su representación son los mecanismos de atención [1].\n\nFuente: ia-unidad-2.md, página 1.",
+      "case_id": "ans-ia09",
+      "cited_files": [
+        "ia-unidad-2.md"
+      ],
+      "cited_ranks": [
+        1
+      ],
+      "fallback": false,
+      "kind": "answerable",
+      "markers": [
+        1
+      ],
+      "question": "¿Qué mecanismo permite que cada palabra tenga en cuenta al resto de la oración?"
+    },
+    {
+      "answer": "El campo que identifica de forma única cada fila (o registro) de una tabla es la clave primaria [1]. Esta no puede ser nula, no puede repetirse y puede estar formada por una sola columna o por varias, denominándose en este último caso clave compuesta [1].",
+      "case_id": "ans-bd02",
+      "cited_files": [
+        "bd-unidad-1.md"
+      ],
+      "cited_ranks": [
+        1
+      ],
+      "fallback": false,
+      "kind": "answerable",
+      "markers": [
+        1
+      ],
+      "question": "¿Qué campo permite distinguir cada registro de una tabla sin ambigüedad?"
+    },
+    {
+      "answer": "Para evitar repetir información (redundancia) mediante la descomposición de tablas, se utiliza la **normalización**. \n\nSegún el material proporcionado, este proceso se realiza a través de las siguientes formas:\n\n*   **Primera forma normal:** Cada celda debe guardar un valor atómico.\n*   **Segunda forma normal:** No existen dependencias parciales de la clave.\n*   **Tercera forma normal:** No existen dependencias entre atributos que no son clave.\n\nFuente: [bd-unidad-1.md], página 1.",
+      "case_id": "ans-bd04",
+      "cited_files": [
+        "bd-unidad-4.md",
+        "bd-unidad-2.md",
+        "bd-unidad-1.md",
+        "bd-unidad-1.md",
+        "bd-unidad-3.md"
+      ],
+      "cited_ranks": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "fallback": true,
+      "kind": "answerable",
+      "markers": [],
+      "question": "¿Cómo se evita repetir información dividiendo las tablas en formas cada vez más estrictas?"
+    },
+    {
+      "answer": "La diferencia radica en el tipo de unión utilizada:\n\n*   **INNER JOIN:** Devuelve únicamente las filas que tienen correspondencia en ambas tablas [1].\n*   **LEFT JOIN:** Conserva todas las filas de la tabla izquierda y rellena con valores nulos aquellas filas donde no existe una pareja en la tabla de la derecha [1].\n\nFuente: bd-unidad-2.md, página 1.",
+      "case_id": "ans-bd06",
+      "cited_files": [
+        "bd-unidad-2.md"
+      ],
+      "cited_ranks": [
+        1
+      ],
+      "fallback": false,
+      "kind": "answerable",
+      "markers": [
+        1
+      ],
+      "question": "¿Qué diferencia hay entre unir tablas conservando todas las filas de una de ellas y unir solo las coincidentes?"
+    },
+    {
+      "answer": "La estructura que acelera las búsquedas por rangos (además de las búsquedas por igualdad) es el **índice de árbol B**. A cambio de esta funcionalidad, ocupa espacio y ralentiza ligeramente las inserciones y actualizaciones, ya que debe mantenerse al día.\n\nFuente: [1] bd-unidad-2.md, página 1.",
+      "case_id": "ans-bd07",
+      "cited_files": [
+        "bd-unidad-2.md"
+      ],
+      "cited_ranks": [
+        1
+      ],
+      "fallback": false,
+      "kind": "answerable",
+      "markers": [
+        1
+      ],
+      "question": "¿Qué estructura acelera las búsquedas por rangos aunque encarece las escrituras?"
+    }
+  ],
+  "attribution": {
+    "answerable": {
+      "fallback": 0.16666666666666666,
+      "n": 6,
+      "supported": 0.8333333333333334,
+      "unsupported": 0.0,
+      "valid_marker": 0.8333333333333334
+    }
+  },
+  "fallback_cases": [
+    "ans-bd04"
+  ],
+  "header": {
+    "cases": 41,
+    "date": "2026-11-23",
+    "embedder": "local",
+    "golden_set_version": "v0.2-draft",
+    "mode": "answers",
+    "model": "gemini-3.1-flash-lite",
+    "model_calls": 11,
+    "revision": "aa8fe37-dirty-run2",
+    "threshold": 0.3,
+    "top_k": 5
+  },
+  "isolation_violations": [],
+  "notes": [],
+  "problems": [
+    "ans-ia01: the model call failed (LLMUnavailableError)",
+    "ans-ia08: the model call failed (LLMUnavailableError)",
+    "ans-bd03: the model call failed (LLMUnavailableError)",
+    "ans-bd08: the model call failed (LLMUnavailableError)",
+    "ans-bd10: the model call failed (LLMUnavailableError)",
+    "stopped after repeated model failures",
+    "model error kinds: {'GoogleAPIError:503': 4, 'GoogleAPIError:504': 1}"
+  ],
+  "review": [],
+  "rows": [
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.625,
+        "mrr": 0.5,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.625
+      },
+      "threshold": 0.2,
+      "top_k": 3,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.625,
+        "mrr": 0.5,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.625
+      },
+      "threshold": 0.3,
+      "top_k": 3,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.375,
+        "mrr": 0.3125,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.375
+      },
+      "threshold": 0.4,
+      "top_k": 3,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.6666666666666666,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.5,
+        "hit3": 0.65,
+        "hit5": 0.65,
+        "mrr": 0.5583333333333333,
+        "n": 20,
+        "refused": 0.2,
+        "supported": 0.65
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 3,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.16666666666666666,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.875,
+        "mrr": 0.55625,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.875
+      },
+      "threshold": 0.2,
+      "top_k": 5,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": true,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.75,
+        "mrr": 0.53125,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.75
+      },
+      "threshold": 0.3,
+      "top_k": 5,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7833333333333333,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 0.95
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.5,
+        "mrr": 0.34375,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.5
+      },
+      "threshold": 0.4,
+      "top_k": 5,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.6666666666666666,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.5,
+        "hit3": 0.65,
+        "hit5": 0.65,
+        "mrr": 0.5583333333333333,
+        "n": 20,
+        "refused": 0.2,
+        "supported": 0.65
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 5,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.16666666666666666,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7904761904761906,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.875,
+        "mrr": 0.55625,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.875
+      },
+      "threshold": 0.2,
+      "top_k": 8,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7904761904761906,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.375,
+        "hit3": 0.625,
+        "hit5": 0.75,
+        "mrr": 0.53125,
+        "n": 8,
+        "refused": 0.0,
+        "supported": 0.75
+      },
+      "threshold": 0.3,
+      "top_k": 8,
+      "trap": {
+        "hit1": 1.0,
+        "hit3": 1.0,
+        "hit5": 1.0,
+        "mrr": 1.0,
+        "n": 6,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "unanswerable_passed": 1.0,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.65,
+        "hit3": 0.95,
+        "hit5": 0.95,
+        "mrr": 0.7904761904761906,
+        "n": 20,
+        "refused": 0.0,
+        "supported": 1.0
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.25,
+        "hit3": 0.375,
+        "hit5": 0.5,
+        "mrr": 0.34375,
+        "n": 8,
+        "refused": 0.375,
+        "supported": 0.5
+      },
+      "threshold": 0.4,
+      "top_k": 8,
+      "trap": {
+        "hit1": 0.8333333333333334,
+        "hit3": 0.8333333333333334,
+        "hit5": 0.8333333333333334,
+        "mrr": 0.8333333333333334,
+        "n": 6,
+        "refused": 0.16666666666666666,
+        "supported": 0.8333333333333334
+      },
+      "unanswerable_passed": 0.6666666666666666,
+      "unanswerable_total": 6
+    },
+    {
+      "answerable": {
+        "hit1": 0.5,
+        "hit3": 0.65,
+        "hit5": 0.65,
+        "mrr": 0.5583333333333333,
+        "n": 20,
+        "refused": 0.2,
+        "supported": 0.65
+      },
+      "default": false,
+      "follow_up": {
+        "hit1": 0.125,
+        "hit3": 0.125,
+        "hit5": 0.125,
+        "mrr": 0.125,
+        "n": 8,
+        "refused": 0.75,
+        "supported": 0.125
+      },
+      "threshold": 0.5,
+      "top_k": 8,
+      "trap": {
+        "hit1": 0.5,
+        "hit3": 0.5,
+        "hit5": 0.5,
+        "mrr": 0.5,
+        "n": 6,
+        "refused": 0.5,
+        "supported": 0.5
+      },
+      "unanswerable_passed": 0.16666666666666666,
+      "unanswerable_total": 6
+    }
+  ],
+  "stale_cases": [],
+  "unsupported_cases": []
+}

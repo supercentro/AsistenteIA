@@ -1,5 +1,7 @@
 # rag-golden-set-evaluation: metrics that could not be completed, and the real-request budget
 
+> **Superseded in part (2026-11-23):** the preparation and the two real runs of option B are in `2026-11-23-answers-baseline-preparation.md` and `2026-11-23-answers-runs-1-and-2.md`; the metrics below are still missing. The 154 requests of the first run remain a historical estimate, never confirmed.
+
 Date: 2026-11-21. No real call to Gemini was made after the first run (owner's decision of 2026-11-21: none until a reliable budget exists).
 
 ## 1. What was obtained and is kept
