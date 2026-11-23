@@ -1,6 +1,6 @@
 {
-  "authorised_total": 50,
-  "spent": 154,
+  "authorised_total": 206,
+  "spent": 172,
   "explanation": "authorised_total is the number of real free-tier Gemini requests the owner allows in total for this evaluation (2026-11-20); only the owner edits it. spent is a conservative estimate that the harness increases after every run. The first run made 44 logical calls with the library's own retries on (up to 6 attempts each), so its real request count is unknown: lower bound 22 (the answered calls), midpoint estimate 154 (22 answered calls at one request each + 22 failed calls at 6 attempts each; answered calls may also have retried, so the true figure is only bounded by 22 and 264), theoretical maximum 264. The provider's own usage page is the only source of the true number. Only the owner edits authorised_total, at or above spent plus the planned requests.",
   "entries": [
     {
@@ -10,6 +10,22 @@
       "calls": 44,
       "estimated_requests": 154,
       "note": "first run: 22 answered, 22 failed with LLMUnavailableError before the harness used one event loop and one attempt per call"
+    },
+    {
+      "date": "2026-11-23",
+      "mode": "answers",
+      "revision": "aa8fe37-dirty",
+      "calls": 7,
+      "authorised_total": 204,
+      "note": "golden set v0.2-draft; gemini-3.1-flash-lite"
+    },
+    {
+      "date": "2026-11-23",
+      "mode": "answers",
+      "revision": "aa8fe37-dirty-run2",
+      "calls": 11,
+      "authorised_total": 206,
+      "note": "golden set v0.2-draft; gemini-3.1-flash-lite"
     }
   ]
 }
