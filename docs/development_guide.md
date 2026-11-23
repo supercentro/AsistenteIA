@@ -66,7 +66,7 @@ Backend variables. The column **File** says where each one lives: `API` = `backe
 | `MIGRATION_DATABASE_URL` | `.env.migrate` | URL of the migrator role, read by `alembic/env.py` through `MigrationSettings`; **never falls back to `DATABASE_URL`** and needs no `JWT_SECRET` | required to run Alembic |
 | `ADMIN_DATABASE_URL`, `DB_MIGRATOR_PASSWORD`, `DB_APP_PASSWORD`, `DB_WORKER_PASSWORD`, `DB_CLI_PASSWORD` | `.env.roles` | Read only by the role bootstrap (`RolesSettings`): administrator URL and the four working-role passwords (at least 16 characters, all different, no placeholder) | required for the bootstrap and `db-verify` |
 
-Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`.
+Frontend (`frontend/.env`): `VITE_API_URL=http://localhost:8000/api/v1`, and optionally `VITE_TEACHER_ACTIVITY_ENABLED=false` (the default; the teacher activity page needs `true` here **and** `TEACHER_ACTIVITY_ENABLED=true` in the backend, which a real installation must not set before TD-069 is closed). The Playwright dev server of `playwright.config.ts` sets it to `true` for the mocked suite only; a dev server that is already running without it shows no link, so run the mocked spec of the activity page against a server started with the flag.
 
 > **Local databases created before migration `0002` was final:** the migration gained the `ck_users_email_ascii` check before being merged; run `docker compose exec backend alembic downgrade -1 && docker compose exec backend alembic upgrade head` (it drops the `users` table, so only for development data).
 

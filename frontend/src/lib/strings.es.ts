@@ -393,6 +393,39 @@ export const strings = {
         'La consulta tardó demasiado y la respuesta puede haberse guardado. Revise la conversación abierta y la lista de conversaciones antes de volver a preguntar.',
     },
   },
+  activity: {
+    link: 'Ver actividad',
+    back: 'Volver a la asignatura',
+    loading: 'Cargando actividad…',
+    title: 'Actividad de la asignatura',
+    window: (start: string, end: string) => `Semanas del ${start} al ${end}`,
+    insufficient: 'Datos insuficientes',
+    cards: {
+      enrolled: 'Estudiantes inscriptos',
+      active: 'Estudiantes activos',
+      activeNote: 'Estudiantes que hicieron al menos una pregunta en estas semanas.',
+    },
+    weekly: {
+      caption: 'Preguntas por semana',
+      week: 'Semana',
+      questions: 'Preguntas',
+    },
+    shares: {
+      heading: 'Proporción de respuestas',
+      noMaterial: 'Respuestas sin material encontrado',
+      noCitedSource: 'Respuestas sin fuente citada',
+      noCitedSourceNote: 'Incluye las respuestas sin material encontrado.',
+    },
+    documents: {
+      caption: 'Documentos citados en las respuestas',
+      name: 'Documento',
+      cited: 'Veces que una respuesta citó el documento',
+      note: 'Cuenta citas; no mide comprensión ni uso del material.',
+    },
+    note: (minimumGroup: number) =>
+      `Las cifras de actividad solo se muestran cuando provienen de al menos ${minimumGroup} estudiantes. Cuando hay menos, se indica «Datos insuficientes». Las cifras pueden cambiar entre consultas.`,
+    allSuppressed: 'Todavía no hay datos suficientes para mostrar la actividad de esta asignatura.',
+  },
   states: {
     loading: 'Cargando…',
     retry: 'Reintentar',
