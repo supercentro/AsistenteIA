@@ -10,7 +10,7 @@ import asyncio
 import os
 import sys
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +28,7 @@ from app.models.conversation import Conversation, Message, MessageRole
 from app.rag.chunker import chunk_pages
 from app.rag.embedder import Embedder
 from app.rag.loaders import load_markdown, load_text
+from app.repositories.chunk_repository import ScoredChunk
 from app.services.llm_service import LLMService
 from app.services.rag_service import RetrievedContext
 from tests.db_support import guarded_engine
@@ -46,7 +47,7 @@ from tests.evaluation.guards import (
     plan_model_calls,
 )
 from tests.evaluation.metrics import Retrieved, cut, isolation_violations, retrieval_rows
-from tests.evaluation.report import Header, Report, ReviewItem
+from tests.evaluation.report import AnswerRecord, Header, Report, ReviewItem
 from tests.sql_support import (
     insert_chunk,
     insert_document,
@@ -190,6 +191,22 @@ def _cleanup(url: str, created: _Created) -> list[str]:
             except Exception as error:  # noqa: BLE001 - keep deleting the rest, report afterwards
                 failures.append(error)
     return [f"cleanup left {len(failures)} synthetic rows behind"] if failures else []
+
+
+def answer_record(
+    case: Case, answer: str, result: Attribution, chunks: Sequence[ScoredChunk]
+) -> AnswerRecord:
+    """The whole answer of one case with the ranks and the files that become its sources."""
+    return AnswerRecord(
+        case_id=case.id,
+        kind=case.kind,
+        question=case.question,
+        answer=answer,
+        markers=list(result.markers),
+        cited_ranks=list(result.cited),
+        cited_files=[chunks[rank - 1].document_filename for rank in result.cited],
+        fallback=result.fallback,
+    )
 
 
 def run_evaluation(
@@ -354,6 +371,7 @@ def _measure(
     attribution: dict[str, AttributionStats] = {}
     results: list[Attribution] = []
     review: list[ReviewItem] = []
+    answers: list[AnswerRecord] = []
     notes: list[str] = []
     if options.mode == "answers":
         asked = [
@@ -361,6 +379,13 @@ def _measure(
             for case in golden.cases
             if case.model and (ctx := default_contexts[case.id]) is not None and ctx.chunks
         ]
+        sent_ids = {case.id for case in asked}
+        unsent = [case.id for case in golden.cases if case.model and case.id not in sent_ids]
+        if unsent:
+            notes.append(
+                f"{len(unsent)} cases marked for the model retrieved nothing and were not sent: "
+                + ", ".join(unsent)
+            )
         if announce is not None:
             announce(f"{len(asked)} model calls will be made (cap {options.max_calls})")
         plan_model_calls(needed=len(asked), cap=options.max_calls)
@@ -399,6 +424,7 @@ def _measure(
                     service._db.close()  # noqa: SLF001 - the session was opened for this call only
                 result = classify_answer(case, answer, context.chunks)
                 results.append(result)
+                answers.append(answer_record(case, answer, result, context.chunks))
                 if not_exercised(case, context.chunks):
                     notes.append(f"{case.id}: not exercised (the target chunk was not retrieved)")
                 if result.forbidden_found:
@@ -431,4 +457,5 @@ def _measure(
         problems=problems,
         stale_cases=[r.case_id for r in results if r.stale_markers],
         notes=notes,
+        answers=answers,
     )

@@ -2,8 +2,11 @@
 
 The owner decides `authorised_total` (the number of real free-tier requests allowed in total) by
 editing the file; the harness only adds to `spent`. A run is stopped before its first call when it
-needs more than what is left. The provider's own quota is not visible from here: the ledger is the
-authorisation, not the provider's counter.
+needs more than what is left. **One authorisation covers one run**: every run records the value of
+`authorised_total` it ran under, and a later run under the same value is refused even when room is
+left, so that the owner must give a new authorisation (a different value) for each run. The harness
+never writes `authorised_total` and never rewrites the history. The provider's own quota is not
+visible from here: the ledger is the authorisation, not the provider's counter.
 """
 
 import json
@@ -24,13 +27,20 @@ class Ledger:
     path: Path
     authorised_total: int
     spent: int
+    # (date, authorised_total) of the runs that recorded the total they ran under
+    used_authorisations: tuple[tuple[str, int], ...] = ()
 
 
 def load_ledger(path: Path) -> Ledger:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Ledger(path, int(data["authorised_total"]), int(data["spent"]))
-    except (OSError, ValueError, KeyError, TypeError):
+        used = tuple(
+            (str(entry.get("date", "?")), int(entry["authorised_total"]))
+            for entry in data.get("entries", [])
+            if "authorised_total" in entry
+        )
+        return Ledger(path, int(data["authorised_total"]), int(data["spent"]), used)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError):
         raise HarnessRefusedError(
             f"the request ledger {path.name!r} is missing or invalid (see the step 3.3 report)"
         ) from None
@@ -41,6 +51,13 @@ def remaining(ledger: Ledger) -> int:
 
 
 def require_budget(ledger: Ledger, needed: int) -> None:
+    for date, total in ledger.used_authorisations:
+        if total == ledger.authorised_total:
+            raise BudgetExhaustedError(
+                f"budget: the authorisation of {total} real requests was already used by the run "
+                f"of {date}; each run needs a new authorisation (a different authorised_total "
+                "set by the owner), even when requests are left"
+            )
     left = remaining(ledger)
     if needed > left:
         raise BudgetExhaustedError(
@@ -91,6 +108,7 @@ def reserve_run(path: Path, *, calls: int, date: str, mode: str, revision: str, 
             "revision": revision,
             "calls": calls,
             "reserved": True,
+            "authorised_total": int(data["authorised_total"]),
             "note": note,
         }
     )
@@ -114,6 +132,13 @@ def record_run(path: Path, *, calls: int, date: str, mode: str, revision: str, n
     data = _read(path)
     data["spent"] = int(data["spent"]) + calls
     data.setdefault("entries", []).append(
-        {"date": date, "mode": mode, "revision": revision, "calls": calls, "note": note}
+        {
+            "date": date,
+            "mode": mode,
+            "revision": revision,
+            "calls": calls,
+            "authorised_total": int(data["authorised_total"]),
+            "note": note,
+        }
     )
     _write(path, data)
