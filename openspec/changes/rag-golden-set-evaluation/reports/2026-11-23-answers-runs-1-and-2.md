@@ -26,6 +26,16 @@ All ten answers are `answerable` cases, in the order of the set (`ans-ia02`, `ia
 Retrieval and refusal (complete in both reports, over their cases): self-contained questions Hit@1 69 %, Hit@3 and Hit@5 93 %, MRR 0.793; follow-ups Hit@5 75 %; 6 of 10 unanswerable questions pass the threshold. No isolation violation.
 
 ## Ledger and consumption
+
+**The ledger file is not published with these reports.** `real-request-ledger.json` is the owner's local record of her authorisations; the version in the repository keeps the values of 2026-11-21 (`authorised_total` 50, `spent` 154, one entry) and the local file holds what follows, so that the consumption stays traceable from this document:
+
+| Entry | Date | Requests recorded | `authorised_total` it ran under |
+|---|---|---|---|
+| 1 (historical) | 2026-11-20 | 44 logical calls, **estimated** 154 real requests, never confirmed | none (before the rule) |
+| 2 (run 1) | 2026-11-23 | 7 | 204 |
+| 3 (run 2) | 2026-11-23 | 11 | 206 |
+
+Local totals: `authorised_total` 206, `spent` 172 = 154 estimated + 18 counted by the harness.
 `authorised_total` 206, `spent` **172** = 154 historical (an estimate, never confirmed) + 7 + 11 requests counted by the harness (one attempt per call). The rule "one authorisation, one run" refuses a third run under 206 although 34 requests remain by arithmetic, and the run under 204 can not be repeated either. Whether a `503` or a `504` counts against the quota of the provider is not stated by its documentation.
 
 ## Limits and decision
