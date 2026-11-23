@@ -97,6 +97,7 @@ Option A (keep the enrolment as ended) cures V1 by counting people who left, whi
 - **Effect on erasure and D-M5:** D-M5 is unchanged (the unenrolled are still excluded). The marker names no person and is not a copy of the enrolment, so a student's own erasure leaves nothing behind. A student's own deletion still lowers later results (a right, and a residual risk).
 - **Costs:** a migration (one column, with its `downgrade`), a rule in the service, and **lost history after any unenrolment** (the data stays; it is not shown). A removal by mistake hides the term so far; the dashboard fills again week by week. A removal caused by the deletion of the student's own account does not set the marker (a right, residual).
 - **Needs approval:** the migration, the contract note about the effective window, the loss of history, and the sentence of `backend-standards.md` section 9.
+- **Specified in detail** in "P2 / A2 specification in detail" below.
 
 ### V3 without storage: remove the window-wide figures, or compute them on fixed blocks (F2)
 
@@ -155,6 +156,238 @@ The threat is a teacher who **controls** accounts that look like students. To st
 3. **P4 after P1 to P3**: the detective record with a retention period and a named reviewer. It supports the policy; it is not a control of the figures.
 4. **Not recommended**: A (it reverses D-M5 and retains links when A2 reaches the same result), E (noise), a higher N (it only removes small classes).
 5. **Residual after P1, P2, P3 and P4:** F8 (until I3 or I8), a student's own departure or erasure, and the window edges.
+
+## P2 / A2 specification in detail (2026-11-23)
+
+Prioritised by the owner for F1. **Planning only: no code, migration, permission or contract is changed by this section.** D-M5 is kept: a student who is removed contributes to no later figure. F1 is **not** closed and stays open until the demonstration of this section passes (spec, "F1 stays open until demonstrated").
+
+### The rule in one paragraph
+
+The subject keeps one non-personal marker, `last_unenrolment_at`: the database clock at the last unenrolment the teacher made. Every figure of the response is computed **only over whole weeks that start strictly after the marker**. A student can have asked only before being removed, so no figure ever includes both the weeks that held that student's activity and a read that excludes them.
+
+### The marker (persistence)
+
+| Item | Definition |
+|---|---|
+| Column | `subjects.last_unenrolment_at TIMESTAMPTZ NULL`; null means no unenrolment has happened. No reference to a student |
+| Written by | the single route that removes an enrolment (`DELETE /subjects/{id}/enrollments/{student_id}`), inside **the same transaction** and **before** the enrolment row is deleted (order: advisory lock, subject row, enrolment row, as the deletion of a subject follows); a removal that deletes nothing raises 404 and rolls the marker back |
+| Value | `GREATEST(coalesce(current, '-infinity'), clock_timestamp())` of the database: **monotonic**, one clock for the marker and for `messages.created_at` |
+| Unconditional | set whether or not the student had asked anything, so that hiding or not hiding the history never tells whether the student was active |
+| Not written by | a read, an enrolment, a re-enrolment, a 404 (nothing deleted), the deletion of an account or of conversations by the student (their right), the deletion of the subject |
+| Existing subjects | the migration sets the marker to the time of the migration: past removals left no trace, so the history before it is withheld; the capability is switched off and unused, so nothing is lost |
+| Migration | one revision after the current head `0007`, with a working `downgrade` that drops the column; `alembic check` clean |
+
+### The effective window (formal)
+
+Let the requested window be the whole weeks the service already computes (Monday to Sunday UTC, at most 12). Let `c(M)` be the **first Monday 00:00 UTC strictly after** the marker `M` (a marker exactly on a Monday still hides that Monday's week, which makes the proof independent of equal timestamps). The effective weeks are the requested weeks whose start is at least `c(M)`; with a null marker nothing changes.
+
+- `window.start` is the first effective week, `window.end` and the default end are unchanged, `window.weeks` is the number of effective weeks. **`weeks` may be below 12 and may be 0**: with 0 weeks `questions` is empty, every window-wide figure is null, `enrolled_students` is still shown and `suppressed` is true.
+- A marker older than the window has no effect. A marker inside the current week gives 0 weeks until the next Monday.
+- Every query of the repository (questions, answers, documents) takes the effective bounds; the marker is read from the subject that the service already loads, so there is no extra query.
+
+### Operations analysed
+
+| Operation | Effect on the marker | Effect on the figures | Why it is safe or what remains |
+|---|---|---|---|
+| Read, repeated reads | none | the same answer every time | the answer depends only on data and marker, never on earlier reads |
+| Remove student S | set to now (monotonic) | weeks before `c(M)` withheld | S's questions all precede the marker (see concurrency) |
+| Remove an inactive student | set to now | the same as for an active one | no presence bit |
+| Remove again, later | moves forward, never back | more weeks withheld | each removal hides what the previous read saw |
+| Re-enrol S | none | S's new questions count from then on | their earlier weeks stay withheld, so nothing reappears |
+| Enrol a new student | none | the new student's activity appears in later weeks only | not a removal; see "addition" in the residual risks |
+| Roll back the removal | unchanged with the delete | unchanged | one transaction |
+| Remove a student who is not enrolled (404) | unchanged (rolled back with the 404) | unchanged | the update ran first and the transaction rolled back |
+| Student deletes conversations or account | unchanged | later results exclude that data | their right; the teacher may notice the change (residual) |
+| Two removals at once | one monotonic value | as above | the subject row serialises the two updates |
+| Chat turn at the same time as a removal | see below | see below | ordered by the existing lock |
+
+### Security property of V1: non-interference, not equality
+
+Equality of the answers before and after cannot be required: A2 hides weeks. The property to prove is that the removal **adds no information about the removed student**:
+
+> Take two worlds that differ only in the messages the student S wrote before being removed (any number, timing, content or sources). Apply the same removal and the same later operations by everyone else. Every response after the removal is **identical in both worlds**: the figures, the window, `enrolled_students` and `suppressed`.
+
+The read taken before the removal legitimately includes S, like any aggregate of 5 or more students. A response after the removal is independent of S's earlier activity, so a pair of reads reveals nothing about S that the first read did not already.
+
+Proof obligations, each with a test: (P-a) every figure after the removal uses only weeks that start after the marker; (P-b) every message of S precedes the marker; (P-c) the marker never decreases; (P-d) the marker does not depend on S's activity; (P-e) the marker and the deletion commit or roll back together; (P-f) the only way to delete an enrolment is the route that sets the marker.
+
+### Concurrency and transactions
+
+- Messages take `created_at = now()`, the start of their transaction. A chat turn and an unenrolment already take the same advisory lock first, per student and subject (M2, `lock_student_subject`). If the turn takes it first, the removal waits, so the marker is later than the turn's commit and its `created_at`. If the removal takes it first, the turn finds the student not enrolled and is refused. So no question of S has `created_at` at or after the marker.
+- The update of the marker takes the subject row **after** the advisory lock and **before** the enrolment row, which keeps the rule "one advisory lock, taken first" and the order of the deletion of a subject. The first draft wrote it after the delete, which could deadlock with that deletion; see the second validation round.
+- The activity read runs in one snapshot (second validation round); the first draft did not say it.
+- Assumption: the database clock does not go backwards; `GREATEST` keeps the marker monotonic even if it does.
+- The route already commits through `commit_or_rollback` before the 204 is built.
+
+### Effects on windows, availability and the dashboard
+
+| Situation | What the teacher sees |
+|---|---|
+| No removal yet | as today |
+| A removal in the current week | 0 weeks: no table, the window-wide cards read «Datos insuficientes», the enrolled count stays |
+| A removal some weeks ago | only the weeks after it; `weeks` below 12; the cards use those weeks, with 5 or more active students needed |
+| 12 weeks after the last removal | the full window again |
+
+The loss is the visible history, 1 to 12 weeks after each removal; the data stays stored. Each removal resets the effect, including one that corrects a mistaken enrolment, and the marker cannot be made conditional without leaking a bit. The dashboard sends no parameters, so `weeks` below 12 means the history was limited. Two states are needed, with copy for the owner to approve:
+
+| State | Proposed Spanish copy |
+|---|---|
+| Limited (`weeks` below 12, above 0) | «Por un cambio reciente en las inscripciones, solo se muestran las semanas posteriores a ese cambio.» |
+| No weeks (`weeks` is 0) | «Por un cambio reciente en las inscripciones, todavía no hay semanas completas para mostrar.» |
+
+Coupling to note: reading "limited" as `weeks` below 12 depends on the default window having 12 weeks; a later change of the default (package P1) must revisit it. A new response field would remove the coupling but is a larger contract change; it is not proposed.
+
+### Minimal changes (when implemented, each with approval)
+
+| Where | Change |
+|---|---|
+| Persistence | revision `0008` (one column, backfill, `downgrade`); the `Subject` model |
+| Write path | `EnrollmentRepository.delete_for_teacher_subject` sets the marker in the same transaction **before** deleting the enrolment; 404 rolls it back |
+| Read path | the activity read runs in one `REPEATABLE READ` snapshot (read-only), set before its first statement |
+| Service and repository | `ActivityService` computes the effective weeks from the subject it already loads; the repository queries take the effective bounds |
+| Permissions | `backend/app/db_privileges.py`: `UPDATE (last_unenrolment_at)` on `subjects` for the application role, next to `description`; the inventory and the matrix tests; how an existing environment receives the grant (the admin step) is checked when implemented |
+| Contract | `docs/api-spec.yml`: `weeks` minimum from 1 to 0 and the descriptions of `start`, `end`, `weeks` and of the endpoint (the window is the effective one); **no new field**; the generated types are checked, `weeks` stays `number` |
+| Frontend | the two states and their strings; the judgement-word scan covers them |
+| Documents | `docs/data-model.md` (the column and the privilege), one bullet of `docs/backend-standards.md` section 9, TD-069 after the demonstration, the roadmap line |
+
+### Validation (existing tests reused, extra checks)
+
+| Check | How |
+|---|---|
+| Strengthen the V1 property | replace the xfail of `test_v1_property_holds` by the two-world non-interference test with fixed seeds, over many random classes, removals and later operations (the project has no property-test library and none is added); it must fail without A2 and pass with it |
+| Edge cases of the rule | a removal mid-week, exactly on a Monday 00:00, in the first week of the window, 12 or more weeks ago, two removals in a row, a re-enrolment, a new student, an inactive student (the same hiding as an active one), repeated reads |
+| Real SQL and routes | the existing V1 end-to-end test of `test_activity_inference_f8.py` flips: the read after the removal shows no week with S; plus rollback (the removal and the marker both revert), a failing marker update (the removal reverts), a 404 (no marker) |
+| Concurrency | the pattern of `test_chat_enrollment_lock.py`: a turn and a removal in both orders; every message of S has `created_at` below the marker; two removals at once |
+| Erasure | the marker holds no student reference (schema test); deleting an account or conversations leaves it unchanged and lowers later results as today |
+| Single write path | a static test that no code deletes from `enrollments` outside the repository method (the cascade of a deleted subject or account is not a route) |
+| Migration | upgrade, downgrade, `alembic check`, the backfill on a database with existing subjects |
+| Permissions | the role-bound suites (453 tests in CI): the application role may update that column and no other new one; the exposure test that no subject response carries the marker |
+| Contract | `test_api_contract.py` and the property-key test of the activity response; `npm run check:api-types` |
+| Existing tests to review | `test_activity_service.py` (the fake subject needs the attribute), `test_activity_endpoint.py`, `test_enrollments_*`, the privilege matrix, the dashboard tests and the mocked Playwright spec |
+| F8 stays | the end-to-end F8 tests keep passing as confirmation of the vulnerability: A2 does not touch it |
+| Mutation checks | remove the filter (V1 property fails), make the marker conditional on activity (the presence test fails), let it decrease (the sequence test fails), move the write after the commit (the rollback test fails), delete an enrolment by another path (the static test fails) |
+| Final | the §9 gates, the manual `curl` run on the test stack, the Playwright MCP run of the two states, an independent adversarial review with a privacy focus |
+
+### Residual risks of A2
+
+| Risk | Why it remains |
+|---|---|
+| The read before the removal | an ordinary aggregate of 5 or more students; accepted baseline |
+| A student's own erasure | their right; the teacher can notice the change |
+| Windows that overlap (V3) | not touched; package P1 |
+| F8 (TD-071) | not touched; needs an identity control |
+| Heavy contributor (V4, F6) and F7 | not touched |
+| **Addition and the current week (candidate V5)** | two reads in the same week differ by what was asked in between, and an added student's questions show up in the current week; time-resolved activity can be attributed when the teacher knows who is asking (a class in the room). It is trivial arithmetic but **not yet demonstrated**: it needs the owner's authorisation as a test. A rule that only complete weeks are shown (A2b) would close it; it changes the default window and is a separate decision |
+| The clock | the marker assumes a database clock that does not go backwards |
+| Loss of history | by design, 1 to 12 weeks after every removal |
+
+### Decisions pending (split from D-P9)
+
+| # | Decision | Recommendation |
+|---|---|---|
+| D-P9a | The migration with the backfill of existing subjects with the migration time | approve |
+| D-P9b | The `UPDATE (last_unenrolment_at)` grant to the application role, and how existing environments get it | approve; check the admin flow first |
+| D-P9c | The contract: `weeks` minimum 0 and the descriptions of the effective window; no new field | approve |
+| D-P9d | Accept the loss of visible history after each removal, unconditionally | approve; the cost is the price of D-M5 and erasure |
+| D-P9e | The two Spanish texts of the dashboard | **approved by the owner on 2026-11-23** |
+| D-P9f | The marker is set only by the teacher's unenrolment, not by an enrolment, an account deletion or the student's own deletions | approve |
+| D-P11 | A2b: show complete weeks only (closes the candidate V5 and the addition case) | decide separately, after a demonstration test of V5 |
+| D-P12 | F1 is closed only when the non-interference property passes unchanged, the mutation checks and the adversarial review are done | **approved by the owner on 2026-11-23** |
+
+### Recommendation
+
+**GO to authorise the implementation of P2/A2** with D-P9a to D-P9g and D-P12 (see the second validation round, which corrects two points of this section). It closes the unenrolment form of F1 without keeping any enrolment and without touching D-M5, at the price of visible history after every removal. It does **not** close F8, V3, F6 or F7, and it does not allow the capability to be enabled for real students.
+
+## Second validation round (2026-11-23): grants, `weeks=0`, concurrency, V5 and A2b
+
+Planning only. Nothing is implemented, no migration is run and no permission is changed. Four validations were requested before P2/A2 is implemented; two of them corrected the draft of A2 above (the order of the writes and the snapshot of the read).
+
+### 1. How the new column permission reaches existing environments (not applied)
+
+Privileges are **not** part of the Alembic revisions. The matrix of `backend/app/db_privileges.py` is the single source, and `python -m app.cli db-migrate` runs Alembic as the migrator and then `db-grants`, which in **one transaction** revokes everything from `PUBLIC` and from each runtime role on every table and grants exactly the matrix. Consequences for A2:
+
+| Question | Answer |
+|---|---|
+| Who forces the decision | the snapshot `KNOWN_COLUMNS` and the inventory tests fail while the new column has no decision, so the change cannot merge without a matrix entry |
+| What is granted | the application role `UPDATE (description, last_unenrolment_at)` on `subjects`; because the set is not every column it is rendered as a column-level grant; `SELECT` stays table-level, so every role that can read `subjects` can already read the new column (harmless: it names no person); the worker and the CLI role gain nothing |
+| How an existing environment gets it | by running `python -m app.cli db-migrate` (Alembic upgrade, then the grants) with `backend/.env.migrate`, then `python -m app.cli db-verify` (read-only, exit 1 on any difference). `db-grants` alone applies only the grants. Alembic alone is refused by `alembic/env.py` |
+| Order | the migration and the grants must finish **before** the new API code runs; in Compose the `migrate` one-shot already runs before `backend` and `worker` |
+| If the order is wrong | the new route's `UPDATE` is refused by PostgreSQL, the removal fails with 500 and **rolls back as one unit**: no student is removed without the marker (fails closed) |
+| Rollback | `db-migrate --downgrade 0007` is one of the documented dangerous operations (preconditions of the development guide); it drops the column together with its grants |
+| Rehearsal | the CI job `privileges` builds a cluster as production does (bootstrap, migrate, `db-verify` without findings, `alembic check`), so the flow is exercised on every change; the development database of the machine is **not** touched until the owner authorises the run |
+| Cost | the matrix, `docs/data-model.md` (the privileges table), the inventory and the 453 role-bound tests; no new role and no new secret |
+
+### 2. `weeks = 0` and the existing contract
+
+| Layer | Finding |
+|---|---|
+| Server | the Pydantic model declares `weeks: int` with no bound, so 0 is produced without an error; the 12-week maximum and the whole-week rules stay in the service |
+| Specification | `docs/api-spec.yml` says `minimum: 1`. The contract test compares the paths, the schemas and their properties; it already passes although the Pydantic model declares no minimum, so a minimum is not compared. The specification must still be corrected to `minimum: 0` to tell the truth (decision D-P9c) |
+| Generated types | `weeks: number`: no change of shape; `npm run check:api-types` is run after the edit |
+| Other clients | none exist; both switches are off |
+| Invariant for 0 weeks | `window.start` is the day after `window.end`, `questions` is empty, every window-wide figure is null, `enrolled_students` is shown, `suppressed` is true. Normalising `start` avoids a start far after the end |
+| Dashboard | **it is not compatible as it is**: the line «Semanas del … al …» would read with an end before the start, and `WeeklyQuestions` would draw an empty table. With `weeks` 0 the page hides the window line and the table, shows the enrolled count, «Datos insuficientes» in the window-wide cards and the approved note. Approved copy (2026-11-23): limited «Por un cambio reciente en las inscripciones, solo se muestran las semanas posteriores a ese cambio.»; no weeks «Por un cambio reciente en las inscripciones, todavía no hay semanas completas para mostrar.» |
+
+### 3. Concurrency of the removal, the marker and the operations that lock subjects
+
+Lock sites found in the code: the per-student, per-subject advisory lock (`lock_student_subject`, taken by the chat turn and by the removal, always first); the document upload (`SELECT ... FROM subjects ... FOR UPDATE`, then the global admission advisory lock, a different key space); the deletion of a subject (the cascade deletes its enrolments).
+
+**Defect 1 of the draft: a deadlock.** The draft wrote the marker after deleting the enrolment. The removal would hold the enrolment row and wait for the subject row, while the deletion of a subject holds the subject row and waits for the enrolment row in its cascade: opposite orders. **Fix:** the removal updates the marker **first** (advisory lock, subject row, then enrolment row), the same order as the deletion of a subject. A removal that deletes nothing raises 404 and the transaction rolls back, which also undoes the marker.
+
+| Pair | Result with the corrected order |
+|---|---|
+| Removal and chat turn of the same student | ordered by the advisory lock (M2); the marker is later than the turn's `created_at`, or the turn is refused |
+| Removal and chat turn of another student | the update of a non-key column takes `FOR NO KEY UPDATE`, which does not conflict with the `FOR KEY SHARE` that the turn's foreign keys take on the subject row |
+| Two removals (same or different student) | the second waits for the subject row and then writes a later value; `GREATEST` keeps it monotonic |
+| Removal and document upload | the upload's `FOR UPDATE` waits for the removal, or the removal waits for the upload; the upload waits for the admission lock, which no removal holds; no cycle |
+| Removal and deletion of the subject | the same order (subject row first): the second waits for the first; no deadlock |
+| Removal and a read of the activity | see the next defect |
+
+**Defect 2 of the draft: a mixed read.** The activity read issues several statements, and under the default isolation level each statement sees the data committed at its own start. A read that loads the subject (old marker) and then queries the questions after a removal committed would combine the **old marker with the new cohort**: weeks before the marker shown without the removed student, which is exactly V1. A teacher could try to hit that window by sending reads while the removal is in flight, and by repeating the cycle (re-enrol, remove). **Fix:** the whole read runs in **one snapshot**: a single read-only transaction at `REPEATABLE READ` (set before the first statement), or one statement. A read that overlaps a removal then returns the full pre-removal answer (an ordinary aggregate) or the post-removal answer, never a mixture. A read-only repeatable-read transaction cannot fail with a serialisation error. This also makes the existing read internally consistent. It needs a test with a deterministic race (a separate session commits the removal between two statements of the read).
+
+Remaining assumptions: the database clock does not go backwards (`GREATEST` keeps the marker monotonic anyway); no path other than the route deletes an enrolment (a static test).
+
+### 4. V5 and A2b
+
+**What V5 is.** The current week is shown while it is still open, so two reads in the same week differ by what was asked in between, and an enrolled student's first questions appear at once. A throwaway in-memory check (not part of the repository) gave: the cell of the week 10 -> 11 after one question (the difference is the question); and after a newcomer asked once, the cell 11 -> 12, `active_students` **5 -> 6** and `enrolled_students` unchanged. The second case is the **addition form of F1**: no removal, yet the teacher sees that the student who was just enrolled became active, and when. A2 does not touch it. It is arithmetic, not yet a test of the repository: the in-memory demonstration (task 1.7) and the owner's decision D-P11 are pending.
+
+**What A2b is.** Show whole weeks only, and only weeks that have ended: the last effective week is the one that ended on the last Sunday. A read inside a week returns the same answer as any other read inside that week; nothing new is visible until the Monday 00:00 UTC that closes the week.
+
+Formal rule combined with A2: let `L` be the Monday of the last week that has ended and `c(M)` the first Monday strictly after the marker. The effective weeks are the requested weeks `w` with `c(M) <= w <= L`. The default `end` is the last Sunday; an `end` inside the open week is clamped to it.
+
+| Question | Answer |
+|---|---|
+| Does A2b change the marker, the column, the migration or the grants | **No.** It is one more bound in the service (and the default window), so **V5 does not require a design change before the migration is approved** |
+| Does it change the contract | the same one change already planned: `weeks` may be 0 and `end` may be before today's week; no new field. If both are decided together the contract and the dashboard are edited once |
+| Effect on the window | a new subject has 0 weeks during its first week; the table has 12 rows of ended weeks; the dashboard's note «Semanas del … al …» ends on the last Sunday |
+| Effect on availability | the freshest information is up to 7 days old. After a removal on a Wednesday: A2 alone shows 0 weeks until the next Monday and then the open week; A2b shows 0 weeks until the Monday after that (the first visible week is the next one, and it must end), which is 5 to 14 days of blank figures |
+| Effect on the inference risks | closes V5 (same-week increments) and the addition form of F1; leaves V1's removal form to A2, V3 to P1, F8 and F6 untouched; compatible with the P1 blocks, which are whole weeks |
+| Effect on non-interference | none: the property of V1 holds with or without A2b; A2b adds its own property (below) |
+| Disclosure that remains | at Monday 00:00 a whole week appears at once; a teacher who knows who was active in a small week learns from it, as with any aggregate of 5 or more students |
+
+Property of A2b (temporal non-interference): the response at any instant depends only on messages created before the start of the current week. Test: two states that differ only in messages or enrolments of the current week give identical responses (except `enrolled_students`, which the teacher already knows); the same at 23:59:59 on Sunday and at 00:00:00 on Monday, where the answer changes by exactly one week. Mutation checks: let the open week through, or clamp to the wrong day.
+
+Proposed notice for the dashboard if A2b is chosen (to approve): «Se muestran solo semanas completas.» The judgement-word scan covers it.
+
+**Recommendation on V5.** Demonstrate it with the in-memory test (D-P11) and decide A2b separately. **Do not delay the migration** of P2: A2b is independent of the column. Specify A2b before the dashboard states are implemented, so that the contract and the copy are edited once.
+
+### Decisions after this round
+
+| # | Decision | State |
+|---|---|---|
+| D-P9a | Migration with the backfill of existing subjects | pending |
+| D-P9b | The `UPDATE (last_unenrolment_at)` grant; applied with `db-migrate` then `db-verify`, never by hand | pending |
+| D-P9c | `weeks` minimum 0, `start` the day after `end` when there are no weeks, the descriptions of the effective window; no new field | pending |
+| D-P9d | Accept the loss of visible history after each removal, unconditionally | pending |
+| D-P9e | The two Spanish texts of the dashboard | **approved 2026-11-23** |
+| D-P9f | The marker is set only by the teacher's unenrolment | pending |
+| D-P9g (new) | The marker is written **before** the enrolment is deleted (order subject then enrolment), and the activity read runs in one `REPEATABLE READ` snapshot | pending; it corrects two defects of the first draft |
+| D-P11 | Demonstrate V5 with an in-memory test, then decide A2b | demonstration authorised to be **planned**; the test and A2b pending |
+| D-P12 | F1 (unenrolment form) closes only when the non-interference tests pass unchanged, the mutation checks are recorded and the review has no open Blocker or Major | **approved 2026-11-23** |
+
+### GO/NO-GO for authorising P2/A2
+
+**GO** to authorise the implementation of P2/A2 with D-P9a to D-P9g, after the owner reads the two corrections of this round. It closes the unenrolment form of F1 only; the addition form (V5) needs A2b, F8 needs an identity control, V3 and F6 need P1, and F7 stays open. F1 stays open until its demonstration passes. Enabling the capability for real students stays **NO-GO**.
 
 ## Tests (demonstration, no persistent data)
 
