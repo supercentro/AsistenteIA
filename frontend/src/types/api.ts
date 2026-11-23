@@ -25,6 +25,7 @@ export type ChatResponse = Omit<components['schemas']['ChatResponse'], 'sources'
   sources: Source[]
 }
 export type DocumentStatus = Document['status']
+export type ActivityResponse = components['schemas']['ActivityResponse']
 export type TokenResponse = components['schemas']['TokenResponse']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type ApiErrorBody = components['schemas']['Error']

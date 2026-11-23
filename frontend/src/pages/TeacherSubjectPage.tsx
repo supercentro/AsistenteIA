@@ -10,6 +10,7 @@ import { useEnrollments } from '../hooks/useEnrollments'
 import { useSession } from '../hooks/useSession'
 import { useSubject } from '../hooks/useSubject'
 import { ApiError, messageFor } from '../lib/apiError'
+import { teacherActivityEnabled } from '../lib/features'
 import { strings } from '../lib/strings.es'
 import ForbiddenPage from './ForbiddenPage'
 
@@ -81,6 +82,11 @@ function SubjectContent({ subjectId }: { subjectId: string }) {
           <p className="whitespace-pre-line break-words text-slate-600">
             {subject.data.description}
           </p>
+        ) : null}
+        {teacherActivityEnabled() ? (
+          <Link className="text-sm text-slate-900 underline" to={`/subjects/${subjectId}/activity`}>
+            {strings.activity.link}
+          </Link>
         ) : null}
       </header>
       <DocumentUploadForm
