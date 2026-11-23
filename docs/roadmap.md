@@ -57,6 +57,7 @@ Split into three changes, in this order:
 - Risks: overfitting to a self-authored set (hold-out part, real material later, R-D5); latency/cost of rewriting; prompt changes shifting behaviour (every change compared against the baseline).
 
 ### Feature 2 — Teacher activity dashboard
+- **Status 2026-11-23 (owner decision)**: `activity-events-and-metrics` is incorporated as a **future** feature, explored in `openspec/changes/activity-events-and-metrics/` (not implemented). Provisional rules approved by the owner: aggregate-only metrics per subject, **minimum group of 5 students**, **weekly granularity**, **window of at most 90 days**; no individual analytics, no profiling, no new tables, no migrations (R-D7: no new storage in this slice); the capability stays **disabled** until the privacy and consent conditions are met (policy text, legal review, consent version). R-D1 was **approved on 2026-11-23 only for these aggregate metrics**: `docs/base-standards.md` §8 and `openspec/config.yaml` carry the minimal wording; the sentence of §9.4 and the section of `docs/backend-standards.md` are reserved for the implementation change. Implementation may start switched off by default and without enabling it for real users; the policy text, the legal review and the consent version stay pending.
 1. **`activity-events-and-metrics`** (backend): aggregate-only endpoints per subject (questions per day, active students count, no-material rate, answers without valid source, documents most/least consulted, response latency) computed from existing `messages`/`message_sources`; a stored answer kind (`answered|no_material`) and the model failures need a small schema addition (R-D7). Minimum group size to avoid identifying a single student (R-D3).
 2. **`teacher-activity-dashboard`** (frontend): read-only dashboard in the teacher subject page; accessible tables first, simple charts after (chart library = dependency approval, R-D8).
 - Dependencies: 1 (so "answer quality" metrics mean something), R0 consent/purpose wording. Risks: de-anonymisation in small classes; students unaware that their questions feed teacher statistics (policy text and notice change → legal review).
@@ -117,9 +118,9 @@ R0 (erasure, consent withdrawal, metering, e2e, deploy)
 
 | ID | Decision | Blocks |
 |---|---|---|
-| R-D1 | Approve moving the excluded items (advanced teacher analytics, LMS integration, institutional assistant) into scope; then update `docs/base-standards.md` §8, `openspec/config.yaml` context and, with approval, `readme.md` (academic deliverable) | all of phases 2–5 (not phase 0–1) |
+| R-D1 | Approve moving the excluded items (advanced teacher analytics, LMS integration, institutional assistant) into scope; then update `docs/base-standards.md` §8, `openspec/config.yaml` context and, with approval, `readme.md` (academic deliverable) **Approved on 2026-11-23 only for aggregate teacher activity metrics (switched off by default); `base-standards.md` §8 and `openspec/config.yaml` updated; individual analytics and profiling stay out of the current scope without being excluded from the future roadmap; LMS integration and the institutional assistant are still pending; `readme.md` untouched** | all of phases 2–5 (not phase 0–1) |
 | R-D2 | Provider and tier for real students (paid Gemini with data processing terms, another provider, institution-hosted model) and who signs the terms (TD-063) | pilot, not development |
-| R-D3 | Teacher visibility: aggregate only with minimum group size N, or identifiable students; value of N | 2, 3, 4, 7 |
+| R-D3 | Teacher visibility: aggregate only with minimum group size N, or identifiable students; value of N. **Provisional (owner, 2026-11-23): aggregate only, N = 5, weekly, 90 days; identifiable students are not approved** | 2, 3, 4, 7 |
 | R-D4 | Source attribution policy when no valid marker: drop the sources, or keep them flagged (contract change) | 1b |
 | R-D5 | Golden set: authorship, size, when to add real teacher material and who consents | 1a (size), 1c (real material) |
 | R-D6 | Retrieval techniques allowed: query rewriting with the model, hybrid search, reranker, embedding model change (cost, latency, schema) | 1c |
@@ -132,4 +133,4 @@ R0 (erasure, consent withdrawal, metering, e2e, deploy)
 ## 7. Recommendation
 
 **GO** to start `rag-golden-set-evaluation`: no contract, schema, dependency or architecture change, fictitious data only, no Gemini in CI, and it is the evidence every other row depends on. Needs only the owner's approval of its artifacts (size and authorship of the set, R-D5; the `backend/evaluation/` location).
-**NO-GO (until decided)** for `rag-source-attribution` (R-D4), phases 2–5 (R-D1, R-D3, R-D7) and any use with real students (R-D2, TD-003, TD-063, TD-064).
+**NO-GO (until decided)** for `rag-source-attribution` (R-D4), phases 2–5 except the first aggregate teacher metrics (R-D1 approved for them on 2026-11-23; R-D3 provisional; R-D7 no new storage in that slice) and any use with real students (R-D2, TD-003, TD-063, TD-064).

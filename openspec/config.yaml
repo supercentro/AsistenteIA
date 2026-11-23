@@ -11,7 +11,8 @@ context: |
 
   Approved MVP scope: subject and material management by teachers; RAG queries with sources; conversation history;
   deletion of conversations and personal data (GDPR); JWT authentication with teacher/student roles.
-  Out of scope: Moodle integration, student-services assistant, advanced teacher analytics (should-have only).
+  Out of scope: Moodle integration, student-services assistant, advanced teacher analytics (individual or profiling; should-have only).
+  Planned, switched off by default until the privacy conditions are met: aggregate activity metrics per subject for the owning teacher (change `activity-events-and-metrics`).
   Do not propose features outside this scope without user approval.
 
   Single source of truth per topic (link, do not copy; if two sources disagree, docs/ wins over readme.md and the
