@@ -9,14 +9,16 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
-from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.rate_limit import RateLimiter
 from app.core.security import TOKEN_ERROR_MESSAGE, PasswordService, decode_access_token
 from app.models.user import User, UserRole
 from app.rag.embedder import Embedder
+from app.repositories.activity_repository import ActivityRepository
 from app.repositories.enrollment_repository import EnrollmentRepository
 from app.repositories.subject_repository import SubjectRepository
 from app.repositories.user_repository import UserRepository
+from app.services.activity_service import ActivityService
 from app.services.auth_service import AuthService
 from app.services.consent_service import ConsentService
 from app.services.enrollment_service import EnrollmentService
@@ -81,6 +83,13 @@ def get_enrollment_service(
     users: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> EnrollmentService:
     return EnrollmentService(subjects, EnrollmentRepository(db), users)
+
+
+def get_activity_service(
+    db: DbSession,
+    subjects: Annotated[SubjectRepository, Depends(get_subject_repository)],
+) -> ActivityService:
+    return ActivityService(subjects, ActivityRepository(db))
 
 
 def get_auth_service(
@@ -155,3 +164,16 @@ def _require_role(role: UserRole) -> Callable[[User], User]:
 
 require_teacher = _require_role(UserRole.TEACHER)
 require_student = _require_role(UserRole.STUDENT)
+
+
+def require_teacher_activity(
+    teacher: Annotated[User, Depends(require_teacher)], settings: AppSettings
+) -> User:
+    """The teacher of an installation that switched the capability on; others see a 404.
+
+    The role check runs first, so a student or an anonymous caller gets the same refusal whether
+    or not the capability is on.
+    """
+    if not settings.teacher_activity_enabled:
+        raise NotFoundError("Resource not found")
+    return teacher

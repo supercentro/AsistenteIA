@@ -52,6 +52,7 @@ API_ONLY = {
     "chat_relevance_threshold",
     "chat_history_messages",
     "chat_rate_limit",
+    "teacher_activity_enabled",
 }
 
 

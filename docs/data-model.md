@@ -188,6 +188,7 @@ erDiagram
 - Right to erasure: deleting one conversation, deleting all of a student's conversations, or deleting the account removes rows physically (no soft delete) via the cascades above.
 - Visibility: a student sees a conversation (list, messages, citation text) only while enrolled in its subject; unenrolment deletes nothing, re-enrolment makes the conversations visible again, and the right to erasure (delete one or all) works regardless of enrolment.
 - Retention: conversation data lives until the user deletes it or the account is deleted. Application logs must not contain message content or document text.
+- Teacher statistics (change `activity-events-and-metrics`, switched off by default): computed on the fly from `conversations`, `messages`, `message_sources`, `enrollments` and `documents` for the teacher who owns the subject; aggregate only (no text, no student identifier, no per-student figure), every figure withheld below 5 distinct students, weekly cells over a window of at most 12 whole weeks, only students currently enrolled. Nothing is stored (no table, counter or event), so a deletion by a student lowers the next result and no migration is involved. Students must be told about it in the privacy text before it is enabled (TD-069).
 - Third-party processing: message text and retrieved chunks are sent to Gemini. This must be disclosed in the privacy policy shown at consent time.
 
 ## Database identities and privileges

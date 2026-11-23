@@ -21,6 +21,7 @@ from app.models.user import UserRole
 from app.rag.embedder import FakeEmbedder
 from app.repositories.chunk_repository import ChunkRepository, SearchActor
 from app.services.ingestion_service import Outcome
+from tests.activity_support import Classroom, at
 from tests.db_admin_support import Cluster
 from tests.db_admin_support import cluster as cluster  # noqa: F401  (fixture)
 from tests.db_admin_support import scratch_database as scratch_database  # noqa: F401  (fixture)
@@ -78,6 +79,10 @@ SCENARIOS = {
     ): "test_subjects_and_enrollments_are_persisted_and_cascade",
     (
         "GET",
+        f"{API}/subjects/{{subject_id}}/activity",
+    ): "test_the_teacher_activity_route_reads_under_the_app_role_and_writes_nothing",
+    (
+        "GET",
         f"{API}/subjects/{{subject_id}}/documents",
     ): "test_text_and_markdown_are_uploaded_processed_retrieved_and_deleted",
     (
@@ -106,8 +111,8 @@ SCENARIOS = {
 
 
 @contextmanager
-def api(cluster: Cluster, database: str) -> Iterator[TestClient]:
-    app = build_app(cluster.role_url("app", database))
+def api(cluster: Cluster, database: str, **overrides: object) -> Iterator[TestClient]:
+    app = build_app(cluster.role_url("app", database), **overrides)
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client
 
@@ -447,3 +452,42 @@ def test_chat_and_conversations_are_persisted_and_cascade(
 
         assert client.delete(f"{API}/users/me/conversations", headers=headers).status_code == 204
         assert (count("conversations"), count("messages"), count("message_sources")) == (0, 0, 0)
+
+
+ACTIVITY_TABLES = (
+    "users",
+    "subjects",
+    "enrollments",
+    "documents",
+    "document_chunks",
+    "conversations",
+    "messages",
+    "message_sources",
+)
+
+
+def test_the_teacher_activity_route_reads_under_the_app_role_and_writes_nothing(
+    cluster: Cluster, own_database: str
+) -> None:
+    with api(cluster, own_database, teacher_activity_enabled=True) as client:
+        teacher, headers, _ = teacher_and_subject(cluster, own_database, client)
+        room = Classroom(cluster.admin(own_database), students=5, teacher=uuid.UUID(teacher.id))
+        for student in room.students:
+            room.turn(student, at("2026-03-03"), "cited")
+        before = [
+            one(cluster, own_database, f"SELECT count(*) FROM {table}") for table in ACTIVITY_TABLES
+        ]
+
+        response = client.get(
+            f"{API}/subjects/{room.subject}/activity",
+            params={"start": "2026-03-02", "end": "2026-03-29"},
+            headers=headers,
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["active_students"] == 5 and body["questions"][0]["count"] == 5
+        after = [
+            one(cluster, own_database, f"SELECT count(*) FROM {table}") for table in ACTIVITY_TABLES
+        ]
+        assert after == before  # the call reads under the least-privilege role and stores nothing

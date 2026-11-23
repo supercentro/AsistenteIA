@@ -131,6 +131,7 @@ Legend: **MUST** = blocks merge/delivery. **SHOULD** = recommended; deviations n
 ### 9.4 Authorization and data isolation
 - MUST: every query that reads chunks, conversations or messages is scoped by `subject_id` and by the authenticated user, enforced in the repository layer (not only in routers).
 - MUST: a student can only access subjects they are enrolled in and their own conversations; a teacher only their own subjects.
+- MUST: the only reading of conversations or messages by a teacher is aggregate-only: counts and rates for a subject the teacher owns, through a dedicated repository that takes the teacher and joins `subjects.teacher_id`, with every figure below the minimum group suppressed; never message text, student identifiers or per-student figures (see `backend-standards.md` section 9).
 
 ### 9.5 RAG quality
 - MUST: answers are generated only from retrieved chunks; if retrieval returns nothing above the relevance threshold, return the controlled "no material" response without calling the LLM.

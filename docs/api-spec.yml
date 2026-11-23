@@ -310,6 +310,62 @@ paths:
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
+  /subjects/{subject_id}/activity:
+    parameters:
+      - $ref: '#/components/parameters/SubjectId'
+    get:
+      tags: [Activity]
+      summary: Aggregate activity of a subject for its owning teacher (disabled by default)
+      description: |
+        Aggregate figures only: numbers, dates and the file names of the documents of the subject. Never
+        the text of a question or an answer, and never an identifier, name, e-mail or figure of a student.
+        Only the teacher who owns the subject reads it; another teacher's subject and an unknown subject
+        answer the same 404, and a student or an anonymous caller is refused (403, 401) before the
+        capability is looked at.
+
+        The capability is switched off by the setting `TEACHER_ACTIVITY_ENABLED` (default `false`): while it
+        is off a teacher gets 404. It stays off until the privacy text, the legal review and the consent
+        version are in place.
+
+        Rules: a figure that comes from fewer than `minimum_group` (5) distinct students is `null`,
+        including a figure with no student at all; a subject with fewer than `minimum_group` active
+        students shows only `enrolled_students`. The window is aligned to whole weeks (Monday to Sunday,
+        UTC) and covers at most 12 weeks (84 days); `start` and `end` are widened to those weeks and the
+        response states the window actually computed. Only students currently enrolled count, and only the
+        data that exists when the request is made (deleting a conversation, or unenrolling a student,
+        lowers the next result); nothing is stored. `no_material_rate` is the share of answers that stored
+        no source; `no_cited_source_rate` the share of answers that do not cite any of their sources (it
+        includes the answers with no material) and is never a measure of quality. `cited_appearances` is
+        the number of answers that cite the document: it is not semantic support and not proof that the
+        material was used. Both rates are `null` below the minimum group.
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: First day of the window (default, 12 weeks ending with the week of `end`)
+        - name: end
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Last day of the window (default, today in UTC)
+        - name: granularity
+          in: query
+          required: false
+          schema: { type: string, enum: [week], default: week }
+      responses:
+        '200':
+          description: Aggregate activity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
   /subjects/{subject_id}/documents:
     parameters:
       - $ref: '#/components/parameters/SubjectId'
@@ -699,6 +755,44 @@ components:
         no_material: false
         sources:
           - { chunk_id: 3f1a9c2e-1234-4a5b-8c9d-abcdef123456, document_id: 7c6b5a49-0000-1111-2222-abcdef123456, filename: unit1-introduction.pdf, page_number: 4, rank: 1, snippet: "RAG combines retrieval with generation..." }
+    ActivityWindow:
+      type: object
+      required: [start, end, granularity, weeks]
+      properties:
+        start: { type: string, format: date, description: Monday of the first week }
+        end: { type: string, format: date, description: Sunday of the last week }
+        granularity: { type: string, enum: [week] }
+        weeks: { type: integer, minimum: 1, maximum: 12 }
+    ActivityPeriod:
+      type: object
+      required: [period_start, count]
+      properties:
+        period_start: { type: string, format: date, description: Monday of the week }
+        count: { type: integer, nullable: true, description: Questions of the week; null when fewer than the minimum group of students asked }
+    ActivityDocument:
+      type: object
+      required: [document_id, filename, cited_appearances]
+      properties:
+        document_id: { type: string, format: uuid, nullable: true, description: Null once the document was deleted }
+        filename: { type: string }
+        cited_appearances: { type: integer, nullable: true, description: "Answers that cite the document (not semantic support, not proof that the material was used); null below the minimum group of students" }
+    ActivityResponse:
+      type: object
+      required: [window, minimum_group, enrolled_students, active_students, questions, no_material_rate, no_cited_source_rate, documents, suppressed]
+      properties:
+        window: { $ref: '#/components/schemas/ActivityWindow' }
+        minimum_group: { type: integer, description: Fewest distinct students behind a figure that is shown (5) }
+        enrolled_students: { type: integer }
+        active_students: { type: integer, nullable: true, description: Distinct students who asked in the window; null below the minimum group }
+        questions:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityPeriod' }
+        no_material_rate: { type: number, nullable: true, description: Share of answers that stored no source; null below the minimum group }
+        no_cited_source_rate: { type: number, nullable: true, description: "Share of answers that cite none of their sources, including the answers with no material; null below the minimum group" }
+        documents:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityDocument' }
+        suppressed: { type: boolean, description: True when at least one figure is null }
     Conversation:
       type: object
       properties:

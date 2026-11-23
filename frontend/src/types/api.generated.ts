@@ -616,6 +616,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/subjects/{subject_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: components["parameters"]["SubjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Aggregate activity of a subject for its owning teacher (disabled by default)
+         * @description Aggregate figures only: numbers, dates and the file names of the documents of the subject. Never
+         *     the text of a question or an answer, and never an identifier, name, e-mail or figure of a student.
+         *     Only the teacher who owns the subject reads it; another teacher's subject and an unknown subject
+         *     answer the same 404, and a student or an anonymous caller is refused (403, 401) before the
+         *     capability is looked at.
+         *
+         *     The capability is switched off by the setting `TEACHER_ACTIVITY_ENABLED` (default `false`): while it
+         *     is off a teacher gets 404. It stays off until the privacy text, the legal review and the consent
+         *     version are in place.
+         *
+         *     Rules: a figure that comes from fewer than `minimum_group` (5) distinct students is `null`,
+         *     including a figure with no student at all; a subject with fewer than `minimum_group` active
+         *     students shows only `enrolled_students`. The window is aligned to whole weeks (Monday to Sunday,
+         *     UTC) and covers at most 12 weeks (84 days); `start` and `end` are widened to those weeks and the
+         *     response states the window actually computed. Only students currently enrolled count, and only the
+         *     data that exists when the request is made (deleting a conversation, or unenrolling a student,
+         *     lowers the next result); nothing is stored. `no_material_rate` is the share of answers that stored
+         *     no source; `no_cited_source_rate` the share of answers that do not cite any of their sources (it
+         *     includes the answers with no material) and is never a measure of quality. `cited_appearances` is
+         *     the number of answers that cite the document: it is not semantic support and not proof that the
+         *     material was used. Both rates are `null` below the minimum group.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description First day of the window (default, 12 weeks ending with the week of `end`) */
+                    start?: string;
+                    /** @description Last day of the window (default, today in UTC) */
+                    end?: string;
+                    granularity?: "week";
+                };
+                header?: never;
+                path: {
+                    subject_id: components["parameters"]["SubjectId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Aggregate activity */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/subjects/{subject_id}/documents": {
         parameters: {
             query?: never;
@@ -1188,6 +1263,56 @@ export interface components {
              * @enum {string|null}
              */
             attribution?: "cited" | "retrieved" | null;
+        };
+        ActivityWindow: {
+            /**
+             * Format: date
+             * @description Monday of the first week
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description Sunday of the last week
+             */
+            end: string;
+            /** @enum {string} */
+            granularity: "week";
+            weeks: number;
+        };
+        ActivityPeriod: {
+            /**
+             * Format: date
+             * @description Monday of the week
+             */
+            period_start: string;
+            /** @description Questions of the week; null when fewer than the minimum group of students asked */
+            count: number | null;
+        };
+        ActivityDocument: {
+            /**
+             * Format: uuid
+             * @description Null once the document was deleted
+             */
+            document_id: string | null;
+            filename: string;
+            /** @description Answers that cite the document (not semantic support, not proof that the material was used); null below the minimum group of students */
+            cited_appearances: number | null;
+        };
+        ActivityResponse: {
+            window: components["schemas"]["ActivityWindow"];
+            /** @description Fewest distinct students behind a figure that is shown (5) */
+            minimum_group: number;
+            enrolled_students: number;
+            /** @description Distinct students who asked in the window; null below the minimum group */
+            active_students: number | null;
+            questions: components["schemas"]["ActivityPeriod"][];
+            /** @description Share of answers that stored no source; null below the minimum group */
+            no_material_rate: number | null;
+            /** @description Share of answers that cite none of their sources, including the answers with no material; null below the minimum group */
+            no_cited_source_rate: number | null;
+            documents: components["schemas"]["ActivityDocument"][];
+            /** @description True when at least one figure is null */
+            suppressed: boolean;
         };
         Conversation: {
             /** Format: uuid */
