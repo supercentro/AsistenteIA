@@ -33,6 +33,20 @@ class ReviewItem:
 
 
 @dataclass(frozen=True)
+class AnswerRecord:
+    """One answer of a run, kept whole so that it can be reviewed without asking the model again."""
+
+    case_id: str
+    kind: str
+    question: str
+    answer: str
+    markers: list[int]  # the valid markers of the answer
+    cited_ranks: list[int]  # the ranks that become sources (all of them on a fallback)
+    cited_files: list[str]  # the file of each of those ranks, in the same order
+    fallback: bool
+
+
+@dataclass(frozen=True)
 class Report:
     header: Header
     rows: list[RetrievalRow]
@@ -44,6 +58,12 @@ class Report:
     problems: list[str] = field(default_factory=list)
     stale_cases: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    answers: list[AnswerRecord] = field(default_factory=list)
+
+
+def _sources(record: AnswerRecord) -> str:
+    pairs = zip(record.cited_ranks, record.cited_files, strict=True)
+    return ", ".join(f"[{rank}] {name}" for rank, name in pairs) or "none"
 
 
 def _pct(value: float | None) -> str:
@@ -84,6 +104,15 @@ def render_markdown(report: Report) -> str:
         "",
         "All documents, questions and users of this run are **fictitious**.",
         "",
+    ]
+    if head.model == "fake":
+        lines += [
+            "> **The model of this run is the fake one: it writes no citation markers and its",
+            "> answers mean nothing. This report proves the count of calls and the mechanics;",
+            "> it is not a baseline.**",
+            "",
+        ]
+    lines += [
         f"- Golden set version: {head.golden_set_version}",
         f"- Code revision: {head.revision}",
         f"- Date: {head.date}",
@@ -150,6 +179,30 @@ def render_markdown(report: Report) -> str:
         for item in report.review:
             lines += [f"### {item.case_id}", "", f"Question: {item.question}", "", "Answer:", ""]
             lines += ["> " + line for line in item.answer.splitlines() or [""]]
+            lines.append("")
+    if report.answers:
+        lines += [
+            "",
+            f"## All answers ({len(report.answers)}; fictitious data, kept for later review)",
+            "",
+        ]
+        for record in report.answers:
+            how = (
+                "fell back to every retrieved chunk"
+                if record.fallback
+                else "markers " + ", ".join(f"[{n}]" for n in record.markers)
+            )
+            lines += [
+                f"### {record.case_id} ({record.kind})",
+                "",
+                f"Question: {record.question}",
+                "",
+                f"Sources: {_sources(record)}; {how}",
+                "",
+                "Answer:",
+                "",
+            ]
+            lines += ["> " + line for line in record.answer.splitlines() or [""]]
             lines.append("")
     if report.notes:
         lines += ["", "## Notes", ""] + [f"- {note}" for note in report.notes]

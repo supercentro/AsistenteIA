@@ -1,0 +1,38 @@
+# Failing run before the changes of the answers-baseline preparation (2026-11-22/23, branch feature/rag-answers-baseline-prep from main 6a789a5)
+
+$ pytest tests/unit/test_evaluation_guards_and_report.py -q
+ImportError while importing test module 'C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\tests\unit\test_evaluation_guards_and_report.py'.
+E   ImportError: cannot import name 'AnswerRecord' from 'tests.evaluation.report' (C:\Trabajo\Cursos\Liders\New folder\Proyecto_Final_entrega1\Proyecto_Final\AsistenteIA\backend\tests\evalua
+ERROR tests/unit/test_evaluation_guards_and_report.py
+
+$ pytest tests/unit/test_evaluation_cases.py -q
+FAILED tests/unit/test_evaluation_cases.py::test_the_shipped_set_is_the_second_draft_and_its_injection_question_reaches_the_model
+FAILED tests/unit/test_evaluation_cases.py::test_the_readme_of_the_set_records_the_version_and_its_change
+2 failed, 14 passed in 0.67s
+
+$ pytest tests/integration/test_evaluation_harness.py -q
+FAILED tests/integration/test_evaluation_harness.py::test_every_answer_of_the_run_is_kept_in_the_report
+FAILED tests/integration/test_evaluation_harness.py::test_cases_marked_for_the_model_that_retrieved_nothing_are_listed
+2 failed, 22 passed in 22.28s
+
+# Failing run before the banner of the fake-model report (review finding)
+$ pytest tests/unit/test_evaluation_guards_and_report.py -q
+FAILED tests/unit/test_evaluation_guards_and_report.py::test_a_report_of_the_fake_model_says_that_it_is_not_a_baseline
+1 failed, 21 passed in 0.59s
+
+# Failing run before the rule one authorisation = one run (2026-11-23)
+$ pytest tests/unit/test_evaluation_budget.py -q -k 'one_authorisation or second_run_under'
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_covers_one_run_a_reservation_remembers_the_total_it_used
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_a_second_run_under_the_same_total_is_refused_even_with_room_left
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_the_refusal_names_the_total_and_what_the_owner_must_do
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_the_recorded_runs_of_the_old_helper_carry_the_total_too
+4 failed, 2 passed, 12 deselected in 0.33s
+$ pytest tests/integration/test_evaluation_harness.py -q -k 'one_authorisation or second_run_under'
+FAILED tests/integration/test_evaluation_harness.py::test_a_second_run_under_the_same_authorisation_makes_no_call
+1 failed, 24 deselected in 2.34s
+FAILED tests/unit/test_evaluation_cli.py::test_a_used_authorisation_stops_the_real_run_before_it_connects_to_anything
+1 failed, 12 deselected in 0.57s
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_an_odd_ledger_is_refused_cleanly_not_with_a_raw_exception[[]]
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_an_odd_ledger_is_refused_cleanly_not_with_a_raw_exception[{"authorised_total": 1e9
+FAILED tests/unit/test_evaluation_budget.py::test_one_authorisation_an_odd_ledger_is_refused_cleanly_not_with_a_raw_exception[{"authorised_total": 50,
+3 failed, 2 passed, 18 deselected in 0.25s

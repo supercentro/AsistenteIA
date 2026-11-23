@@ -165,6 +165,43 @@ def test_the_real_model_needs_a_ledger_with_budget_left(
     assert "budget" in capsys.readouterr().err
 
 
+def test_a_used_authorisation_stops_the_real_run_before_it_connects_to_anything(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(
+        json.dumps(
+            {
+                "authorised_total": 204,
+                "spent": 156,
+                "entries": [
+                    {"date": "2026-11-24", "mode": "answers", "calls": 2, "authorised_total": 204}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    env = {"TEST_DATABASE_URL": OK_URL, "DATABASE_URL": APP_URL, "GOOGLE_API_KEY": KEY}
+
+    code = main(
+        [
+            "--mode",
+            "answers",
+            "--llm",
+            "gemini",
+            "--allow-real-llm",
+            "--ledger",
+            str(ledger),
+            "--golden-set",
+            str(tiny_set(tmp_path)),
+        ],
+        env,
+    )
+
+    assert code == 2
+    assert "already used" in capsys.readouterr().err
+
+
 def test_the_real_model_without_a_ledger_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

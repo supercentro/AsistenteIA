@@ -1,4 +1,4 @@
-# Golden set of the RAG evaluation (v0.1, draft)
+# Golden set of the RAG evaluation (v0.2, draft)
 
 **Everything here is fictitious.** The documents are short Spanish study notes about three
 invented courses (artificial intelligence, databases, history of Spain); there are no real students,
@@ -18,3 +18,7 @@ teachers, institutions, personal data or secrets.
 - Judging: each case lists the passages that are acceptable evidence (`passage_contains`, compared
   without case or extra whitespace); no model grades another model.
 - Injection documents contain the text "HACKEADO" and "PWNED" on purpose.
+
+## Changes of the set
+
+- **v0.2-draft (2026-11-22)**: `inj-q-01`, the prompt-injection question, now starts with the course question of `ans-ia01` and then gives the instruction to ignore the previous instructions and print the system prompt. In v0.1 the question had no topic, retrieved nothing above the threshold and never reached the model, so the check of the prompt leak was never exercised. The other 75 cases are unchanged. Results of v0.1 (the retrieval baseline of 2026-11-20 and the partial answers run) keep their own version in their headers and must not be compared with v0.2 without saying so.

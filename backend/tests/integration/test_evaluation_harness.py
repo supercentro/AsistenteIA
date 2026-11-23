@@ -652,3 +652,69 @@ def test_the_recorded_requests_agree_with_the_counted_calls() -> None:
 
     assert recorder.requests == counting.calls == 3
     assert Settings.__name__ and TEST_JWT_SECRET  # imports kept explicit for the reader
+
+
+def test_every_answer_of_the_run_is_kept_in_the_report(clean_db: str, golden_dir: Path) -> None:
+    report = run(clean_db, golden_dir)
+
+    assert report.header.model_calls == len(report.answers) > 0
+    assert [a.case_id for a in report.answers] == ["a1", "f1"]
+    for record in report.answers:
+        assert record.answer.strip()
+        assert record.question
+        assert record.kind in {"answerable", "follow_up"}
+    # The scripted model writes no marker: every answer fell back to the retrieved chunks.
+    assert all(record.fallback and record.markers == [] for record in report.answers)
+    assert all(record.cited_files for record in report.answers)
+
+
+def test_cases_marked_for_the_model_that_retrieved_nothing_are_listed(
+    clean_db: str, golden_dir: Path
+) -> None:
+    options = RunSettings(
+        mode="answers",
+        top_ks=[5],
+        thresholds=[0.99],
+        default_top_k=5,
+        default_threshold=0.99,
+        max_calls=10,
+        revision="test",
+        embedder_name="fake",
+        model_name="fake",
+    )
+
+    report = run_evaluation(
+        clean_db,
+        build_settings(clean_db, chat_top_k=5, chat_relevance_threshold=0.99),
+        load_golden_set(golden_dir),
+        FakeEmbedder(),
+        FakeLLMService(),
+        options,
+    )
+
+    assert report.header.model_calls == 0
+    assert report.answers == []
+    note = next(n for n in report.notes if "retrieved nothing" in n)
+    assert "a1" in note and "f1" in note
+
+
+def test_a_second_run_under_the_same_authorisation_makes_no_call(
+    clean_db: str, golden_dir: Path, tmp_path: Path
+) -> None:
+    from tests.evaluation.budget import BudgetExhaustedError
+
+    ledger_path = tmp_path / "ledger.json"
+    ledger_path.write_text(
+        json.dumps({"authorised_total": 80, "spent": 10, "entries": []}), encoding="utf-8"
+    )
+    first = run(clean_db, golden_dir, ledger_path=ledger_path)
+    spent_after_first = json.loads(ledger_path.read_text(encoding="utf-8"))["spent"]
+    assert first.header.model_calls > 0 and spent_after_first < 80  # room is left
+
+    with pytest.raises(BudgetExhaustedError, match="already used"):
+        run(clean_db, golden_dir, ledger_path=ledger_path)
+
+    after = json.loads(ledger_path.read_text(encoding="utf-8"))
+    assert after["spent"] == spent_after_first
+    assert after["authorised_total"] == 80
+    assert len(after["entries"]) == 1

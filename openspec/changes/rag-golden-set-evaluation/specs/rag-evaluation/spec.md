@@ -137,6 +137,39 @@ The harness SHALL require, for every run with the real model, a ledger file that
 - **WHEN** the ledger cannot be written before or after a run
 - **THEN** a run that has not started refuses to start, and a run that finished still writes its report and says that the ledger could not be settled
 
+### Requirement: Every answer of a run is kept in the report
+The report of an answers run SHALL keep every answer the model gave, whole, with its case, kind, question, valid markers, the ranks and files that become its sources and whether it fell back to every retrieved chunk, in the Markdown and in the JSON file, so that a later review never needs a new request. Secrets SHALL be removed from them like from the rest of the report.
+
+#### Scenario: Every answer is kept
+- **WHEN** an answers run makes N model calls
+- **THEN** the report holds N answer records in the order of the cases
+
+#### Scenario: Secrets are not kept
+- **WHEN** an answer or a question contains a registered secret
+- **THEN** the written files do not contain it
+
+### Requirement: Cases marked for the model that retrieved nothing are reported
+The report SHALL list the cases marked for the model that retrieved nothing above the threshold and were therefore not sent, so that a case that should exercise the model (a prompt-injection question) can never be silently skipped.
+
+#### Scenario: Unsent cases are named
+- **WHEN** a case marked for the model retrieves no chunk
+- **THEN** a note of the report names its id and says it was not sent
+
+### Requirement: One authorisation covers one run
+Every run with the real model SHALL record in the ledger the value of `authorised_total` it ran under, and a later run under the same value SHALL be refused before any call even when requests are left, so that each run needs a new authorisation (a different value) set by the owner. The harness SHALL NOT write `authorised_total` and SHALL NOT rewrite the entries that already exist.
+
+#### Scenario: A second run under the same authorisation
+- **WHEN** a run ended, completed or aborted, and requests are still left under the same `authorised_total`
+- **THEN** the next run is refused with a message naming the total and the date of the run that used it, and no call is made
+
+#### Scenario: A new authorisation
+- **WHEN** the owner sets a different `authorised_total` with room for the run
+- **THEN** the run is accepted
+
+#### Scenario: Earlier history
+- **WHEN** an entry of the ledger has no recorded total (it predates the rule)
+- **THEN** it is kept as it is and does not block any authorisation
+
 ### Requirement: Accepted passages must be matchable
 The harness SHALL check after chunking that every accepted passage lies inside a single stored chunk and SHALL report the cases whose passage does not, because they can never be matched and would silently lower the metrics.
 
