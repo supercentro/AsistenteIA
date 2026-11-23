@@ -56,7 +56,7 @@ def test_the_owner_reads_the_figures_over_real_http(
     assert reply.status == 200, reply.body
     body = reply.json()
     assert isinstance(body, dict)
-    assert body["active_students"] == 6 and body["questions"][0]["count"] == 6  # type: ignore[index]
+    assert body["active_students"] == 6 and body["questions"][0]["count"] == 6
     assert QUESTION.encode() not in reply.body and b"@" not in reply.body
 
 

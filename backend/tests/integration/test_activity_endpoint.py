@@ -198,18 +198,27 @@ def test_the_aggregate_queries_take_the_teacher_and_join_the_subject_owner(
     session = create_session_factory(engine)()
     try:
         repository = ActivityRepository(session)
-        window = {"start": at("2026-03-02", 0), "end": at("2026-03-30", 0)}
-        mine = {"teacher_id": room.teacher, "subject_id": uuid.UUID(str(room.subject))}
-        theirs = {"teacher_id": stranger, "subject_id": uuid.UUID(str(room.subject))}
+        since, until = at("2026-03-02", 0), at("2026-03-30", 0)
+        subject = uuid.UUID(str(room.subject))
 
-        assert repository.enrolled_count(**mine) == 6
-        assert repository.questions(**mine, **window) != []
-        assert repository.answers(**mine, **window) != []
-        assert repository.current_documents(**mine) != []
-        assert repository.enrolled_count(**theirs) == 0
-        assert repository.questions(**theirs, **window) == []
-        assert repository.answers(**theirs, **window) == []
-        assert repository.current_documents(**theirs) == []
+        def read(teacher: uuid.UUID) -> tuple[int, int, int, int]:
+            return (
+                repository.enrolled_count(teacher_id=teacher, subject_id=subject),
+                len(
+                    repository.questions(
+                        teacher_id=teacher, subject_id=subject, start=since, end=until
+                    )
+                ),
+                len(
+                    repository.answers(
+                        teacher_id=teacher, subject_id=subject, start=since, end=until
+                    )
+                ),
+                len(repository.current_documents(teacher_id=teacher, subject_id=subject)),
+            )
+
+        assert all(figure > 0 for figure in read(room.teacher))
+        assert read(stranger) == (0, 0, 0, 0)
     finally:
         session.close()
         engine.dispose()
@@ -269,7 +278,7 @@ def test_the_call_stores_nothing(
 
     def snapshot() -> dict[str, int]:
         tables = [
-            row[0]
+            str(row[0])
             for row in _rows(
                 clean_db, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
             )

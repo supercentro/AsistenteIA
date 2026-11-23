@@ -50,7 +50,8 @@ def leaves(
 
 def _resolve(node: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
     if "$ref" in node:
-        return defs[node["$ref"].split("/")[-1]]
+        resolved_ref: dict[str, Any] = defs[node["$ref"].split("/")[-1]]
+        return resolved_ref
     for key in ("anyOf", "oneOf", "allOf"):
         for option in node.get(key, []):
             resolved = _resolve(option, defs)
@@ -60,7 +61,8 @@ def _resolve(node: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
 
 
 def variants(node: dict[str, Any]) -> list[dict[str, Any]]:
-    return node.get("anyOf", [node])
+    options: list[dict[str, Any]] = node.get("anyOf", [node])
+    return options
 
 
 def test_the_response_has_only_reviewed_fields() -> None:
