@@ -36,7 +36,7 @@ def test_different_pairs_get_different_keys_and_the_order_matters() -> None:
     assert enrollment_lock_key(STUDENT, SUBJECT) != enrollment_lock_key(SUBJECT, STUDENT)
 
 
-def test_removing_an_enrollment_takes_the_lock_before_it_deletes() -> None:
+def test_removing_an_enrollment_takes_the_lock_then_marks_the_subject_then_deletes() -> None:
     session = MagicMock()
     seen: list[tuple[str, Any]] = []
 
@@ -56,8 +56,10 @@ def test_removing_an_enrollment_takes_the_lock_before_it_deletes() -> None:
         "space": ENROLLMENT_LOCK_SPACE,
         "key": enrollment_lock_key(STUDENT, SUBJECT),
     }
-    assert "DELETE" in seen[1][0].upper()
-    assert len(seen) == 2
+    assert seen[1][0].upper().startswith("UPDATE SUBJECTS")  # change activity-privacy-hardening
+    assert "DELETE" in seen[2][0].upper()
+    assert len(seen) == 3
+    session.begin_nested.assert_called_once()  # the marker and the deletion share one savepoint
 
 
 def test_locking_executes_one_advisory_lock_statement() -> None:

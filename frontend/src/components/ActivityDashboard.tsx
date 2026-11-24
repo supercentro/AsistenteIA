@@ -1,4 +1,4 @@
-import { formatDay } from '../lib/activityFormat'
+import { DEFAULT_WEEKS, formatDay } from '../lib/activityFormat'
 import { strings } from '../lib/strings.es'
 import type { ActivityResponse } from '../types/api'
 import { CitedDocumentsTable } from './CitedDocumentsTable'
@@ -16,22 +16,30 @@ interface ActivityDashboardProps {
 
 /** Shows only what the response holds; nothing is derived, compared or ranked. */
 export function ActivityDashboard({ data }: ActivityDashboardProps) {
-  const nothingToShow = data.active_students === null
+  const noWeeks = data.window.weeks === 0
+  const limited = !noWeeks && data.window.weeks < DEFAULT_WEEKS
+  const nothingToShow = noWeeks || data.active_students === null
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-slate-600">
-        {text.window(formatDay(data.window.start), formatDay(data.window.end))}
-      </p>
+      {noWeeks ? null : (
+        <p className="text-slate-600">
+          {text.window(formatDay(data.window.start), formatDay(data.window.end))}
+        </p>
+      )}
+      <p className="text-sm text-slate-600">{text.wholeWeeksOnly}</p>
+      {limited ? (
+        <p className="rounded-md border border-slate-300 bg-white p-3 text-sm">{text.limited}</p>
+      ) : null}
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MetricCard label={text.cards.enrolled}>{data.enrolled_students}</MetricCard>
         <MetricCard label={text.cards.active}>
           {data.active_students === null ? <InsufficientData /> : data.active_students}
         </MetricCard>
       </dl>
-      <p className="text-sm text-slate-600">{text.cards.activeNote}</p>
+      {noWeeks ? null : <p className="text-sm text-slate-600">{text.cards.activeNote}</p>}
       {nothingToShow ? (
         <p role="status" className="rounded-md border border-slate-300 bg-white p-4">
-          {text.allSuppressed}
+          {noWeeks ? text.noWeeks : text.allSuppressed}
         </p>
       ) : (
         <>

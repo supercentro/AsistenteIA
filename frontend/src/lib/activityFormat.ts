@@ -1,3 +1,9 @@
+/**
+ * The weeks of the window the page asks for: it sends no parameter, so the answer has this many
+ * weeks unless the subject withholds the weeks before its last unenrolment.
+ */
+export const DEFAULT_WEEKS = 12
+
 /** `2026-03-02` as `02/03/2026`; the API dates are calendar days in UTC and are not converted. */
 export function formatDay(isoDate: string): string {
   const [year, month, day] = isoDate.split('-')

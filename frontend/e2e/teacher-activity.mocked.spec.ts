@@ -117,6 +117,49 @@ test('with every figure withheld only the enrolled count and an explanation rema
   await expect(page.getByText('Estudiantes inscriptos')).toBeVisible()
 })
 
+test('with no whole week the page says so and shows no window, table or bar', async ({ page }) => {
+  const calls: string[] = []
+  const body = figures({
+    window: { start: '2026-04-06', end: '2026-04-05', granularity: 'week', weeks: 0 },
+    active_students: null,
+    questions: [],
+    no_material_rate: null,
+    no_cited_source_rate: null,
+    documents: [],
+  })
+  await mockApi(page, handlers(body, calls))
+  await signIn(page, 'tomas@example.com')
+
+  await goInApp(page, `${BASE}/activity`)
+
+  await expect(
+    page.getByText(
+      'Por un cambio en las inscripciones, todavía no hay semanas completas para mostrar.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByText('Se muestran solo semanas completas.')).toBeVisible()
+  await expect(page.getByText(/^Semanas del /)).toHaveCount(0)
+  await expect(page.getByRole('table')).toHaveCount(0)
+  await expect(page.locator('[data-bar]')).toHaveCount(0)
+})
+
+test('with fewer weeks than asked the page explains that the earlier weeks are not shown', async ({
+  page,
+}) => {
+  const calls: string[] = []
+  await mockApi(page, handlers(figures(), calls)) // 4 weeks: a recent change of enrolments
+  await signIn(page, 'tomas@example.com')
+
+  await goInApp(page, `${BASE}/activity`)
+
+  await expect(
+    page.getByText(
+      'Por un cambio en las inscripciones, solo se muestran las semanas posteriores a ese cambio.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByText('Se muestran solo semanas completas.')).toBeVisible()
+})
+
 test('a student who opens the address gets the forbidden page and no request is sent', async ({
   page,
 }) => {

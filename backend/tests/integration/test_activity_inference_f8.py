@@ -14,7 +14,7 @@ inserted straight into the database stands for an existing teacher.
 """
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
@@ -106,6 +106,18 @@ def ask(api: TestClient, token: str, subject_id: str, times: int) -> None:
         assert response.status_code == 200, response.text
 
 
+def into_the_last_ended_week(clean_db: str) -> None:
+    """Move the questions just asked back two weeks, into a week that has ended whatever the hour.
+
+    The aggregate shows ended weeks only (A2b), and the test application asks now, in the open week.
+    """
+    run(
+        clean_db,
+        "UPDATE messages SET created_at = created_at - interval '14 days' "
+        "WHERE created_at > now() - interval '10 minutes'",
+    )
+
+
 def padded_class(
     api: TestClient, clean_db: str, teacher: TestUser, real_questions: int
 ) -> tuple[str, str, str]:
@@ -120,6 +132,7 @@ def padded_class(
     real_token = register(api, "real-student@example.com")
     enrol(api, teacher_token, subject_id, "real-student@example.com")
     ask(api, real_token, subject_id, real_questions)
+    into_the_last_ended_week(clean_db)
     return subject_id, teacher_token, real_token
 
 
@@ -158,6 +171,7 @@ def test_f8_is_confirmed_end_to_end_the_absence_of_a_figure_reveals_no_activity(
         headers=bearer(real_token),
     )
     assert ask_once.status_code == 200
+    into_the_last_ended_week(clean_db)
     assert current_week_cell(api, teacher_token, subject_id)["active_students"] == 5
 
 
@@ -195,15 +209,15 @@ def test_a_deleted_account_leaves_the_next_aggregate_and_no_row_about_it(
         assert count == 0, table
 
 
-def test_the_week_of_the_figures_is_the_current_one(
+def test_the_figures_are_those_of_the_last_ended_week(
     api: TestClient, clean_db: str, teacher: TestUser
 ) -> None:
-    """Sanity of the scenario: the figures come from the window that ends today."""
+    """Sanity of the scenario: the window ends on the last Sunday, never inside the open week."""
     subject_id, teacher_token, _ = padded_class(api, clean_db, teacher, real_questions=1)
 
     body = current_week_cell(api, teacher_token, subject_id)
 
-    assert body["window"]["end"] >= date.today().isoformat()
+    assert body["window"]["end"] < datetime.now(UTC).date().isoformat()
     assert scalar(clean_db, "SELECT count(*) FROM messages WHERE role = 'user'") == 4 * 3 + 1
 
 
@@ -224,9 +238,11 @@ def first_week_cell(body: dict) -> int | None:  # type: ignore[type-arg]
     return body["questions"][0]["count"]  # type: ignore[no-any-return]
 
 
-def test_v1_is_reproduced_with_the_real_routes_and_sql(
+def test_v1_is_mitigated_with_the_real_routes_and_sql(
     api: TestClient, clean_db: str, teacher: TestUser
 ) -> None:
+    """A2: after the removal the weeks that held the student are withheld, so the second read cannot
+    be subtracted from the first (it could before: 13 -> 10, exactly the student's 3 questions)."""
     from tests.activity_support import Classroom, at
 
     room = Classroom(clean_db, students=6, teacher=uuid.UUID(teacher.id))
@@ -246,8 +262,9 @@ def test_v1_is_reproduced_with_the_real_routes_and_sql(
     after = read_window(api, token, room.subject, *window)
 
     assert (first_week_cell(before), before["active_students"]) == (13, 6)
-    assert (first_week_cell(after), after["active_students"]) == (10, 5)
-    assert first_week_cell(before) - first_week_cell(after) == 3  # type: ignore[operator]
+    assert after["window"]["weeks"] == 0  # the removal is today: every week of March is withheld
+    assert after["questions"] == [] and after["active_students"] is None
+    assert after["enrolled_students"] == 5
 
 
 def test_v3_is_reproduced_with_the_real_routes_and_sql(

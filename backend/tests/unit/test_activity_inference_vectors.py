@@ -3,7 +3,9 @@
 Change `activity-privacy-hardening`, part A (tasks 1.1 to 1.4). **No mitigation is implemented.**
 Fictitious data and the in-memory repository only: nothing here reads or writes a database.
 
-Two kinds of test, so that the suite stays green while the vectors stay open:
+Two kinds of test, so that the suite stays green while the vectors stay open (V1 is mitigated by
+the marker of A2 and V5 by the ended weeks of A2b; their tests of the rule are in
+`test_activity_window_rule.py`; V1 keeps its control without the marker here):
 
 * ``test_v*_is_reproduced``: asserts the leak. **PASS means the vulnerability is confirmed at the
   service level**, not that the system is safe.
@@ -21,7 +23,7 @@ and is in that same integration module.
 
 import uuid
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -57,12 +59,16 @@ class WindowedRepository(FakeRepository):
         return [a for a in self.answer_facts if start <= a.answered_at < end]
 
 
-def service(repo: FakeRepository) -> ActivityService:
-    return ActivityService(FakeSubjects(TEACHER), repo, today=lambda: TODAY)  # type: ignore[arg-type]
+REMOVAL = datetime(2026, 3, 4, 12, tzinfo=UTC)  # the teacher removes a student on a Wednesday
 
 
-def read(repo: FakeRepository, window: dict[str, date]) -> Any:
-    return service(repo).get(TEACHER, SUBJECT, **window)
+def service(repo: FakeRepository, marker: datetime | None = None) -> ActivityService:
+    subjects = FakeSubjects(TEACHER, marker)
+    return ActivityService(subjects, repo, today=lambda: TODAY)  # type: ignore[arg-type]
+
+
+def read(repo: FakeRepository, window: dict[str, date], marker: datetime | None = None) -> Any:
+    return service(repo, marker).get(TEACHER, SUBJECT, **window)
 
 
 def class_of(
@@ -94,13 +100,14 @@ def week_cell(result: Any, week: date) -> int | None:
 V1_CLASS = [2, 2, 2, 2, 2, 3]  # six students; the last one asked 3 questions
 
 
-def v1_reads() -> tuple[Any, Any]:
+def v1_reads(marker: datetime | None = None) -> tuple[Any, Any]:
     before, _ = class_of(V1_CLASS)
     after, _ = class_of(V1_CLASS[:-1])  # the teacher removed the last student from the enrolments
-    return read(before, FOUR_WEEKS), read(after, FOUR_WEEKS)
+    return read(before, FOUR_WEEKS), read(after, FOUR_WEEKS, marker)
 
 
-def test_v1_is_reproduced_the_difference_of_two_reads_is_one_students_contribution() -> None:
+def test_v1_control_without_the_marker_the_difference_is_one_students_contribution() -> None:
+    """The system before A2 (no marker set): the vulnerability, kept as a control."""
     first, second = v1_reads()
 
     assert (week_cell(first, WEEK1), first.active_students) == (13, 6)
@@ -117,13 +124,18 @@ def test_v1_does_not_leak_below_the_group_size() -> None:
     assert week_cell(read(after, FOUR_WEEKS), WEEK1) is None
 
 
-@pytest.mark.xfail(
-    strict=True, reason="V1/F1 open: TD-069; passes only with a mitigation of the cause"
-)
-def test_v1_property_holds_the_removal_of_one_student_does_not_reveal_their_contribution() -> None:
-    first, second = v1_reads()
+def test_v1_property_holds_the_read_after_the_removal_does_not_cover_the_weeks_of_the_student() -> (
+    None
+):
+    """A2: the marker withholds every week that starts before the removal, so the second read
+    cannot be subtracted from the first. The complete property (random worlds) is in
+    `test_activity_window_rule.py`."""
+    first, second = v1_reads(REMOVAL)
 
-    assert shown(first, WEEK1) - shown(second, WEEK1) != V1_CLASS[-1]
+    assert WEEK1 in [p.period_start for p in first.questions]  # the first read did cover it
+    assert WEEK1 not in [p.period_start for p in second.questions]
+    assert second.active_students is None
+    assert second.window.start > WEEK1
 
 
 # --- V2: padding with controlled accounts (F8, task 1.2) -------------------------------------

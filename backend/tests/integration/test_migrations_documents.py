@@ -252,7 +252,10 @@ def test_upgrade_from_0003_leaves_existing_rows_unchanged(test_db_url: str) -> N
     before = fetch_all(
         test_db_url,
         "SELECT (SELECT md5(string_agg(u::text, '|' ORDER BY u.id)) FROM users u), "
-        "(SELECT md5(string_agg(s::text, '|' ORDER BY s.id)) FROM subjects s)",
+        # the columns of revision 0003: a later revision adds one
+        "(SELECT md5(string_agg(row(s.id, s.name, s.description, "
+        "s.teacher_id, s.created_at)::text, "
+        "'|' ORDER BY s.id)) FROM subjects s)",
     )
 
     command.upgrade(config, "head")
@@ -260,7 +263,10 @@ def test_upgrade_from_0003_leaves_existing_rows_unchanged(test_db_url: str) -> N
     after = fetch_all(
         test_db_url,
         "SELECT (SELECT md5(string_agg(u::text, '|' ORDER BY u.id)) FROM users u), "
-        "(SELECT md5(string_agg(s::text, '|' ORDER BY s.id)) FROM subjects s)",
+        # the columns of revision 0003: a later revision adds one
+        "(SELECT md5(string_agg(row(s.id, s.name, s.description, "
+        "s.teacher_id, s.created_at)::text, "
+        "'|' ORDER BY s.id)) FROM subjects s)",
     )
     assert before == after
     assert count(test_db_url, "users") == 2

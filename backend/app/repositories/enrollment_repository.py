@@ -3,7 +3,7 @@ import uuid
 from typing import NamedTuple
 
 from psycopg import errors as pg_errors
-from sqlalchemy import delete, insert, literal, select, text
+from sqlalchemy import delete, func, insert, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -110,17 +110,43 @@ class EnrollmentRepository:
     def delete_for_teacher_subject(
         self, subject_id: uuid.UUID, teacher_id: uuid.UUID, student_id: uuid.UUID
     ) -> bool:
-        self.lock_student_subject(student_id, subject_id)  # before the delete: M2
-        owned_subject = select(Subject.id).where(
-            Subject.id == subject_id, Subject.teacher_id == teacher_id
-        )
-        statement = (
-            delete(Enrollment)
-            .where(
-                Enrollment.subject_id == subject_id,
-                Enrollment.student_id == student_id,
-                Enrollment.subject_id.in_(owned_subject),
+        """Remove the enrolment and mark the subject, in this order and in one savepoint.
+
+        Lock order (change `activity-privacy-hardening`): the advisory lock of the student, then the
+        row of the subject, then the row of the enrolment, which is the order the deletion of a
+        subject follows through its cascade, so the two cannot deadlock. The marker is written
+        first; a removal that deletes nothing undoes it with the savepoint, whatever the caller
+        does with the transaction.
+        """
+        self.lock_student_subject(student_id, subject_id)  # before anything else: M2
+        savepoint = self._session.begin_nested()
+        try:
+            marked = self._session.execute(
+                update(Subject)
+                .where(Subject.id == subject_id, Subject.teacher_id == teacher_id)
+                .values(
+                    # GREATEST ignores a null, so the first removal sets it and none moves it back.
+                    last_unenrolment_at=func.greatest(
+                        Subject.last_unenrolment_at, func.clock_timestamp()
+                    )
+                )
+                .returning(Subject.id)
+                .execution_options(synchronize_session=False)
             )
-            .returning(Enrollment.id)
-        )
-        return self._session.execute(statement).first() is not None
+            deleted = (
+                marked.first() is not None
+                and self._session.execute(
+                    delete(Enrollment)
+                    .where(Enrollment.subject_id == subject_id, Enrollment.student_id == student_id)
+                    .returning(Enrollment.id)
+                ).first()
+                is not None
+            )
+        except BaseException:
+            savepoint.rollback()
+            raise
+        if deleted:
+            savepoint.commit()
+        else:
+            savepoint.rollback()
+        return deleted

@@ -40,6 +40,25 @@ export function activity(overrides: Partial<ActivityResponse> = {}): ActivityRes
   }
 }
 
+/** A normal answer: the 12 weeks that have ended (the weekly rows are the fictitious ones). */
+export function fullWindow(): ActivityResponse {
+  return activity({
+    window: { start: '2025-12-15', end: '2026-03-08', granularity: 'week', weeks: 12 },
+  })
+}
+
+/** Every week starts before the last unenrolment: no week, nothing but the enrolled count. */
+export function noWeeks(): ActivityResponse {
+  return activity({
+    window: { start: '2026-04-06', end: '2026-04-05', granularity: 'week', weeks: 0 },
+    active_students: null,
+    questions: [],
+    no_material_rate: null,
+    no_cited_source_rate: null,
+    documents: activity().documents.map((document) => ({ ...document, cited_appearances: null })),
+  })
+}
+
 /** What the endpoint returns for a class with fewer than the minimum group of active students. */
 export function allSuppressed(): ActivityResponse {
   return activity({
