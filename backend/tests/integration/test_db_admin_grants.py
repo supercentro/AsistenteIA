@@ -74,7 +74,7 @@ def test_migrate_runs_alembic_as_the_migrator_and_applies_the_matrix_exactly(
             "SELECT r.rolname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_roles r "
             "ON r.oid = c.relowner WHERE c.relname = 'users'"
         ).fetchone()
-    assert head == ("0007",) and owner == (cluster.names.migrator,)
+    assert head == ("0008",) and owner == (cluster.names.migrator,)
     assert effective(cluster, database) == expected()
 
 

@@ -1,7 +1,17 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
+from sqlalchemy import (
+    DateTime,
+    FetchedValue,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +35,14 @@ class Subject(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    # The moment of the last unenrolment (database clock, never decreasing), null while there was
+    # none. No reference to a student: the activity aggregate never shows a week that starts before
+    # it (change `activity-privacy-hardening`). Never set on insert, only by the removal of an
+    # enrolment: `FetchedValue()` keeps it out of the INSERT, so the application role needs no
+    # INSERT on it.
+    last_unenrolment_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, server_default=FetchedValue()
     )
 
 

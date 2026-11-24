@@ -130,7 +130,7 @@ def test_downgrade_to_base_is_an_administrator_operation_and_changes_nothing_for
     with cluster.admin_connection(own_database) as conn:
         head = conn.execute("SELECT version_num FROM alembic_version").fetchone()
         users = conn.execute("SELECT count(*) FROM users").fetchone()
-    assert head == ("0007",) and users == (2,)  # the failed downgrade was rolled back entirely
+    assert head == ("0008",) and users == (2,)  # the failed downgrade was rolled back entirely
 
 
 # --- 5.10 self-tampering ---------------------------------------------------------------

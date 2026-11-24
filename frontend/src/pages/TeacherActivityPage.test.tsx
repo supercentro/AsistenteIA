@@ -10,6 +10,8 @@ import {
   activity,
   allSuppressed,
   failActivity,
+  fullWindow,
+  noWeeks,
   serveActivity,
 } from '../tests/activity'
 import { API, studentUser, teacherUser } from '../tests/api'
@@ -112,6 +114,63 @@ describe('TeacherActivityPage - the owner reads the figures', () => {
     expect(screen.getByText(text.cards.active).nextSibling).toHaveTextContent(text.insufficient)
     expect(container.querySelector('[data-bar]')).toBeNull()
     expect(screen.getByText(text.note(5))).toBeVisible()
+  })
+})
+
+describe('TeacherActivityPage - whole weeks and the limit of the history', () => {
+  it('always says that only whole weeks are shown, next to the window', async () => {
+    flagOn()
+    serveActivity(fullWindow())
+    renderApp({ route: ACTIVITY_PAGE, session: { user: teacherUser } })
+
+    expect(await screen.findByText(text.wholeWeeksOnly)).toBeVisible()
+    expect(screen.getByText(text.window('15/12/2025', '08/03/2026'))).toBeVisible()
+  })
+
+  it('says nothing about a change of enrolments when the window has its 12 weeks', async () => {
+    flagOn()
+    serveActivity(fullWindow())
+    renderApp({ route: ACTIVITY_PAGE, session: { user: teacherUser } })
+    await screen.findByText(text.wholeWeeksOnly)
+
+    expect(screen.queryByText(text.limited)).toBeNull()
+    expect(screen.queryByText(text.noWeeks)).toBeNull()
+  })
+
+  it('explains that only the weeks after a recent change of enrolments are shown', async () => {
+    flagOn()
+    serveActivity(activity()) // 4 weeks: fewer than the 12 the page asks for
+    renderApp({ route: ACTIVITY_PAGE, session: { user: teacherUser } })
+
+    expect(await screen.findByText(text.limited)).toBeVisible()
+    expect(screen.getByText(text.window('02/03/2026', '29/03/2026'))).toBeVisible()
+    expect(screen.queryByText(text.noWeeks)).toBeNull()
+  })
+
+  it('with no whole week hides the window line, the table and the bars and says why', async () => {
+    flagOn()
+    serveActivity(noWeeks())
+    const { container } = renderApp({ route: ACTIVITY_PAGE, session: { user: teacherUser } })
+
+    expect(await screen.findByText(text.noWeeks)).toBeVisible()
+    expect(screen.getByText(text.wholeWeeksOnly)).toBeVisible()
+    expect(screen.getByText(text.cards.enrolled).nextSibling).toHaveTextContent('12')
+    expect(screen.getByText(text.cards.active).nextSibling).toHaveTextContent(text.insufficient)
+    expect(screen.queryByText(/^Semanas del /)).toBeNull()
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(container.querySelector('[data-bar]')).toBeNull()
+    expect(screen.queryByText(text.allSuppressed)).toBeNull()
+    expect(screen.queryByText(text.limited)).toBeNull()
+    expect(screen.queryByText(text.cards.activeNote)).toBeNull()
+  })
+
+  it('never shows a withheld figure as zero when there is no week', async () => {
+    flagOn()
+    serveActivity(noWeeks())
+    const { container } = renderApp({ route: ACTIVITY_PAGE, session: { user: teacherUser } })
+    await screen.findByText(text.noWeeks)
+
+    expect(container.textContent).not.toMatch(/\d\s?%/)
   })
 })
 
@@ -405,6 +464,9 @@ describe('TeacherActivityPage - accessibility', () => {
     ['loaded', () => activity()],
     ['all withheld', () => allSuppressed()],
     ['no documents', () => activity({ documents: [] })],
+    ['limited history', () => activity()],
+    ['no whole week', () => noWeeks()],
+    ['a full window', () => fullWindow()],
   ])('has no serious violation when %s', async (_name, build) => {
     flagOn()
     serveActivity(build())

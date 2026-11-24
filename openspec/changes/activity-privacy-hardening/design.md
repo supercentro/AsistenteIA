@@ -174,7 +174,7 @@ The subject keeps one non-personal marker, `last_unenrolment_at`: the database c
 | Value | `GREATEST(coalesce(current, '-infinity'), clock_timestamp())` of the database: **monotonic**, one clock for the marker and for `messages.created_at` |
 | Unconditional | set whether or not the student had asked anything, so that hiding or not hiding the history never tells whether the student was active |
 | Not written by | a read, an enrolment, a re-enrolment, a 404 (nothing deleted), the deletion of an account or of conversations by the student (their right), the deletion of the subject |
-| Existing subjects | the migration sets the marker to the time of the migration: past removals left no trace, so the history before it is withheld; the capability is switched off and unused, so nothing is lost |
+| Existing subjects | **the state of each environment was checked (2026-11-23)**: the switch is not set in any environment file, the Compose file or CI, but the development database holds 74 messages in 4 subjects, so earlier reading cannot be ruled out. The migration therefore sets the marker to the migration time **only for subjects that already hold conversations** (past removals left no trace, so the history before it stays withheld) and leaves it null for the others; no protection is omitted where history exists |
 | Migration | one revision after the current head `0007`, with a working `downgrade` that drops the column; `alembic check` clean |
 
 ### The effective window (formal)
@@ -201,13 +201,15 @@ Let the requested window be the whole weeks the service already computes (Monday
 | Two removals at once | one monotonic value | as above | the subject row serialises the two updates |
 | Chat turn at the same time as a removal | see below | see below | ordered by the existing lock |
 
-### Security property of V1: non-interference, not equality
+### Security property of V1: independence from the cut-off past, not equality
 
-Equality of the answers before and after cannot be required: A2 hides weeks. The property to prove is that the removal **adds no information about the removed student**:
+Equality of the answers before and after cannot be required: A2 hides weeks. The first formulation (worlds that differ only in the removed student's messages) **was found insufficient** on the reference model: without any mitigation it holds in every case without re-enrolment (0 of 35 worlds differ), because a removed student is excluded anyway. The attack is not that a later read depends on the student; it is that a later read **covers the same weeks as an earlier one**, so subtracting isolates the student. The property to prove is:
 
-> Take two worlds that differ only in the messages the student S wrote before being removed (any number, timing, content or sources). Apply the same removal and the same later operations by everyone else. Every response after the removal is **identical in both worlds**: the figures, the window, `enrolled_students` and `suppressed`.
+> Take two worlds that differ only in messages created **before the marker in force**, written by **any** student, the removed one included. Apply the same removal and the same later operations. Every response after the removal is **identical in both worlds**: the figures, the window, `enrolled_students` and `suppressed`.
 
-The read taken before the removal legitimately includes S, like any aggregate of 5 or more students. A response after the removal is independent of S's earlier activity, so a pair of reads reveals nothing about S that the first read did not already.
+On the model: without a marker 60 of 60 worlds differ; with A2, with A2 and A2b, 0 of 60. The read taken before the removal legitimately includes the student, like any aggregate of 5 or more students; a response after the removal depends on nothing the earlier read covered, so it cannot be subtracted from it.
+
+A2b counts a week as ended **one hour after its Sunday**, so that a chat transaction that began before midnight (its `created_at` is the start of the transaction) has committed before the week is shown. It adds a second property, temporal independence: a response at any instant depends only on messages created before the start of the current week, apart from the enrolled count (model: 60 of 60 worlds differ with A2 alone, 0 of 60 with A2b).
 
 Proof obligations, each with a test: (P-a) every figure after the removal uses only weeks that start after the marker; (P-b) every message of S precedes the marker; (P-c) the marker never decreases; (P-d) the marker does not depend on S's activity; (P-e) the marker and the deletion commit or roll back together; (P-f) the only way to delete an enrolment is the route that sets the marker.
 
@@ -226,14 +228,14 @@ Proof obligations, each with a test: (P-a) every figure after the removal uses o
 | No removal yet | as today |
 | A removal in the current week | 0 weeks: no table, the window-wide cards read «Datos insuficientes», the enrolled count stays |
 | A removal some weeks ago | only the weeks after it; `weeks` below 12; the cards use those weeks, with 5 or more active students needed |
-| 12 weeks after the last removal | the full window again |
+| 12 to 13 weeks after the last removal | the full window again |
 
-The loss is the visible history, 1 to 12 weeks after each removal; the data stays stored. Each removal resets the effect, including one that corrects a mistaken enrolment, and the marker cannot be made conditional without leaking a bit. The dashboard sends no parameters, so `weeks` below 12 means the history was limited. Two states are needed, with copy for the owner to approve:
+The loss is the visible history after each removal: with A2 and A2b **no figure for 7 to 14 days (mean about 11)**, then fewer than 12 weeks until 12 to 13 weeks have passed (reference model; A2 alone gives 0.2 to 7 days); the data stays stored. Each removal resets the effect, including one that corrects a mistaken enrolment, and the marker cannot be made conditional without leaking a bit. The dashboard sends no parameters, so `weeks` below 12 means the history was limited. Two states are needed, with copy for the owner to approve:
 
 | State | Proposed Spanish copy |
 |---|---|
-| Limited (`weeks` below 12, above 0) | «Por un cambio reciente en las inscripciones, solo se muestran las semanas posteriores a ese cambio.» |
-| No weeks (`weeks` is 0) | «Por un cambio reciente en las inscripciones, todavía no hay semanas completas para mostrar.» |
+| Limited (`weeks` below 12, above 0) | «Por un cambio en las inscripciones, solo se muestran las semanas posteriores a ese cambio.» |
+| No weeks (`weeks` is 0) | «Por un cambio en las inscripciones, todavía no hay semanas completas para mostrar.» |
 
 Coupling to note: reading "limited" as `weeks` below 12 depends on the default window having 12 weeks; a later change of the default (package P1) must revisit it. A new response field would remove the coupling but is a larger contract change; it is not proposed.
 
@@ -279,13 +281,13 @@ Coupling to note: reading "limited" as `weeks` below 12 depends on the default w
 | Heavy contributor (V4, F6) and F7 | not touched |
 | **Addition and the current week (candidate V5)** | two reads in the same week differ by what was asked in between, and an added student's questions show up in the current week; time-resolved activity can be attributed when the teacher knows who is asking (a class in the room). It is trivial arithmetic but **not yet demonstrated**: it needs the owner's authorisation as a test. A rule that only complete weeks are shown (A2b) would close it; it changes the default window and is a separate decision |
 | The clock | the marker assumes a database clock that does not go backwards |
-| Loss of history | by design, 1 to 12 weeks after every removal |
+| Loss of history | by design: 7 to 14 days without figures and 12 to 13 weeks until the full window, after every removal |
 
 ### Decisions pending (split from D-P9)
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D-P9a | The migration with the backfill of existing subjects with the migration time | approve |
+| D-P9a | The migration; backfill with the migration time only for subjects that hold conversations, null for the others (decided by the state of each environment) | **approved 2026-11-23 with that rule** |
 | D-P9b | The `UPDATE (last_unenrolment_at)` grant to the application role, and how existing environments get it | approve; check the admin flow first |
 | D-P9c | The contract: `weeks` minimum 0 and the descriptions of the effective window; no new field | approve |
 | D-P9d | Accept the loss of visible history after each removal, unconditionally | approve; the cost is the price of D-M5 and erasure |
@@ -326,7 +328,7 @@ Privileges are **not** part of the Alembic revisions. The matrix of `backend/app
 | Generated types | `weeks: number`: no change of shape; `npm run check:api-types` is run after the edit |
 | Other clients | none exist; both switches are off |
 | Invariant for 0 weeks | `window.start` is the day after `window.end`, `questions` is empty, every window-wide figure is null, `enrolled_students` is shown, `suppressed` is true. Normalising `start` avoids a start far after the end |
-| Dashboard | **it is not compatible as it is**: the line «Semanas del … al …» would read with an end before the start, and `WeeklyQuestions` would draw an empty table. With `weeks` 0 the page hides the window line and the table, shows the enrolled count, «Datos insuficientes» in the window-wide cards and the approved note. Approved copy (2026-11-23): limited «Por un cambio reciente en las inscripciones, solo se muestran las semanas posteriores a ese cambio.»; no weeks «Por un cambio reciente en las inscripciones, todavía no hay semanas completas para mostrar.» |
+| Dashboard | **it is not compatible as it is**: the line «Semanas del … al …» would read with an end before the start, and `WeeklyQuestions` would draw an empty table. With `weeks` 0 the page hides the window line and the table, shows the enrolled count, «Datos insuficientes» in the window-wide cards and the approved note. Approved copy (2026-11-23): limited «Por un cambio en las inscripciones, solo se muestran las semanas posteriores a ese cambio.»; no weeks «Por un cambio en las inscripciones, todavía no hay semanas completas para mostrar.» |
 
 ### 3. Concurrency of the removal, the marker and the operations that lock subjects
 
@@ -360,7 +362,7 @@ Formal rule combined with A2: let `L` be the Monday of the last week that has en
 | Does A2b change the marker, the column, the migration or the grants | **No.** It is one more bound in the service (and the default window), so **V5 does not require a design change before the migration is approved** |
 | Does it change the contract | the same one change already planned: `weeks` may be 0 and `end` may be before today's week; no new field. If both are decided together the contract and the dashboard are edited once |
 | Effect on the window | a new subject has 0 weeks during its first week; the table has 12 rows of ended weeks; the dashboard's note «Semanas del … al …» ends on the last Sunday |
-| Effect on availability | the freshest information is up to 7 days old. After a removal on a Wednesday: A2 alone shows 0 weeks until the next Monday and then the open week; A2b shows 0 weeks until the Monday after that (the first visible week is the next one, and it must end), which is 5 to 14 days of blank figures |
+| Effect on availability | the freshest information is up to 7 days old. After a removal on a Wednesday: A2 alone shows 0 weeks until the next Monday and then the open week; A2b shows 0 weeks until the Monday after that (the first visible week is the next one, and it must end), which is 7 to 14 days of blank figures (measured on the reference model, mean 10.6) |
 | Effect on the inference risks | closes V5 (same-week increments) and the addition form of F1; leaves V1's removal form to A2, V3 to P1, F8 and F6 untouched; compatible with the P1 blocks, which are whole weeks |
 | Effect on non-interference | none: the property of V1 holds with or without A2b; A2b adds its own property (below) |
 | Disclosure that remains | at Monday 00:00 a whole week appears at once; a teacher who knows who was active in a small week learns from it, as with any aggregate of 5 or more students |
@@ -375,7 +377,7 @@ Proposed notice for the dashboard if A2b is chosen (to approve): «Se muestran s
 
 | # | Decision | State |
 |---|---|---|
-| D-P9a | Migration with the backfill of existing subjects | pending |
+| D-P9a | Migration with a data-driven backfill (subjects that hold conversations) | **approved 2026-11-23** |
 | D-P9b | The `UPDATE (last_unenrolment_at)` grant; applied with `db-migrate` then `db-verify`, never by hand | pending |
 | D-P9c | `weeks` minimum 0, `start` the day after `end` when there are no weeks, the descriptions of the effective window; no new field | pending |
 | D-P9d | Accept the loss of visible history after each removal, unconditionally | pending |
@@ -430,3 +432,11 @@ The first group uses `ActivityService` with the in-memory repository of `test_ac
 - The end-to-end result for V2: confirmed or refuted.
 - For each approved mitigation: the unchanged vector test passing, a mutation check that removes it, and the erasure test.
 - An independent adversarial review with a privacy focus and the final residual-risk table.
+
+## Findings of the independent review (2026-11-23) and what was done
+
+The review (`reports/2026-11-23-a2-adversarial-review.md`) found no Blocker. **M-1 (Major)**: the activity route held two pooled connections per request (the shared session that authenticates plus the snapshot), so a burst of reads could take the whole pool and block every route (15 threads, none served, on the default pool); fixed by closing the shared session before the snapshot opens, with a test on a pool of one. **m-1**: a chat transaction that began before Monday 00:00 UTC could commit after it, so a week now counts as ended one hour after its Sunday (`ENDED_GRACE`). **m-2**: two mutants survived (`now()` for `clock_timestamp()`, no conversion to UTC); tests and mutation checks added. **m-3**: two tests used the local date; they use UTC. **m-4**: the static test is a best-effort tripwire and says so. **m-5**: the contract and spec text were reconciled. **m-6**: the PR stages only the files of this change. **q-2**, the word «reciente» of the approved copy was imprecise (the note can show for up to 13 weeks): the owner decided on 2026-11-23 to say «Por un cambio en las inscripciones» in both states, and it was changed.
+
+## Implementation notes (2026-11-23, A2 + A2b)
+
+Decided by the owner: A2 and A2b are implemented together; D-P9a to D-P9g, D-P11 (the notice «Se muestran solo semanas completas.») and D-P12 are approved; P1 and every other mitigation stay out. The read uses **its own session** at `REPEATABLE READ` read-only, because the authentication of the request has already run statements in the shared session of the request and the isolation level cannot change after the first statement. The removal uses a savepoint, so that a removal that deletes nothing undoes the marker whatever the outer handler does. Evidence is in `reports/`.

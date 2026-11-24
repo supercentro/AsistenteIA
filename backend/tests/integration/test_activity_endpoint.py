@@ -6,6 +6,7 @@ the application with the setting on.
 
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -235,11 +236,10 @@ def test_the_aggregate_queries_take_the_teacher_and_join_the_subject_owner(
         {"start": "not-a-date", "end": "2026-03-29"},
         {"start": "2026-03-02", "end": "2026-03-29", "granularity": "day"},
         {"start": "2026-03-02", "end": "2026-03-29", "granularity": "hour"},
-        {"end": "9999-12-31"},
         {"start": "0001-01-01", "end": "9999-12-31"},
         {"end": "2026-03-29T10:00:00+02:00"},
     ],
-    ids=["too-long", "reversed", "bad-date", "day", "hour", "limit", "calendar", "datetime"],
+    ids=["too-long", "reversed", "bad-date", "day", "hour", "calendar", "datetime"],
 )
 def test_an_invalid_window_or_granularity_is_a_422_never_a_500(
     enabled: TestClient, room: Classroom, owner: TestUser, query: dict[str, str]
@@ -248,6 +248,18 @@ def test_an_invalid_window_or_granularity_is_a_422_never_a_500(
 
     assert response.status_code == 422, response.text
     assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_an_end_in_the_far_future_is_cut_at_the_last_ended_week_never_a_500(
+    enabled: TestClient, room: Classroom, owner: TestUser
+) -> None:
+    """The open week and the future are never shown (A2b): the end is cut, not refused."""
+    response = ask(enabled, owner, room.subject, end="9999-12-31")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["window"]["weeks"] == 12
+    assert body["window"]["end"] < datetime.now(UTC).date().isoformat()
 
 
 def test_a_malformed_subject_identifier_is_a_422(enabled: TestClient, owner: TestUser) -> None:

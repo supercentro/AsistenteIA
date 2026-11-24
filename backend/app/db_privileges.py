@@ -37,7 +37,9 @@ KNOWN_COLUMNS: Final[dict[str, frozenset[str]]] = {
             "created_at",
         }
     ),
-    "subjects": frozenset({"id", "name", "description", "teacher_id", "created_at"}),
+    "subjects": frozenset(
+        {"id", "name", "description", "teacher_id", "created_at", "last_unenrolment_at"}
+    ),
     "enrollments": frozenset({"id", "subject_id", "student_id", "created_at"}),
     "documents": frozenset(
         {
@@ -120,7 +122,7 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         "subjects": TableGrant(
             select=_all("subjects"),
             insert=_cols("name", "description", "teacher_id"),
-            update=_cols("description"),
+            update=_cols("description", "last_unenrolment_at"),
             delete=True,
             lock_carrier="description",
         ),

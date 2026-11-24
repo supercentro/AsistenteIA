@@ -11,7 +11,14 @@ Rules, all approved by the owner on 2026-11-23:
   cannot move a weekly cell (the window-wide totals still differ between windows that differ by
   whole weeks, and the teacher controls enrolment: both are residual risks, TD-069);
 * only students currently enrolled, and only what exists when the request is made; nothing is
-  stored, so a deletion lowers the next result.
+  stored, so a deletion lowers the next result;
+* only weeks that have ended (A2b, change `activity-privacy-hardening`): the open week is never
+  shown, so two reads in the same week are identical and the first questions of a newly enrolled
+  student cannot be seen as they happen;
+* only weeks that start after the last unenrolment (A2): the subject keeps the moment of its last
+  unenrolment and no figure covers a week that starts before it. A student who was removed can only
+  have asked before that moment, so a read made after a removal never covers the weeks that held
+  the student, and cannot be subtracted from a read made before it.
 """
 
 import uuid
@@ -37,12 +44,37 @@ RATE_DIGITS = 3
 DocumentKey = uuid.UUID | str  # the id of the document, or its stored name once it was deleted
 
 
+ENDED_GRACE = timedelta(hours=1)
+
+
+def ended_weeks_today(now: datetime) -> date:
+    """The day the window is measured from: a week counts as ended one hour after its Sunday.
+
+    A chat transaction that began before Monday 00:00 UTC keeps `created_at` in the week that
+    ends (the column is the start of the transaction) and can commit a little later, so a read
+    made at once after midnight and one made later could differ by that message. The margin
+    covers the longest transaction of a chat turn (the lock is never held while the model runs).
+    """
+    return (now - ENDED_GRACE).astimezone(UTC).date()
+
+
 def _utc_today() -> date:
-    return datetime.now(UTC).date()
+    return ended_weeks_today(datetime.now(UTC))
 
 
 def _monday(day: date) -> date:
     return day - timedelta(days=day.weekday())
+
+
+def _after_marker(first: date, marker: datetime | None) -> date:
+    """The first week that starts after the first Monday that follows the unenrolment marker.
+
+    A marker exactly on a Monday 00:00 still hides that Monday's week, so the proof does not
+    depend on two timestamps being equal.
+    """
+    if marker is None:
+        return first
+    return max(first, _monday(marker.astimezone(UTC).date()) + timedelta(days=7))
 
 
 def _shown(students: set[uuid.UUID], figure: int) -> int | None:
@@ -69,11 +101,13 @@ class ActivityService:
         start: date | None = None,
         end: date | None = None,
     ) -> ActivityResponse:
-        if self._subjects.get_for_teacher(subject_id, teacher_id) is None:
+        subject = self._subjects.get_for_teacher(subject_id, teacher_id)
+        if subject is None:
             raise NotFoundError(SUBJECT_NOT_FOUND_MESSAGE)  # same answer as an unknown subject
         try:
             first, last = self._window(start, end)
-            weeks = ((last - first).days + 1) // 7
+            first = _after_marker(first, subject.last_unenrolment_at)
+            weeks = max(0, ((last - first).days + 1) // 7)
             since = datetime(first.year, first.month, first.day, tzinfo=UTC)
             until = since + timedelta(days=7 * weeks)  # exclusive
         except OverflowError as error:  # dates next to the calendar limits
@@ -82,6 +116,8 @@ class ActivityService:
             ) from error
         scope = {"teacher_id": teacher_id, "subject_id": subject_id}
         enrolled = self._activity.enrolled_count(**scope)
+        if weeks == 0:  # nothing may be shown: no fact is read at all
+            return self._no_weeks(last, enrolled, self._activity.current_documents(**scope))
         asked = self._activity.questions(**scope, start=since, end=until)
         answered = self._activity.answers(**scope, start=since, end=until)
         current = self._activity.current_documents(**scope)
@@ -118,10 +154,16 @@ class ActivityService:
         return response
 
     def _window(self, start: date | None, end: date | None) -> tuple[date, date]:
-        """The requested days widened to whole weeks; refuses a reversed or too long window."""
-        last_day = end if end is not None else self._today()
-        if start is not None and last_day < start:
+        """The requested days widened to whole weeks and cut at the last week that has ended.
+
+        Refuses a reversed or too long window. The result may hold no week (the start is inside the
+        open week): the caller measures it.
+        """
+        requested_end = end if end is not None else self._today()
+        if start is not None and requested_end < start:
             raise InvalidActivityWindowError("end_before_start", "The end is before the start")
+        last_ended_sunday = _monday(self._today()) - timedelta(days=1)  # A2b: the open week is out
+        last_day = min(requested_end, last_ended_sunday)
         if start is None:
             first = _monday(last_day) - timedelta(days=7 * (MAX_WEEKS - 1))
         else:
@@ -132,6 +174,25 @@ class ActivityService:
                 "window_too_long", f"The window covers at most {MAX_WEEKS} weeks"
             )
         return first, last
+
+    def _no_weeks(
+        self, last: date, enrolled: int, current: list[tuple[uuid.UUID, str]]
+    ) -> ActivityResponse:
+        """No whole week may be shown: only the enrolled count and the names of the documents."""
+        response = ActivityResponse(
+            window=ActivityWindow(
+                start=last + timedelta(days=1), end=last, granularity="week", weeks=0
+            ),
+            minimum_group=MINIMUM_GROUP,
+            enrolled_students=enrolled,
+            active_students=None,
+            questions=[],
+            no_material_rate=None,
+            no_cited_source_rate=None,
+            documents=self._documents([], current, False),
+            suppressed=True,
+        )
+        return response
 
     @staticmethod
     def _rates(answers: list[AnswerFact]) -> tuple[float | None, float | None]:

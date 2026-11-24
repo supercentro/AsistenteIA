@@ -6,6 +6,7 @@ integration tests. Fictitious data only.
 
 import uuid
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -28,11 +29,16 @@ def moment(day: date, hour: int = 10) -> datetime:
 
 
 class FakeSubjects:
-    def __init__(self, owner: uuid.UUID | None = TEACHER) -> None:
+    """The owner's subject, with the marker of its last unenrolment (null: none yet)."""
+
+    def __init__(self, owner: uuid.UUID | None = TEACHER, marker: datetime | None = None) -> None:
         self._owner = owner
+        self.marker = marker
 
     def get_for_teacher(self, subject_id: uuid.UUID, teacher_id: uuid.UUID) -> object | None:
-        return object() if (subject_id == SUBJECT and teacher_id == self._owner) else None
+        if subject_id == SUBJECT and teacher_id == self._owner:
+            return SimpleNamespace(last_unenrolment_at=self.marker)
+        return None
 
 
 class FakeRepository:
@@ -348,10 +354,10 @@ def test_an_end_before_the_start_is_refused() -> None:
     assert error.value.status_code == 422
 
 
-def test_the_default_window_ends_today_and_has_twelve_weeks() -> None:
+def test_the_default_window_ends_with_the_last_week_that_has_ended_and_has_twelve_weeks() -> None:
     result = build(FakeRepository(), today=date(2026, 3, 30)).get(TEACHER, SUBJECT)
 
-    assert result.window.end == date(2026, 4, 5)  # the Sunday of today's week
+    assert result.window.end == date(2026, 3, 29)  # today is a Monday: the open week is not shown
     assert result.window.weeks == MAX_WEEKS
 
 
@@ -392,12 +398,10 @@ def test_suppressed_is_false_only_when_every_figure_is_shown() -> None:
 @pytest.mark.parametrize(
     ("start", "end"),
     [
-        (None, date(9999, 12, 31)),
         (None, date(1, 1, 5)),
-        (date(9999, 12, 20), date(9999, 12, 31)),
         (date(1, 1, 1), date(9999, 12, 31)),
     ],
-    ids=["end-at-the-limit", "end-at-year-one", "start-and-end-at-the-limit", "whole-calendar"],
+    ids=["end-at-year-one", "whole-calendar"],
 )
 def test_dates_next_to_the_calendar_limits_are_a_422_not_an_overflow(
     start: date | None, end: date
@@ -408,10 +412,25 @@ def test_dates_next_to_the_calendar_limits_are_a_422_not_an_overflow(
     assert error.value.status_code == 422
 
 
-def test_a_window_in_the_future_is_valid_and_has_no_figures() -> None:
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [(None, date(9999, 12, 31)), (date(9999, 12, 20), date(9999, 12, 31))],
+    ids=["end-at-the-limit", "start-and-end-at-the-limit"],
+)
+def test_an_end_in_the_far_future_is_cut_at_the_last_ended_week_and_never_overflows(
+    start: date | None, end: date
+) -> None:
+    """The open week and the future are never shown (A2b), so these no longer reach the limit."""
+    result = build(FakeRepository()).get(TEACHER, SUBJECT, start=start, end=end)
+
+    assert result.window.end <= date(2026, 3, 29)
+    assert result.window.weeks in (0, MAX_WEEKS)
+
+
+def test_a_window_in_the_future_is_valid_and_has_no_weeks() -> None:
     result = get(build(FakeRepository()), start=date(2040, 1, 2), end=date(2040, 1, 29))
 
-    assert result.window.weeks == 4 and all(p.count is None for p in result.questions)
+    assert result.window.weeks == 0 and result.questions == [] and result.suppressed
 
 
 @pytest.mark.parametrize("distinct", [MINIMUM_GROUP - 1, MINIMUM_GROUP])

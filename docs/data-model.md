@@ -116,6 +116,7 @@ erDiagram
 - `name` is `varchar(150)`, `description` is nullable `text` (API limit 2000 characters); input rules (single-line trimmed name, no control or direction characters) are enforced at the API layer.
 - Listings are ordered by `name`, then `id`, and are not paginated in the MVP (TD-016 in `technical-debt.md`).
 - Created by migration `0003` (downgrade drops `enrollments`, then `subjects`).
+- `last_unenrolment_at` is a nullable `timestamptz` added by migration `0008` (change `activity-privacy-hardening`): the database clock at the **last unenrolment** the teacher made, never decreasing, null while there was none. It holds **no reference to a student** and is not part of any response about a subject. The route that removes an enrolment sets it in the same transaction, before deleting the enrolment (lock order: the advisory lock of the student, the row of the subject, the row of the enrolment), whether or not the student had asked anything; a removal that deletes nothing leaves it unchanged. The aggregate teacher activity never shows a week that starts before the first Monday that follows it, so a read made after a removal cannot be subtracted from one made before it. The migration sets it to the time of the migration only for subjects that already hold conversations (a removal made before the column existed left no trace and earlier reading cannot be ruled out) and leaves it null for the others; the `downgrade` drops the column. **Availability effect, by design:** after a removal no figure is shown for 7 to 14 days (mean about 11) and the full window of 12 weeks returns after 12 to 13 weeks; the stored data is not lost, and a mistaken enrolment corrected by a removal has the same effect.
 
 ### enrollments
 - Links a student to a subject. Unique `(subject_id, student_id)`. The student must have role `student` (service layer).
@@ -220,7 +221,7 @@ Column lists are exact; `SELECT *` means every column of the table. A blank cell
 | Table | `asistente_app` (API) | `asistente_worker` | `asistente_cli` |
 |---|---|---|---|
 | `users` | SELECT *; INSERT (`name`, `email`, `password_hash`); UPDATE (`consent_version`, `consent_accepted_at`) | | SELECT *; INSERT (`name`, `email`, `password_hash`, `role`) |
-| `subjects` | SELECT *; INSERT (`name`, `description`, `teacher_id`); UPDATE (`description`, which also carries the row lock of `SELECT ... FOR UPDATE`); DELETE | | |
+| `subjects` | SELECT *; INSERT (`name`, `description`, `teacher_id`); UPDATE (`description`, which also carries the row lock of `SELECT ... FOR UPDATE`, and `last_unenrolment_at`, written only by the removal of an enrolment); DELETE | | |
 | `enrollments` | SELECT *; INSERT (`subject_id`, `student_id`); DELETE | | |
 | `documents` | SELECT *; INSERT (`subject_id`, `filename`, `content_type`, `size_bytes`, `status`); DELETE | SELECT (`id`, `subject_id`, `filename`, `content_type`, `status`); UPDATE (`status`, `chunks_count`, `error_code`, `error_message`) | |
 | `document_chunks` | SELECT (every column except `created_at`) | INSERT (`document_id`, `subject_id`, `chunk_index`, `page_number`, `content`, `embedding`); SELECT (`id`) | |

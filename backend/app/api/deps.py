@@ -85,13 +85,6 @@ def get_enrollment_service(
     return EnrollmentService(subjects, EnrollmentRepository(db), users)
 
 
-def get_activity_service(
-    db: DbSession,
-    subjects: Annotated[SubjectRepository, Depends(get_subject_repository)],
-) -> ActivityService:
-    return ActivityService(subjects, ActivityRepository(db))
-
-
 def get_auth_service(
     request: Request, users: Annotated[UserRepository, Depends(get_user_repository)]
 ) -> AuthService:
@@ -177,3 +170,39 @@ def require_teacher_activity(
     if not settings.teacher_activity_enabled:
         raise NotFoundError("Resource not found")
     return teacher
+
+
+def get_activity_db(
+    request: Request,
+    teacher: Annotated[User, Depends(require_teacher_activity)],
+    request_db: DbSession,
+) -> Iterator[Session]:
+    """A session of its own for the activity read: one read-only `REPEATABLE READ` snapshot.
+
+    The marker of the subject and the facts it filters must come from the same moment: with the
+    default level each statement sees what was committed at its own start, so a read that overlaps
+    the commit of a removal could pair the old marker with the new cohort. The level cannot change
+    after a statement ran, and the authentication of the request has run some in the shared
+    session, so the read gets its own and sets the level before its first statement.
+
+    The shared session is closed first: it only authenticated the caller, and keeping its
+    connection while a second one is taken would hold two pooled connections per request, so that
+    a burst of reads could take the whole pool and block every other route (review finding M-1).
+    The authenticated user keeps the attributes already loaded; nothing else reads that session.
+    """
+    del teacher  # ordering only: the caller is authenticated before the snapshot opens
+    request_db.close()
+    factory: sessionmaker[Session] = request.app.state.session_factory
+    session = factory()
+    try:
+        session.connection(
+            execution_options={"isolation_level": "REPEATABLE READ", "postgresql_readonly": True}
+        )
+        yield session
+    finally:
+        session.rollback()
+        session.close()
+
+
+def get_activity_service(db: Annotated[Session, Depends(get_activity_db)]) -> ActivityService:
+    return ActivityService(SubjectRepository(db), ActivityRepository(db))

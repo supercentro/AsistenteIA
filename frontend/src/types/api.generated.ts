@@ -641,9 +641,15 @@ export interface paths {
          *     including a figure with no student at all; a subject with fewer than `minimum_group` active
          *     students shows only `enrolled_students`. The window is aligned to whole weeks (Monday to Sunday,
          *     UTC) and covers at most 12 weeks (84 days); `start` and `end` are widened to those weeks and the
-         *     response states the window actually computed. Only students currently enrolled count, and only the
-         *     data that exists when the request is made (deleting a conversation, or unenrolling a student,
-         *     lowers the next result); nothing is stored. `no_material_rate` is the share of answers that stored
+         *     response states the window actually computed. **Only weeks that have ended are shown**: the open
+         *     week is never part of the window, an `end` inside it (or in the future) is cut at the last Sunday
+         *     that has passed (a week counts as ended one hour after its Sunday); apart from the enrolled count, the deletions of conversations and the unenrolments, a read gives the same answer at any moment of one week. **The weeks that start
+         *     before the last unenrolment of the subject are not shown** (the subject keeps the moment of its
+         *     last unenrolment, which no response carries), so the window can be shorter than requested and can
+         *     hold no week at all: then `weeks` is 0, `start` is the day after `end`, `questions` is empty and
+         *     every window-wide figure is `null`, while `enrolled_students` is still given. Only students
+         *     currently enrolled count, and only the data that exists when the request is made (deleting a
+         *     conversation, or unenrolling a student, lowers the next result); no figure is stored. `no_material_rate` is the share of answers that stored
          *     no source; `no_cited_source_rate` the share of answers that do not cite any of their sources (it
          *     includes the answers with no material) and is never a measure of quality. `cited_appearances` is
          *     the number of answers that cite the document: it is not semantic support and not proof that the
@@ -652,9 +658,9 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    /** @description First day of the window (default, 12 weeks ending with the week of `end`) */
+                    /** @description First day of the window (default, 12 weeks ending with the week of `end`, which is cut at the last week that has ended) */
                     start?: string;
-                    /** @description Last day of the window (default, today in UTC) */
+                    /** @description Last day of the window (default and maximum, the last Sunday that has passed, in UTC) */
                     end?: string;
                     granularity?: "week";
                 };
@@ -1267,16 +1273,17 @@ export interface components {
         ActivityWindow: {
             /**
              * Format: date
-             * @description Monday of the first week
+             * @description Monday of the first week shown; the day after end when no week is shown
              */
             start: string;
             /**
              * Format: date
-             * @description Sunday of the last week
+             * @description Sunday of the last week shown (never inside the open week)
              */
             end: string;
             /** @enum {string} */
             granularity: "week";
+            /** @description Weeks shown; 0 when every week starts before the last unenrolment or has not ended */
             weeks: number;
         };
         ActivityPeriod: {

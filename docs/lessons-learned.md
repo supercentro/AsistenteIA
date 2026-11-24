@@ -531,3 +531,23 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Preventive measure:** a focus move after an asynchronous result checks `document.activeElement` first and moves only if the student has not chosen another control; a flaky test is investigated as a possible product defect before it is given a longer wait; a defect reproduced locally is a cause only if the failure signature of the CI matches it, and a CI that keeps no trace of a failure leaves the cause open (a recorder that prints a timeline on failure found it in one run); a guard on a library call is useless if the library defers the effect, so read what the call really does (`setFocus` uses a timer) and decide and act in the same task; and its race is reproduced with a held response (a gate released by the test), not with a sleep. A new test written for such a fix is itself repeated at least 40 times.
 - **Confirmation:** after the second fix the frontend job passed 5 of 5 times in CI (it had failed 5 of 8 before). A CI blocked by billing left the proof pending for a day: the local reproduction with a hook in the window and the mutations were what allowed the fix to be accepted meanwhile.
 - **Evidence:** `frontend/src/pages/ChatAsking.test.tsx` ("The focus when an answer arrives"), `frontend/e2e/student-chat.mocked.spec.ts` (the late answer); the review found that the first version of the new e2e test was flaky (its mocked thread lacked the answer) and it was fixed; `openspec/changes/archive/2026-11-22-student-chat-focus-stability/reports/`.
+
+### L51. A security property that holds without the mitigation proves nothing
+- **Origin:** `activity-privacy-hardening`, found while checking the reference model before implementing A2.
+- **Problem:** the property approved for the unenrolment vector said that two worlds that differ only in the removed student's messages give identical answers after the removal. It looked right and the planned test passed.
+- **Root cause:** a removed student is already excluded from every figure, so the answers are equal **without any mitigation** (0 of 35 worlds differed, unless the student was re-enrolled). The attack is not that a later read depends on the student; it is that a later read covers the same weeks as an earlier one, so subtracting isolates the student.
+- **Impact / repetition risk:** a test that cannot fail would have certified a vulnerable system and the mutation check that removes the filter would not have failed. High for any privacy or isolation property.
+- **Solution applied:** the property became independence from the whole past that the marker cuts off (worlds that differ in any student's earlier messages), with a control run on the same worlds without the rule that must differ.
+- **Preventive measure:** every security property is written with a control that fails on the unmitigated system, and the first formulation is checked on a small model before the tests are written; a property is checked for being vacuous before it is accepted as evidence.
+- **Status:** implemented (`backend/tests/unit/test_activity_window_rule.py`, the control and the weaker formulation are tests of their own).
+- **Evidence:** `openspec/changes/activity-privacy-hardening/design.md` ("Security property of V1"), `reports/2026-11-23-a2-results.md`.
+
+### L52. A dependency that opens a second database session must release the first one
+- **Origin:** `activity-privacy-hardening`, found by the independent review (M-1).
+- **Problem:** the activity read needed its own `REPEATABLE READ` snapshot, so the route held the session that had authenticated the caller **and** a second one. With the default pool, 15 concurrent requests each held one connection and waited for another: none was served and every other route was blocked for the same time.
+- **Root cause:** the isolation level cannot change after a statement ran, and the authentication had already run some in the shared session; the design added a session and never counted the connections per request.
+- **Impact / repetition risk:** a pool deadlock that a single client could trigger; medium, and it applies to any route that adds a session.
+- **Solution applied:** the new dependency depends on the authentication, closes the shared session (it only authenticated) and then opens the snapshot; a test runs the route on a pool of one connection.
+- **Preventive measure:** a dependency that opens a connection states how many a request holds, and a test with a pool of one covers it.
+- **Status:** implemented (`test_the_activity_read_needs_one_pooled_connection_at_a_time`).
+- **Evidence:** `backend/app/api/deps.py` (`get_activity_db`), `reports/2026-11-23-a2-adversarial-review.md`.
