@@ -84,6 +84,6 @@ Carried to the future change `activity-enablement-conditions` (proposed name; `d
 - [x] 7.4 Add the future initiative «Analítica pedagógica inteligente» to the roadmap without new features
 - [x] 7.5 Read-only scan of the Git history for secrets and sensitive data
 - [x] 7.6 Independent review of the documents, with no open Blocker or Major
-- [ ] 7.7 `openspec validate --all --strict` and CI of the documentation pull request
+- [x] 7.7 `openspec validate --all --strict` and CI of the documentation pull request (pull request #38, commit `9d86b3a`: six checks green)
 
 > Out of this change and not authorised: enabling either switch, any use with real students, a legal opinion on N, archiving, any change not listed in an approved option.

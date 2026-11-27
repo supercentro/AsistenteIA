@@ -40,3 +40,7 @@ Limits: pattern based; compressed binary content is not unpacked (the three trac
 ## Independent review
 
 By a separate agent, read only. **PASS WITH GAPS:** no Blocker, no Major, 8 Minor (change name of the first slice; a scenario that presumed the archive; rescheduled tasks no longer counted; stale present tense; the old F8 title and duplicated rules; two imprecisions of the metrics spec; more public detail than needed; claims without a record). They were corrected after the review and were **not** re-reviewed. The review confirmed the spec statements against the code, the merge, the CI figures and that nothing accepts, closes or mitigates a risk.
+
+## Gates
+
+`openspec validate --all --strict` 29 of 29. Pull request #38, commit `9d86b3a`: `backend`, `privileges` and `frontend` green on both triggers (push and pull request).
