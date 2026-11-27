@@ -72,7 +72,7 @@ describe('TeacherActivityPage - the owner reads the figures', () => {
     expect(screen.getByText(text.shares.noMaterial).nextSibling).toHaveTextContent('20,0 %')
     expect(screen.getByText(text.shares.noCitedSource).nextSibling).toHaveTextContent('45,0 %')
     const documents = screen.getByRole('table', { name: text.documents.caption })
-    expect(within(documents).getByText('unidad-vieja.pdf')).toBeVisible()
+    expect(within(documents).getByText('guia-practica.pdf')).toBeVisible()
     expect(screen.getByText(text.note(5))).toBeVisible()
   })
 
@@ -423,20 +423,32 @@ describe('TeacherActivityPage - placement and wording', () => {
     await waitFor(() => expect(heading).toHaveFocus())
   })
 
-  it('shows hostile, duplicated and deleted file names as plain text, one row each', async () => {
+  it('shows hostile, duplicated and very long file names as plain text, one row each', async () => {
     flagOn()
     const hostile = '<img src=x onerror=alert(1)>\u202Egpj.pdf'
     serveActivity(
       activity({
         documents: [
-          { document_id: null, filename: 'repetido.pdf', cited_appearances: 7 },
-          { document_id: null, filename: 'repetido.pdf', cited_appearances: 5 },
+          {
+            document_id: '11111111-1111-4111-8111-111111111111',
+            filename: 'repetido.pdf',
+            cited_appearances: 7,
+          },
+          {
+            document_id: '22222222-2222-4222-8222-222222222222',
+            filename: 'repetido.pdf',
+            cited_appearances: 5,
+          },
           {
             document_id: '99999999-9999-4999-8999-999999999999',
             filename: hostile,
             cited_appearances: 9,
           },
-          { document_id: null, filename: `${'x'.repeat(300)}.pdf`, cited_appearances: null },
+          {
+            document_id: '33333333-3333-4333-8333-333333333333',
+            filename: `${'x'.repeat(300)}.pdf`,
+            cited_appearances: null,
+          },
         ],
       }),
     )
@@ -456,6 +468,10 @@ describe('TeacherActivityPage - placement and wording', () => {
 
     expect(await screen.findByText(text.cards.activeNote)).toBeVisible()
     expect(text.note(5)).toMatch(/cifras de actividad/)
+    // the note warns of what the minimum group does not protect and promises no anonymity
+    expect(screen.getByText(/no garantiza el anonimato/)).toBeVisible()
+    // a deduction can reach one student, few or all of them: none is left out
+    expect(text.note(5)).toMatch(/sobre una persona, sobre pocas o sobre toda la clase/)
   })
 })
 

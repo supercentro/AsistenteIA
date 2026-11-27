@@ -279,17 +279,6 @@ def test_an_answer_counts_once_per_document_even_with_two_cited_chunks_of_it() -
     assert {d.filename: d.cited_appearances for d in result.documents}["a.pdf"] == MINIMUM_GROUP
 
 
-def test_a_deleted_document_keeps_its_filename_and_has_no_id() -> None:
-    repo = FakeRepository()
-    for student in students(MINIMUM_GROUP):
-        repo.turn(student, WEEK1, document=None, filename="old-unit.pdf")
-
-    result = get(build(repo))
-
-    old = next(d for d in result.documents if d.filename == "old-unit.pdf")
-    assert old.document_id is None and old.cited_appearances == MINIMUM_GROUP
-
-
 def test_every_current_document_is_listed_even_without_appearances() -> None:
     repo = FakeRepository()
     padded(repo)
@@ -434,15 +423,17 @@ def test_a_window_in_the_future_is_valid_and_has_no_weeks() -> None:
 
 
 @pytest.mark.parametrize("distinct", [MINIMUM_GROUP - 1, MINIMUM_GROUP])
-def test_a_deleted_document_is_listed_only_when_its_figure_is_shown(distinct: int) -> None:
+def test_a_deleted_document_is_never_listed(distinct: int) -> None:
+    """V7: only current documents are listed, whatever number of students cited a deleted one."""
     repo = FakeRepository()
     padded(repo)
     for student in students(distinct):
         repo.turn(student, WEEK2, document=None, filename="old-unit.pdf")
 
-    names = {d.filename for d in get(build(repo)).documents}
+    result = get(build(repo))
 
-    assert ("old-unit.pdf" in names) is (distinct >= MINIMUM_GROUP)
+    assert "old-unit.pdf" not in {d.filename for d in result.documents}
+    assert all(d.document_id is not None for d in result.documents)
 
 
 def test_a_deleted_document_is_not_listed_when_the_whole_subject_is_suppressed() -> None:

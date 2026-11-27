@@ -356,7 +356,7 @@ def test_unenrolling_a_student_lowers_the_next_result(
     )  # nothing is erased by unenrolling
 
 
-def test_a_deleted_document_stays_listed_by_name_without_an_identifier(
+def test_a_deleted_document_is_no_longer_listed(
     enabled: TestClient, room: Classroom, owner: TestUser, clean_db: str
 ) -> None:
     for student in room.students:
@@ -365,7 +365,5 @@ def test_a_deleted_document_stays_listed_by_name_without_an_identifier(
     run(clean_db, "DELETE FROM documents WHERE id = :d", d=room.document_a)
     body = ask(enabled, owner, room.subject).json()
 
-    listed = [d for d in body["documents"] if d["filename"] == "a.pdf"]
-    assert len(listed) == 1 and listed[0]["document_id"] is None
-    assert listed[0]["cited_appearances"] == 6
+    assert [d["filename"] for d in body["documents"]] == ["b.pdf"]  # V7
     assert scalar(clean_db, "SELECT count(*) FROM documents WHERE id = :d", d=room.document_a) == 0

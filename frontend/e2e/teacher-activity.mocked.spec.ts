@@ -31,7 +31,11 @@ function figures(overrides: Partial<Activity> = {}): Activity {
     no_material_rate: 0.2,
     no_cited_source_rate: 0.45,
     documents: [
-      { document_id: null, filename: 'unidad-vieja.pdf', cited_appearances: 6 },
+      {
+        document_id: '77777777-7777-4777-8777-777777777777',
+        filename: 'guia-practica.pdf',
+        cited_appearances: 6,
+      },
       {
         document_id: '88888888-8888-4888-8888-888888888888',
         filename: 'unidad-2.pdf',
@@ -48,6 +52,8 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel('Correo electrónico').fill(email)
   await page.getByLabel('Contraseña').fill('a-very-long-password')
   await page.getByRole('button', { name: 'Entrar' }).click()
+  // wait for the session: a navigation made before the redirect after login would be overwritten
+  await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible()
 }
 
 /** The session lives in memory only, so a page load would end it: navigate inside the app. */

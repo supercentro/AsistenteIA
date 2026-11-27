@@ -423,7 +423,7 @@ export const strings = {
       note: 'Cuenta citas; no mide comprensión ni uso del material.',
     },
     note: (minimumGroup: number) =>
-      `Las cifras de actividad solo se muestran cuando provienen de al menos ${minimumGroup} estudiantes. Cuando hay menos, se indica «Datos insuficientes». Las cifras pueden cambiar entre consultas.`,
+      `Las cifras de actividad son agregadas y solo se muestran cuando se calculan sobre al menos ${minimumGroup} estudiantes; si no, se indica «Datos insuficientes». Esto no garantiza el anonimato: en grupos pequeños, o al combinar cifras o comparar consultas, podría deducirse información sobre una persona, sobre pocas o sobre toda la clase. Las cifras pueden cambiar entre consultas.`,
     allSuppressed: 'Todavía no hay datos suficientes para mostrar la actividad de esta asignatura.',
     wholeWeeksOnly: 'Se muestran solo semanas completas.',
     limited:

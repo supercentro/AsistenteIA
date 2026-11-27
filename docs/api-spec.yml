@@ -325,7 +325,9 @@ paths:
 
         The capability is switched off by the setting `TEACHER_ACTIVITY_ENABLED` (default `false`): while it
         is off a teacher gets 404. It stays off until the privacy text, the legal review and the consent
-        version are in place.
+        version are in place. **The read does not look at what a student accepted**: it counts
+        earlier activity written under earlier policies (TD-072), which the legal evaluation of the
+        real data has to settle before it is switched on.
 
         Rules: a figure that comes from fewer than `minimum_group` (5) distinct students is `null`,
         including a figure with no student at all; a subject with fewer than `minimum_group` active
@@ -333,7 +335,7 @@ paths:
         UTC) and covers at most 12 weeks (84 days); `start` and `end` are widened to those weeks and the
         response states the window actually computed. **Only weeks that have ended are shown**: the open
         week is never part of the window, an `end` inside it (or in the future) is cut at the last Sunday
-        that has passed (a week counts as ended one hour after its Sunday); apart from the enrolled count, the deletions of conversations and the unenrolments, a read gives the same answer at any moment of one week. **The weeks that start
+        that has passed (a week counts as ended one hour after its Sunday); apart from the enrolled count, enrolments, unenrolments, deletions of conversations and changes to the documents of the subject, a read gives the same answer at any moment of one week. **The weeks that start
         before the last unenrolment of the subject are not shown** (the subject keeps the moment of its
         last unenrolment, which no response carries), so the window can be shorter than requested and can
         hold no week at all: then `weeks` is 0, `start` is the day after `end`, `questions` is empty and
@@ -343,7 +345,21 @@ paths:
         no source; `no_cited_source_rate` the share of answers that do not cite any of their sources (it
         includes the answers with no material) and is never a measure of quality. `cited_appearances` is
         the number of answers that cite the document: it is not semantic support and not proof that the
-        material was used. Both rates are `null` below the minimum group.
+        material was used. Both rates are `null` below the minimum group. `active_students`, the two
+        rates and `cited_appearances` cover the whole window that is returned; `enrolled_students` is
+        the number enrolled when the request is made. `documents` lists current documents only:
+        a deleted one is never listed, even if answers cited it.
+
+        **These figures are not anonymous, and no such guarantee is given (TD-069, open).** The minimum
+        group counts who contributed, so: two windows can be subtracted; the rates can give the size of a
+        withheld week; the totals and rates can be subtracted from the document figures, which gives or
+        bounds groups of few students; `active_students` against the weekly cells bounds who asked in
+        some weeks only; when the counted group is the whole class, one response says something about each
+        enrolled student; a rate of 0 or 1 says the same about every counted student;
+        `enrolled_students` minus `active_students` can show that exactly one enrolled student asked
+        nothing, though not which one; one
+        student can be most of a figure or of one side of a rate; two reads can be
+        compared after an erasure or a deletion; and a teacher can pad a group with accounts (TD-071).
       parameters:
         - name: start
           in: query
@@ -779,7 +795,7 @@ components:
       type: object
       required: [document_id, filename, cited_appearances]
       properties:
-        document_id: { type: string, format: uuid, nullable: true, description: Null once the document was deleted }
+        document_id: { type: string, format: uuid, nullable: true, description: "Never null in this version, as deleted documents are not listed" }
         filename: { type: string }
         cited_appearances: { type: integer, nullable: true, description: "Answers that cite the document (not semantic support, not proof that the material was used); null below the minimum group of students" }
     ActivityResponse:

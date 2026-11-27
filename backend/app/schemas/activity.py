@@ -32,7 +32,7 @@ class ActivityPeriod(BaseModel):
 class ActivityDocument(BaseModel):
     """How many answers cited the document (never evidence that the material was used)."""
 
-    document_id: uuid.UUID | None  # null when the document was deleted
+    document_id: uuid.UUID | None  # deleted documents are no longer listed (V7)
     filename: str
     cited_appearances: int | None
 
