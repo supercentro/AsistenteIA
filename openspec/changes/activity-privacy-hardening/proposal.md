@@ -6,7 +6,7 @@ The aggregate teacher activity (`GET /subjects/{subject_id}/activity`, changes `
 
 ## What Changes
 
-**Current status (2026-11-27):** A2 + A2b are in `main`; the restored dashboard with the V7 correction is in a branch, not merged; P1 was removed from it before any merge. The list below is the planning record and its present tense is of its date. Approved by the owner on 2026-11-23:
+**Current status (2026-11-27):** A2 + A2b and the restored dashboard with the V7 correction are in `main` (pull requests #36 and #37); P1 was removed before any merge; the work of P3 to P5 is rescheduled to the future change `activity-enablement-conditions`. The list below is the planning record and its present tense is of its date. Approved by the owner on 2026-11-23:
 
 - Threat model: a teacher who can **manipulate enrolments and control student accounts**, not only an honest but curious one.
 - **F8** is added next to TD-069 as a finding **not confirmed until it is reproduced**. Reproduced end to end on 2026-11-23 and recorded as TD-071 (Major, open).

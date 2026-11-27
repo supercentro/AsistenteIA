@@ -53,8 +53,8 @@ A figure that the endpoint returns as null SHALL be shown as the text «Datos in
 - **THEN** its row reads «Datos insuficientes» and has no bar
 
 #### Scenario: Whole subject
-- **WHEN** `active_students` is null
-- **THEN** only the enrolled count is shown with an explanation and every other figure reads «Datos insuficientes»
+- **WHEN** `active_students` is null and the window has weeks
+- **THEN** the enrolled count is shown, the active students read «Datos insuficientes», an explanation says that there is not enough data, and no weekly table, share, document table or bar is shown
 
 #### Scenario: Rates and documents
 - **WHEN** a rate or a document figure is null
@@ -89,12 +89,23 @@ The page SHALL show a loading state, an error state with a retry control for a f
 - **WHEN** the endpoint withholds every figure
 - **THEN** the enrolled count, the fixed privacy note and the explanation are shown, with no bar
 
+### Requirement: The page states the limits of the history
+The page SHALL always say that only whole weeks are shown. With fewer than 12 weeks it SHALL say that, because of a change of enrolments, only the weeks after it are shown. With no week it SHALL show no window line, table or bar and say that no whole week can be shown yet.
+
+#### Scenario: A limited history
+- **WHEN** the response covers fewer than 12 weeks and at least one
+- **THEN** the page says why the history is shorter
+
+#### Scenario: No whole week
+- **WHEN** the response has 0 weeks
+- **THEN** the enrolled count, the explanation and the privacy note are shown, with no table and no bar
+
 ### Requirement: The page states its privacy limits
-The page SHALL show a fixed note with the minimum group returned by the endpoint, that figures are aggregated and that they can change between consultations, and SHALL NOT show or compute any per-student figure, rate of change or ranking of students.
+The page SHALL show a fixed note with the minimum group returned by the endpoint, that figures are aggregated, that this does not guarantee anonymity because information about one person, few or the whole class could be deduced in small groups or by combining figures or comparing reads, and that they can change between consultations, and SHALL NOT show or compute any per-student figure, rate of change or ranking of students.
 
 #### Scenario: Note
 - **WHEN** figures are shown
-- **THEN** the note names the minimum group of the response
+- **THEN** the note names the minimum group of the response and says that anonymity is not guaranteed
 
 #### Scenario: No derived individual figure
 - **WHEN** the page is rendered
