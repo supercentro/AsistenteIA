@@ -1,6 +1,6 @@
 # Restored original scope of the teacher dashboard (2026-11-26 and 27)
 
-Branch `feature/activity-privacy-hardening-p1`, not committed. Base: `main` at `55bc6da`. Both switches stay false by default. Fictitious data and throwaway databases only; no Gemini call; no change of consent rules, persistent databases, infrastructure, secrets, workflows or OpenSpec/SpecBoot components.
+Branch `feature/activity-privacy-hardening-p1`, pull request #37, not merged. Base: `main` at `55bc6da`. Both switches stay false by default. Fictitious data and throwaway databases only; no Gemini call; no change of consent rules, persistent databases, infrastructure, secrets, workflows or OpenSpec/SpecBoot components.
 
 ## Owner decisions applied
 
@@ -56,17 +56,21 @@ The reviewer's first activity run shared the throwaway database with a full inte
 | Backend integration (`-m "not role_bound and not realmodel"`) | 1045 passed, 39 skipped, 0 failed (run alone on a throwaway database) |
 | Role-bound API routes | 5 passed, 1 skipped (Linux only) |
 | `ruff check --no-cache`, `ruff format --check` | clean |
-| `mypy --strict app tests` | **NOT RUN**: the host's Application Control policy blocks the `mypy` launcher (os error 4551). Not worked around. Pending on the Linux CI |
+| `mypy --strict app tests` | blocked on the local host by Application Control (not worked around); on CI: no issues in 305 source files |
 | Frontend `vitest` | 674 passed, 1 skipped |
 | Frontend typecheck, ESLint, Prettier, API types, build | clean |
 | Playwright, mocked and smoke | 34 of 34 |
 | `openspec validate --all --strict` | 29 of 29 |
 | Local demo, three subjects | five metrics shown, withheld figures as «Datos insuficientes», no browser error, no horizontal overflow at 320 px |
-| Other role-bound suites, Linux-only tests, `alembic check`, CI | not run on this host; pending on CI |
+| Other role-bound suites, Linux-only tests, `alembic check` | run on CI, see below |
+
+## CI of pull request #37 (commit `85cfa9b`, Linux)
+
+All jobs green on both triggers (push and pull request). Counts of the pull request run (46037629531): `ruff` clean; `mypy --strict app tests` no issues in 305 source files; unit 1943 passed, 2 xfailed (the 4 local failures do not occur); integration 1084 passed, none skipped; `privileges` job 1140 tests (148 matrix, 453 role-bound, 539 under the production roles), 0 failed, 0 skipped; `alembic check` no new operations; `db-verify` drift check passed; frontend 674 passed, 1 skipped, API types up to date, build, mocked Playwright 34 of 34; `pip-audit` and `npm audit` found no known vulnerability.
 
 ## What blocks what
 
-**Technical integration (both switches false):** no open Blocker or Major. The wording of the note is approved (2026-11-27). Before merging: `mypy --strict` and the remaining CI jobs green on the pull request.
+**Technical integration (both switches false):** no open Blocker or Major. The wording of the note is approved (2026-11-27). CI is green on the pull request. Merging needs the owner's authorisation.
 
 **Activation with real data only:** legal evaluation of the earlier history (TD-072: purpose, legal basis without assuming consent is the only one, information to students); recorded acceptance of the inference risks with its institutional scope and legal review of the group size (TD-069); F8 (TD-071) and F7 (TD-070), each with its own treatment; the policy text that tells students what a teacher can learn and the consent version.
 
