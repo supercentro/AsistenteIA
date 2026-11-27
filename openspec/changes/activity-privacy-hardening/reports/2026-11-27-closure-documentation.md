@@ -31,10 +31,10 @@ Limits: pattern based; compressed binary content is not unpacked (the three trac
 
 ## Open
 
-- Before archiving `activity-privacy-hardening`: base standards §9.8 (no change is closed with an open Major finding) against F8, which stays open. Owner decision.
+- **Archive blocked** (owner instruction, recorded 2026-11-27): base standards §9.8 (no change is closed with an open Major finding) while F8 is open. Pending; no exception is proposed.
 - The three task checkboxes are gone, so OpenSpec will not warn about them at archive; the roadmap entry and the "Rescheduled" section carry them.
-- The same §9.8 question is to be answered for `activity-events-and-metrics` and `teacher-activity-dashboard`, whose capability F8 affects.
-- Archive order proposed: `activity-events-and-metrics`, `teacher-activity-dashboard`, `activity-privacy-hardening`.
+- The block covers `activity-events-and-metrics` and `teacher-activity-dashboard` too, whose capability F8 affects. Their specs therefore stay as change deltas, not in `openspec/specs/`.
+- Archive order once unblocked: `activity-events-and-metrics`, `teacher-activity-dashboard`, `activity-privacy-hardening`.
 - Residual risks unchanged: V3, V6a, V6b, V8 to V12, F6, a rate of 0 or 1, enrolled minus active, TD-072, F8, F7, and a student's own erasure noticeable between reads.
 
 ## Independent review
