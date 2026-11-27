@@ -19,7 +19,7 @@ The change SHALL provide tests with fictitious data and an in-memory repository,
 - **WHEN** five students asked 50, 1, 1, 1 and 1 questions in a week
 - **THEN** the cell shows 54 and the test records that one student is 93 % of a shown figure, as a characterisation, not as a recovery
 
-### Requirement: F8 stays unconfirmed until it is reproduced end to end
+### Requirement: F8 is confirmed only by an end-to-end reproduction
 Finding F8 (padding with controlled accounts) SHALL be recorded in TD-069 as **not confirmed** until a test with a disposable test database shows that a teacher can create student accounts, enrol them by email and make them ask questions in the teacher's own subject. A service-level reproduction alone SHALL be recorded as "arithmetic reproduced, feasibility pending".
 
 #### Scenario: Service level only
@@ -286,6 +286,8 @@ The aggregate SHALL give the weekly questions, the active students, the shares w
 - **THEN** every figure but the enrolled count is null
 
 ### Requirement: Only current documents are listed
+The rule of what is listed is owned by the capability `teacher-activity-metrics`, as are the rules of ended weeks and of the weeks after an unenrolment; this change records why they exist.
+
 A deleted document SHALL NOT be listed, whatever number of students cited it, so that two documents with one stored name are never added together (V7). Deleting a document SHALL NOT change any other figure. This SHALL NOT be described as hiding a withheld document figure, which V8 and V9 still derive or bound.
 
 #### Scenario: Two documents with one name
@@ -339,3 +341,10 @@ The register (TD-072), the contract and the data model SHALL state that the read
 #### Scenario: Technical integration
 - **WHEN** the dashboard is merged with both switches false
 - **THEN** no activity is processed and the condition stays open
+
+### Requirement: Enablement conditions are carried forward and stay open
+Closing the technical integration SHALL NOT close, mitigate or accept F8, F7, the inference risks, the processing of earlier activity or any legal requirement. The work of tasks 3.3 to 3.5 SHALL be carried to a future change (proposed name `activity-enablement-conditions`) and named in the register and the roadmap.
+
+#### Scenario: This change is closed
+- **WHEN** the technical integration of this change is closed with those packages not implemented
+- **THEN** TD-069 to TD-072 stay open, both switches stay false and no real student's data is used

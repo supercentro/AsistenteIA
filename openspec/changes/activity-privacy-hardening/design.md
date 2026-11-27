@@ -895,6 +895,13 @@ Proposed note (replaces D-Q22 under S3, F = 10): «Solo se muestra cuántas preg
 - **Owner decisions of 2026-11-27.** The new wording of the privacy note is **approved**. A rate of 0 or 1 and enrolled minus active join the candidates for a formal acceptance; none is accepted for production. V3, V6, V8 to V12 and F6 stay documented as open; TD-072, F8 and F7 stay open.
 - **Minor.** The register, the contract and the privacy note also name the inferences about the whole class, a rate of 0 or 1 and enrolled minus active.
 
+## Closure of the technical integration (owner decisions of 2026-11-27)
+
+- Pull request #37 is in `main` (`7bd636a`) and the CI of `main` is green.
+- P3, P4 and P5 (tasks 3.3 to 3.5) are **rescheduled** to the future change `activity-enablement-conditions`, not done and not dropped. F8 stays open as a confirmed Major finding, F7 stays open and the legal requirements stay pending. Nothing is accepted for production.
+- The deltas of `activity-events-and-metrics` and `teacher-activity-dashboard` are updated to the integrated behaviour before they are ever synced.
+- **Archive blocked (recorded 2026-11-27, owner instruction):** `docs/base-standards.md` §9.8 says a change is not closed with an open blocker or major finding, and F8 (Major) is open. Rescheduling the work on F8 does not lift the block. `activity-events-and-metrics`, `teacher-activity-dashboard` and this change stay **not archived and not synced** until F8 is no longer open. No exception to the standard is proposed.
+
 ## Tests (demonstration, no persistent data)
 
 The first group uses `ActivityService` with the in-memory repository of `test_activity_service.py`, fictitious ids and fixed dates; it reads and writes nothing persistent. The end-to-end check of V2 (registration, enrolment by email, questions) ran on a throwaway database in its own container, with the owner's authorisation (D-P1 and D-P2 granted on 2026-11-23), and CI runs it on its own test database.

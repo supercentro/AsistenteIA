@@ -1,6 +1,6 @@
 # Restored original scope of the teacher dashboard (2026-11-26 and 27)
 
-Branch `feature/activity-privacy-hardening-p1`, pull request #37, not merged. Base: `main` at `55bc6da`. Both switches stay false by default. Fictitious data and throwaway databases only; no Gemini call; no change of consent rules, persistent databases, infrastructure, secrets, workflows or OpenSpec/SpecBoot components.
+Branch `feature/activity-privacy-hardening-p1`, pull request #37 (merged afterwards, see "After the merge"; the sections before it are as written before the merge). Base: `main` at `55bc6da`. Both switches stay false by default. Fictitious data and throwaway databases only; no Gemini call; no change of consent rules, persistent databases, infrastructure, secrets, workflows or OpenSpec/SpecBoot components.
 
 ## Owner decisions applied
 
@@ -79,3 +79,9 @@ All jobs green on both triggers (push and pull request). Counts of the pull requ
 - Candidates for formal acceptance, none accepted for production: V6b, V8 to V12; V3, V6a, F6 (reopened by the original rules); a rate of 0 or 1; `enrolled_students` minus `active_students`.
 - Own treatment: F8 (TD-071), F7 (TD-070), earlier activity (TD-072).
 - By design: a student's own erasure can be noticed between reads.
+
+## After the merge
+
+- Pull request #37 was squash-merged on 2026-11-27 as `7bd636a`; its tree equals the reviewed head `67dd94e`.
+- CI of `main`, run 46062438449: the first attempt did not start. Second attempt, all jobs green: `ruff` clean; `mypy` no issues in 305 source files; unit 1943 passed, 2 xfailed; integration 1084 passed; privileges 148, 453 and 539 passed with no drift; frontend 674 passed, 1 skipped, and Playwright 34 passed; no known vulnerability.
+- **Correction to the demo gate above.** The demo server used for it may have been started before the last modification of `activity_service.py`, so it cannot be shown to have run the final code. A later walk on the merged code (2026-11-27, a throwaway Playwright script outside the repository, four fictitious subjects, in a loopback container of the project image), whose output is not kept here, showed the five metrics, owner 200, other teacher 404, student 403, anonymous 401 and no browser error on the teacher walk. The automated tests never depended on that server.
