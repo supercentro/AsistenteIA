@@ -29,7 +29,8 @@
 ## B. Mitigation (blocked until the owner approves each option)
 
 ### 3. Tests first, per approved package (each package waits for its own approval)
-- [ ] 3.1 P1 (D-P4, D-P5): the figures of V4 bounded (C) and the window-wide figures removed or computed on fixed blocks (F2a or F2b), `start` and `end` restricted (F); the property tests of V3 and V4 now pass unchanged and their `xfail` markers are removed in the same change; the contract, the generated types and the dashboard copy
+> **P1 (former tasks 3.1a to 3.1i) and the simplified cut (3.7a to 3.7c) are superseded** by the owner decisions of 2026-11-26 (section 6). P1 had been implemented in the branch and was removed before any merge; a copy is in `reports/2026-11-26-p1-implementation-not-merged.patch`. The cut was never implemented.
+
 - [x] 3.2a P2 + A2b (D-P9a to D-P9g, D-P11, D-P12), tests first: correct the spec first (the property is independence from the cut-off past); replace the xfail of the V1 property by the two-world test with fixed seeds (service, in memory), the temporal property of A2b and the edge cases of the design; run them before the rule and record the failing run
 - [x] 3.2b P2: migration `0008` (the nullable column `subjects.last_unenrolment_at`, the backfill with the migration time only for subjects that hold conversations, a working `downgrade`), the `Subject` model, `alembic check` clean, migration tests
 - [x] 3.2c P2: `EnrollmentRepository.delete_for_teacher_subject` sets the marker (`GREATEST` with the database clock) in the same transaction **before** deleting the enrolment (advisory lock, subject row, enrolment row); a removal that deletes nothing raises 404 and rolls back; tests of an inactive student, rollback, a failing update, 404, two removals, re-enrolment, account and conversation deletion, and the static test of the single path
@@ -57,6 +58,18 @@
 - [x] 5.4 Step N+3: Playwright MCP run on the dashboard with the mocked API if the page or its copy changed, then the Playwright Test suite
 - [x] 5.5 Step N+4: documentation, with the owner's authorisation
 - [x] 5.6 Independent adversarial review with a privacy focus: each vector, each residual risk, the erasure test, the classification of the controls
-- [ ] 5.7 Final gates of `docs/base-standards.md` section 9 re-run after the last change; `openspec validate --all --strict`; CI on Linux after the pull request
+- [x] 5.7 Final gates of `docs/base-standards.md` section 9 re-run after the last change; `openspec validate --all --strict`; CI on Linux after the pull request (evidence: the CI of pull request #36 and of `main` on `55bc6da` green on Linux; `openspec validate --all --strict` 29 of 29; the local gates re-run after the last change, see `reports/2026-11-23-a2-results.md`)
+
+## 6. Original scope of the dashboard (owner decisions of 2026-11-26)
+
+- [x] 6.1 Reconcile the spec, the design and the proposal with the original scope; keep a copy of P1 before removing it
+- [x] 6.2 Tests first: every metric over the requested window, no rule of P1, V7, and the characterisations of the open risks; record the failing run
+- [x] 6.3 Restore the calculation of `main` and keep only the V7 correction (deleted documents are not listed); remove the P1 fields from the contract
+- [x] 6.4 The privacy note says that anonymity is not guaranteed (test first); the contract, the data model, TD-069 and the roadmap state the open risks
+- [x] 6.5 The gates of section 9 re-run after the last change, mutation checks, the demo walk and the mocked Playwright suite (`mypy --strict`, blocked on this host by Application Control, ran on the Linux CI of pull request #37)
+- [x] 6.6 Independent adversarial review (access, isolation, direct exposure, honesty of the documents), with no open Blocker or Major
+- [x] 6.7 Fix the review findings: the V7 wording (it removes the addition by name only), characterisations of V8, V9, a rate of 0 or 1 and enrolled minus active, the privacy note (test first), the register, contract, spec and fixtures
+- [x] 6.8 Record the processing of earlier activity as an activation condition of its own (TD-072, spec, contract, data model) with its characterisation and mutation check; no consent rule changed (owner decision of 2026-11-27)
+- [x] 6.9 Record the owner decisions of 2026-11-27 (note approved; two inferences among the candidates, not accepted)
 
 > Out of this change and not authorised: enabling either switch, any use with real students, a legal opinion on N, archiving, any change not listed in an approved option.

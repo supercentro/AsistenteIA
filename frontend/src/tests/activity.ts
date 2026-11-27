@@ -7,7 +7,7 @@ import { server } from './server'
 export const ACTIVITY_PAGE = `/subjects/${SUBJECT.id}/activity`
 const ACTIVITY_URL = `${API}/subjects/${SUBJECT.id}/activity`
 
-/** Fictitious figures: one withheld week, one withheld document and one deleted document. */
+/** Fictitious figures: one withheld week and one withheld document. */
 export function activity(overrides: Partial<ActivityResponse> = {}): ActivityResponse {
   return {
     window: { start: '2026-03-02', end: '2026-03-29', granularity: 'week', weeks: 4 },
@@ -28,7 +28,11 @@ export function activity(overrides: Partial<ActivityResponse> = {}): ActivityRes
         filename: 'unidad-1.pdf',
         cited_appearances: 11,
       },
-      { document_id: null, filename: 'unidad-vieja.pdf', cited_appearances: 6 },
+      {
+        document_id: '77777777-7777-4777-8777-777777777777',
+        filename: 'guia-practica.pdf',
+        cited_appearances: 6,
+      },
       {
         document_id: '88888888-8888-4888-8888-888888888888',
         filename: 'unidad-2.pdf',

@@ -1,6 +1,6 @@
 """Aggregate activity of a subject for its owning teacher (change `activity-events-and-metrics`).
 
-Rules, all approved by the owner on 2026-11-23:
+Rules approved by the owner:
 
 * aggregate only: counts, rates and document names; never text, identifiers or per-student figures;
 * a figure that comes from fewer than ``MINIMUM_GROUP`` distinct students is withheld (``None``),
@@ -18,7 +18,13 @@ Rules, all approved by the owner on 2026-11-23:
 * only weeks that start after the last unenrolment (A2): the subject keeps the moment of its last
   unenrolment and no figure covers a week that starts before it. A student who was removed can only
   have asked before that moment, so a read made after a removal never covers the weeks that held
-  the student, and cannot be subtracted from a read made before it.
+  the student, and cannot be subtracted from a read made before it;
+* deleted documents are not listed (V7, same change).
+
+**These figures are not anonymous.** A rule that counts 5 students does not stop what can be
+inferred by combining figures, by comparing reads or when the counted group is the whole class;
+the open risks are listed in TD-069 and characterised in
+`tests/unit/test_activity_residual_risks.py`.
 """
 
 import uuid
@@ -41,7 +47,6 @@ from app.services.subject_service import SUBJECT_NOT_FOUND_MESSAGE
 MINIMUM_GROUP = 5
 MAX_WEEKS = 12
 RATE_DIGITS = 3
-DocumentKey = uuid.UUID | str  # the id of the document, or its stored name once it was deleted
 
 
 ENDED_GRACE = timedelta(hours=1)
@@ -212,41 +217,32 @@ class ActivityService:
     def _documents(
         answers: list[AnswerFact], current: list[tuple[uuid.UUID, str]], subject_shown: bool
     ) -> list[ActivityDocument]:
-        """Answers that cite each document, once per answer, and the students behind each figure."""
-        names: dict[DocumentKey, str] = dict(current)
-        appearances: dict[DocumentKey, int] = defaultdict(int)
-        students: dict[DocumentKey, set[uuid.UUID]] = defaultdict(set)
+        """Answers that cite each current document, once per answer.
+
+        A deleted document is not listed: all that is left of it is the file name stored with the
+        sources, so two of them with one name would be added together and a withheld figure could
+        be computed by deleting them one after the other (V7).
+        """
+        appearances: dict[uuid.UUID, int] = defaultdict(int)
+        students: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
         for answer in answers:
             if _attribution(answer) != "cited":
                 continue
-            cited = {
-                (source.document_id or source.filename): source.filename
-                for source in answer.sources
-            }
-            for key, filename in cited.items():
-                appearances[key] += 1
-                students[key] |= {answer.student_id}
-                names.setdefault(key, filename)  # a deleted document keeps the stored file name
-        # A deleted document is listed only when its figure is shown: its presence alone would tell
-        # that at least one student cited it.
-        ordered = sorted(
-            (
-                (key, filename)
-                for key, filename in names.items()
-                if isinstance(key, uuid.UUID)
-                or (subject_shown and len(students[key]) >= MINIMUM_GROUP)
-            ),
-            key=lambda item: (item[1], str(item[0])),
-        )
+            for key in {source.document_id for source in answer.sources}:
+                if key is not None:
+                    appearances[key] += 1
+                    students[key] |= {answer.student_id}
         return [
             ActivityDocument(
-                document_id=key if isinstance(key, uuid.UUID) else None,
+                document_id=document_id,
                 filename=filename,
                 cited_appearances=(
-                    _shown(students[key], appearances[key]) if subject_shown else None
+                    _shown(students[document_id], appearances[document_id])
+                    if subject_shown
+                    else None
                 ),
             )
-            for key, filename in ordered
+            for document_id, filename in sorted(current, key=lambda item: (item[1], str(item[0])))
         ]
 
 

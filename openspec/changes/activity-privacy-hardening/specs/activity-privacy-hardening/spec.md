@@ -265,3 +265,77 @@ The documents of the change SHALL state, with the figures measured on the refere
 #### Scenario: The documents
 - **WHEN** `docs/data-model.md` and the design are read
 - **THEN** the durations, the reason and the absence of any loss of stored data are stated
+
+### Requirement: The dashboard keeps every planned metric
+The aggregate SHALL give the weekly questions, the active students, the shares without material and without a cited source and the citations per document, all over the effective window it returns (ended weeks after the last unenrolment). Only the minimum group of 5 students SHALL withhold a figure inside that window. A new rule that withholds figures SHALL NOT be added without the owner's recorded approval.
+
+#### Scenario: One window for every figure
+- **WHEN** students asked only in the first weeks of the window
+- **THEN** the active students, both rates and the document figures count them, and `start` and `end` move them like the weekly series
+
+#### Scenario: A small share
+- **WHEN** at least 5 students have answers and one answer had no material, or none had
+- **THEN** `no_material_rate` is shown with its true value, which may be 0
+
+#### Scenario: A heavy contributor
+- **WHEN** one student holds most of a week or of a document
+- **THEN** the figure is shown with its true value
+
+#### Scenario: Fewer than 5 active students
+- **WHEN** the window has 4 active students
+- **THEN** every figure but the enrolled count is null
+
+### Requirement: Only current documents are listed
+A deleted document SHALL NOT be listed, whatever number of students cited it, so that two documents with one stored name are never added together (V7). Deleting a document SHALL NOT change any other figure. This SHALL NOT be described as hiding a withheld document figure, which V8 and V9 still derive or bound.
+
+#### Scenario: Two documents with one name
+- **WHEN** two documents named alike, one shown and one withheld, are deleted one after the other
+- **THEN** no read lists a deleted document and no figure adds the two together
+
+#### Scenario: The limit of the correction
+- **WHEN** a week has 9 cited answers, 6 of one document and 3 of another
+- **THEN** the cell and the shown figure still give the withheld 3, which the register keeps open as V8
+
+#### Scenario: Successive deletions
+- **WHEN** random subjects with repeated names are read around each deletion, with a minimum number of merging cases
+- **THEN** every remaining figure is unchanged
+
+### Requirement: Inference risks stay open and are recorded as such
+V3, V6a, V6b, V8, V9, V10, V11, V12, F6, a rate of 0 or 1 and `enrolled_students` minus `active_students` SHALL be recorded in TD-069 as open and never as mitigated, each reproduced by a test whose pass means that the risk exists. They are candidates for a formal acceptance within a restricted institutional scope, none accepted for production. F8 and F7 SHALL stay open apart from that acceptance, each with its own treatment.
+
+#### Scenario: A rule closes a risk
+- **WHEN** a later change makes a characterisation test fail
+- **THEN** the register and the test change in the same change
+
+#### Scenario: The whole class
+- **WHEN** 5 students are enrolled and one week has 5 questions from them
+- **THEN** the response shows it, and the register says that each enrolled student asked exactly once (V12)
+
+### Requirement: Nothing claims that the figures are anonymous
+The privacy note of the page SHALL give the minimum group and say that it does not guarantee anonymity and that information about one person, few or the whole class could be deduced; the contract and the data model SHALL say the same and SHALL NOT present the aggregates as anonymous data.
+
+#### Scenario: The note
+- **WHEN** the page shows figures
+- **THEN** the note is visible with the minimum group of the response and its limit
+
+### Requirement: Accepting the risks is not enabling the capability
+The development of the dashboard SHALL NOT be blocked by the recorded inference risks. Using it with real students SHALL still need a recorded acceptance that names its institutional scope, the policy text that tells students what a teacher can learn, the legal review and the consent version. A new risk of undue access or direct exposure SHALL be reported before work continues.
+
+#### Scenario: Development finished
+- **WHEN** the dashboard is complete and its tests pass
+- **THEN** both switches stay false and no real student's data is used
+
+### Requirement: Earlier activity is a condition of activation of its own
+The register (TD-072), the contract and the data model SHALL state that the read counts earlier activity whatever policy its author had accepted. Using real data SHALL wait for a legal evaluation of its legal basis, without assuming that consent is the only one. No consent or date filter SHALL be added without the owner's recorded approval.
+
+#### Scenario: Accepted under an earlier policy
+- **WHEN** five students accepted only an earlier policy and asked in an ended week
+- **THEN** the read counts them, and the test records that the condition is open
+
+#### Scenario: Written before the latest acceptance
+- **WHEN** their messages are older than their latest acceptance
+- **THEN** the read counts those messages too
+
+#### Scenario: Technical integration
+- **WHEN** the dashboard is merged with both switches false
+- **THEN** no activity is processed and the condition stays open
