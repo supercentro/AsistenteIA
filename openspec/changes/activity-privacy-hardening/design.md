@@ -391,6 +391,510 @@ Proposed notice for the dashboard if A2b is chosen (to approve): «Se muestran s
 
 **GO** to authorise the implementation of P2/A2 with D-P9a to D-P9g, after the owner reads the two corrections of this round. It closes the unenrolment form of F1 only; the addition form (V5) needs A2b, F8 needs an identity control, V3 and F6 need P1, and F7 stays open. F1 stays open until its demonstration passes. Enabling the capability for real students stays **NO-GO**.
 
+## P1 specification: fixed blocks for the summary and a dominance rule (2026-11-24)
+
+> **Superseded on 2026-11-26** (see "Original scope restored"). Kept as the record of what was analysed.
+
+Planning only: nothing is implemented. A2 and A2b are merged in `main` (PR #36, `55bc6da`) and are the base. P1 addresses **V3** (the comparison of windows) and **F6** (one student concentrating a figure). **V3, F6, V6a, V6b (found on 2026-11-24) and V7 (found on 2026-11-25, present in `main`) stay open until the demonstrations below pass**; F8 (TD-071) and F7 (TD-070) are not closed by P1.
+
+**Decided by the owner (third round, 2026-11-24):** rule F (summaries only over the publishable weeks); fixed blocks of two weeks anchored to Monday 2026-01-05; dominance threshold 50 %, provisional and subject to tests; published figures keep their real values (no rounding, capping or noise that silently changes their meaning); no selection of historical blocks through `end`; the lower availability of the summaries is accepted provisionally; both switches stay off. On 2026-11-25 the owner also approved the Spanish copy (D-Q13), the two additive fields (D-Q14) and the acceptance criteria (D-Q15). The validation of that day found rule G insufficient: D-Q17 to D-Q19 are pending (below).
+
+### Decisions of the owner (2026-11-24)
+
+| # | Decision |
+|---|---|
+| D-Q1 | Fixed, complete, non-overlapping time blocks for the summary figures, plus a control of individual dominance |
+| D-Q2 | Blocks of **two weeks**, provisionally, anchored to a fixed Monday common to every subject |
+| D-Q3 | An additive field `summary_window` tells the summary figures apart from the weekly series |
+| D-Q4 | A dominance threshold of **50 %**, provisional and not validated |
+| D-Q5 | A published figure is the real figure; its meaning is never altered silently |
+| D-Q6 | The privacy, authorisation and erasure rules stay as they are |
+| D-Q7 | The documentary closure of F1 (the unenrolment and open-week forms, mitigated by A2 and A2b) and task 5.7 go into the next authorised pull request, with the evidence that exists |
+
+### Second round of decisions of the owner (2026-11-24) and what this review corrected
+
+The owner keeps fixed time blocks with a dominance control as the main alternative, `summary_window` as a proposal for an additive contract, and the two weeks and the 50 % threshold as provisional. **The owner does not approve yet that `end` selects historical blocks** (D-Q8). The review asked for was: can the summary figures, the weekly cells, the rates and the documents be **combined** to rebuild a withheld value; what do the transitions between a figure and `null` reveal; two against four weeks for small classes; do historical blocks add vectors; which proportional mitigations; and are the acceptance criteria of V3 and F6 able to detect these leaks.
+
+**Result in one line:** the first version of this specification (cells and rates independent of each other) **would have left a composition leak open**, which also exists today in `main`. It is closed by a change of the rule, not of the contract's shape: the summary is computed only over the weeks of the block whose weekly cell is published. A statement of the first version was wrong and is withdrawn: *"the numerator of a rate needs a count of answers that the response does not give"*. A teacher does not need the numerator: the **denominator** is enough, and it is the sum of the cells plus the withheld ones.
+
+### Why V3 happens and what closes it
+
+The summary figures (`active_students`, both rates, `cited_appearances`) are computed over the whole window, and the window slides every Monday. Two reads one week apart differ by the week that leaves and the week that enters, so subtracting them isolates that week, **including a week whose own cell is withheld for having fewer than 5 students**. A teacher can also make overlapping windows without parameters, **by the timing of removals**: each removal moves the start of the effective window, so the same weeks could be shown in two versions. The only ways to avoid a difference are windows that never overlap, noise, or not showing the figure. P1 takes the first.
+
+### Composition of the published figures (complementary disclosure)
+
+The question is not whether one figure is safe but whether **the set of published figures determines a withheld one**. Method: an executable adversary that reads one response and solves for the withheld number with nothing but published figures (no controlled accounts: that is F8). The evidence is a self-contained model of the arithmetic of `ActivityService` (minimum group 5, rates rounded to three digits, one document per answer, 10 % of the answers without material, 15 % retrieved but not cited) run outside the repository. **Limit of the evidence:** in this session the interpreter of the project is blocked by an application-control policy of the host, so the real service could not be driven; the model ports the arithmetic read in `activity_service.py`, and task 3.1a repeats the demonstrations on the real service before any code is changed.
+
+| Id | Combination | What it recovers | Evidence | Severity | Exists today |
+|---|---|---|---|---|---|
+| **V6a** | weekly cells + the two rates | the **total of the withheld weeks** (the denominator of the rates is the number of answers of the period; the published cells give all but the withheld weeks; two rates rounded to three digits fix the denominator within a few candidates) | worked example: 12 weeks, week 5 withheld (28 questions), published cells add up to 132, rates 0.138 and 0.331: the withheld cell can only be 13, 28, 49 or 107 (within 120). With the prior that a week is at most twice the biggest published one, the total is **unique in 29 % to 70 %** of the reads where it applies (3 digits) and has at most 3 candidates in 79 % to 98 %; rounding to two digits lowers it (unique 2 % to 13 %, at most 3 candidates 8 % to 63 %) but does not close it | **Major** for F6: it rebuilds what the dominance rule hides (a heavy student's week) and what the minimum group hides | yes (12-week window, rates over the window) |
+| **V6b** | document figures + `no_cited_source_rate` | a **withheld document figure** (fewer than 5 citing students): the rate gives the number of cited answers; with one document, or answers that cite one document each, that is the figure | worked example: 4 students cite `a.pdf` (24 answers), 2 others get uncited answers (12); the figure of `a.pdf` is withheld, the rate 0.333 gives 24 cited answers of 36 | **Moderate**: it exposes the volume of a group of fewer than 5 students; no identity. With several documents the figure is only bounded (between the cited answers minus the published appearances, and the cited answers) | yes |
+| V6c | `active_students` + the cells | **false as first written ("nothing exact"):** a published week has at least 5 students, so `active_students` minus 5 bounds how many asked only in one of the two weeks (V11, found by the second review) | reproduced | open (D-Q24) | n/a |
+| V6d | the dominance suppression itself (rates null while `active_students` is shown) | one bit: some student has more than half of the answers | reasoned | **Minor**: no identity, no count; with F8 it adds nothing | new in P1 |
+
+**What the rule as first written would have done:** keep V6a in every block, and make it worse with longer blocks (more reads where a cell is withheld while the rates are published: 28 % of the reads of a 2-week block for a class of 8 with low activity, 67 % for 4 weeks; 63 % and 92 % for a class of 12).
+
+### Mitigations compared (proportional ones)
+
+| Rule | What it does | V6a | Availability of the rates (n = 8 / 12, mean activity 0.5; blocks of 2 / 4 weeks) | Change of meaning |
+|---|---|---|---|---|
+| A. As first written | cells and summary independent | **open** | 71 % / 95 %; 90 % / 98 % | none |
+| Rounding the rates to whole percents | coarser rates | **not closed** (see above) | same as A | the rates lose precision |
+| B. Every week must be published | the rates and documents only when every cell of the block is published | closed | **13 % / 60 %; 4 % / 40 %** | none, but the block shows almost nothing |
+| C. B and also `active_students` | idem | closed | idem | idem |
+| **F. Published weeks only** | the summary is computed **only over the weeks of the block whose weekly cell is published** | **closed by construction**: the response depends on the published weeks only, so the denominator of the rates is the sum of the published cells | **53 % / 92 %; 72 % / 98 %** (summary published) | the summary says which weeks it covers; stated, never silent |
+
+**Recommendation: rule F.** It is the only one that closes V6a without making small classes read «Datos insuficientes» almost always. It needs one more nullable field to say which weeks the summary covers (`summary_weeks`), so that a figure is never presented with a meaning it does not have. A block of two weeks is always contiguous; the field also works if the block becomes four weeks (D-Q10), where a single `summary_window` could not describe weeks 1 and 3.
+
+**V6b is not closed by rule F.** It is a complement between two published families (a document and a rate), pre-existing, and its only complete mitigation withholds `no_cited_source_rate` whenever any current document with a citation has its figure withheld, which happens in most subjects (documents with fewer than 5 citing students are the common case); that cost was not simulated. Proportional answer: **characterise it** with a test that reproduces it (PASS means confirmed), register it as a new finding in `docs/technical-debt.md` in the implementing pull request, and let the owner decide (D-Q17). It does not block P1.
+
+### Transitions between a figure and `null`
+
+| Transition | What it reveals | Verdict |
+|---|---|---|
+| A cell null while the summary is published | nothing new: under rule F the summary simply leaves that week out; the reason (fewer than 5, a heavy student, no activity) is not told | safe |
+| `active_students` shown, rates null | only a dominance over the answers of the covered weeks; under rule F a week passes only if no student has more than half of its questions, so the rates fail by dominance rarely (answers and questions differ only when some answer is missing) | one weak bit, accepted (V6d) |
+| A document null among shown ones | fewer than 5 citing students or a heavy one | as today |
+| A block seen published and later null | a removal (the teacher did it, and the marker hides the block whole) or an erasure of a student's data (their right) | existing residual: blocks are immutable once ended, so any change is attributable to an erasure; **tested** with the erasure invariant extended to blocks |
+| A block seen null and later published | impossible without an erasure of a heavy student; no new fact can enter an ended block | test: adding facts after the end of a block never changes it |
+| Visible figure to `null` when the marker moves | a removal, known to the teacher | safe |
+
+### Two weeks against four weeks (rule F, small classes)
+
+Share of reads in which the summary is published (at least one week of the block passes). The last column is the average share of the block's weeks that the summary covers over all reads; it is the same for both lengths, as the weeks are independent:
+
+| n | mean activity | 2 weeks | 4 weeks | share of the block's weeks covered |
+|---|---|---|---|---|
+| 5 | 0.5 | 5 % | 10 % | 3 % |
+| 6 | 0.8 | 76 % | 91 % | 57 % |
+| 8 | 0.3 | 10 % | 17 % | 5 % |
+| 8 | 0.5 | 53 % | 72 % | 33 % |
+| 12 | 0.3 | 43 % | 64 % | 25 % |
+| 12 | 0.5 | 92 % | 98 % | 75 % |
+| 20 | 0.3 | 90 % | 99 % | 72 % |
+
+Readings. (1) Under rule F the length of the block is **no longer a privacy parameter** (the composition attack of rule A grows with it, rule F does not depend on it): it only trades availability against freshness. (2) Four weeks gain 10 to 20 points of availability for classes of 8 to 12, at the price of a summary that is 0 to 28 days old (0 to 14 with two weeks) and that returns **28 to 56 days after a removal, mean 42** (14 to 28, mean 21, with two weeks). (3) Classes of 5 or 6 with low or medium activity stay withheld with either length: the floor of 5 decides, not the block. (4) The weekly cell, which is the recent signal, is the same in both. Recommendation: **keep two weeks provisionally** (as decided); revisit with the data of the pilot, and move to four if classes of 8 to 12 read «Datos insuficientes» in the summary more than the owner accepts. The constant is one line.
+
+### Historical blocks through `end` (not approved; analysed)
+
+Blocks do not overlap, so reading several of them gives no subtraction. The analysis found **no new inference vector** from historical blocks, and four costs: (1) more blocks mean more observations for the composition attacks, which rule F closes per block; (2) an ended block is immutable, so any change in an old block can only come from an erasure or a removal, a signal that exists today in the weekly series; (3) the summary would not match the series window unless the page labels it, as it must anyway; (4) a larger test surface and one range read per distinct `end` (F7 is open). Padding with controlled accounts cannot reach back into an old block (an account has no questions before it was enrolled), so old blocks are not easier to pad. **Decision of the owner honoured: P1 does not use `end` for the summary.** The summary is always the latest complete eligible block, whatever `start` and `end` say; `end` and `start` only drive the weekly series. Historical blocks remain a possible later change (D-Q8) with its own tests.
+
+### The rule
+
+- **Blocks.** `BLOCK_WEEKS = 2` (provisional constant), `BLOCK_ANCHOR = 2026-01-05` (a Monday, common to every subject, so that no subject has its own calendar). Block `k` covers `ANCHOR + 14k` to `ANCHOR + 14k + 13`; negative indexes use floor division.
+- **Complete.** A block is complete when its last week has ended, one hour after its Sunday (the margin of A2b).
+- **The summary block.** The latest complete block, **independent of `start` and `end`**. The one exception only withholds: a request that holds no whole week shows no figure at all (the state of A2), so no fact is read.
+- **Eligible.** The block starts at or after `c(M)`, the first Monday strictly after the marker of A2. A block that starts earlier is **withheld whole, never trimmed**. If the latest complete block is not eligible, none is (older ones start earlier): `summary_window` is null.
+- **The covered weeks.** A week of the block is *publishable* when it has at least 5 distinct students and no student above 50 % of its questions (the same predicate as its weekly cell, evaluated whatever the requested window). `summary_weeks` lists the publishable weeks; with none, the summary figures are null.
+- **The summary figures** are computed only over the covered weeks, for the students enrolled now (D-M5): `active_students`, `no_material_rate`, `no_cited_source_rate` and the `cited_appearances` of every document. Only current documents are listed (superseded: they were listed as today.)
+- **The weekly series** is the effective window of A2 and A2b, as today. Its cell is shown when its week is publishable; the old condition of 5 active students in the whole window is implied and is dropped.
+- **Dominance.** A figure built from contributions of students is withheld (null) when **one student contributes more than 50 %** of it: the questions of a week for a cell, each side of each rate (superseded wording: it was one decision for both), the appearances of a document for its figure. Exactly 50 % is published. `active_students` is a distinct count and has no dominance rule. It comes **in addition to** the minimum group of 5. The threshold is a provisional constant (`DOMINANCE_SHARE`), like the minimum group (R-D3), to be reviewed with the legal review.
+- **No silent change.** A published figure equals the true count **over the weeks that `summary_weeks` declares**; nothing is capped, rounded or noised.
+- **A function of the published weeks only.** Two worlds that differ only in what happened in a withheld week give identical responses. This is the property that closes V6a, and the one the tests check.
+
+### What each interaction does
+
+| Case | Result | Why it is safe or what remains |
+|---|---|---|
+| Two reads of the same block | identical figures | the block is fixed and complete |
+| Two reads of different blocks | disjoint periods | nothing to subtract: no overlap |
+| A window sliding by a week (V3) | the summary does not move until the next block | the figures of the existing V3 test are equal |
+| `start` or `end` changed | the summary does not change | it does not depend on them |
+| A removal inside a displayed block | the block disappears from then on | A2: it starts before `c(M)`; it is never shown with and without the student |
+| A removal, then a second one a week later | still no block in two versions | a block is shown whole or not at all |
+| A re-enrolment | nothing returns | the marker never decreases |
+| A newly enrolled student | appears only in later blocks | it has no questions before it was enrolled |
+| A student erases their data between two reads of a block | the block moves by their contribution | their right; residual, as before |
+| A week with fewer than 5 students, or a heavy student | its cell is null and the summary leaves it out | the isolating subtraction and the composition of V6a no longer exist |
+| One heavy student in the covered weeks | a rate is null when one student holds more than half of one of its sides | the identity of the heavy student does not change the response (a test) |
+| The summary against the weekly cells | no subtraction: the denominator of the rates is the sum of the published cells of the covered weeks | V6a closed |
+| A document against the rate of uncited answers | the rate is null when a deleted document was cited, or the answers citing a withheld document are too few (rule G3, which replaced G2) | V6b open: its uncited-rate channel is closed, not the complements V8 to V10 (D-Q23) |
+| The teacher deletes a document | its entry leaves the summary and the uncited rate becomes null if the covered weeks cited it; nothing new is published | closes V7 (D-Q18) |
+
+### Small classes and teachers with few data (simulation, outside the repository)
+
+Under rule F the figures follow the weekly cells, so the question is how often a week is publishable. A class of n students, a weekly activity probability around the mean, a few lively students (heavy tail). Share of weeks in which the weekly cell is **published** with only the minimum group, and with the dominance rule too:
+
+| n | mean activity | weekly cell: 5 students -> with dominance |
+|---|---|---|
+| 8 | 0.3 | 5 % -> 4 % |
+| 8 | 0.5 | 37 % -> 33 % |
+| 12 | 0.3 | 28 % -> 25 % |
+| 12 | 0.5 | 79 % -> 73 % |
+| 20 | 0.3 | 76 % -> 71 % |
+| 20 | 0.5 | 99 % -> 98 % |
+
+**The dominance rule at 50 % adds little** (a few points); the floor of 5 students decides. Small and low-activity classes will often read «Datos insuficientes», in the weekly cells and in the summary: that is the privacy rule working. The table of two and four weeks above gives the effect on the summary.
+
+### Effects on availability (reference model, hourly over a week)
+
+| Situation | Two weeks | Four weeks |
+|---|---|---|
+| Steady state | the summary is 0 to 14 days old (an A2b margin of one hour included) | 0 to 28 days |
+| After a removal | the weekly series returns in 7 to 14 days (A2); **the summary in 14 to 28 days, mean 21** | **28 to 56 days, mean 42** |
+| A new subject | its first summary appears when the first aligned block is complete, up to two weeks | up to four |
+| A class with fewer than 5 active students per week | the cells and the summary stay withheld | idem |
+
+### V6b: the rate of uncited answers against a withheld document figure (rule G)
+
+**What leaks.** `no_cited_source_rate` is the share of answers without a citation (`attribution != "cited"`, including the answers without material). Under rule F the denominator is known (the sum of the published cells), so the teacher gets `C`, the number of answers with a citation. Every cited answer cites at least one document, so if `S` is the sum of the published document figures, the documents with a withheld figure (current ones with a null figure, and deleted ones, which are not listed) together have at least `C - S` appearances, and exactly `C - S` when every answer cites one document. With one withheld document that is its figure. No identity is revealed: it is the volume of a group of fewer than 5 students, or of a heavy one. The bound is not empty in 15 to 99 % of the reads of classes of 8 to 20 with six or more documents in the model, because most documents are rarely cited.
+
+**Treatments compared** (model outside the repository, same arithmetic as the service; share of the reads with published rates in which `no_cited_source_rate` stays published; activity 0.5):
+
+| Class | Documents (deleted) | M1: withhold if any listed document has a withheld figure | M2: withhold if the published figures do not cover the cited answers | **G: withhold if the leak would single out one document** |
+|---|---|---|---|---|
+| 8 | 3 (0) | 16 % | 43 % | **71 %** |
+| 8 | 6 (1) | 0 % | 8 % | **100 %** |
+| 8 | 12 (2) | 0 % | 1 % | **100 %** |
+| 12 | 3 (0) | 55 % | 81 % | **71 %** |
+| 12 | 6 (1) | 0 % | 31 % | **99 %** |
+| 12 | 12 (2) | 0 % | 5 % | **100 %** |
+| 20 | 3 (0) | 94 % | 99 % | **94 %** |
+| 20 | 6 (1) | 12 % | 85 % | **83 %** |
+| 20 | 12 (2) | 0 % | 36 % | **100 %** |
+
+- **Do nothing (characterise and register):** the rate always stays, the leak stays (the lower bound of the tail, exact for one withheld document).
+- **M1** is sound but the rate disappears in almost every real subject. **M2** reveals through its own null that a withheld document was cited (the bit that the code already protects for deleted documents) and costs nearly the same.
+- **G, recommended.** `no_cited_source_rate` is **null when exactly one document, current or deleted, has at least one appearance in the covered weeks and a withheld figure** (fewer than 5 distinct citing students, or one student above 50 % of its appearances). Documents without appearances are not counted. G keeps the rate in 71 to 100 % of the reads and removes the attribution of a volume to one document, which is what the minimum group of documents protects.
+- **What G leaves.** When two or more withheld documents were cited, only their **sum** is bounded: a lower bound `C - S` (mean 6 to 14 answers in the model) and an upper bound that depends on how many documents an answer cites. It is the same kind of residual as the sum of the weekly cells, and it cannot be split into documents. The null of the rate reveals one bit (exactly one withheld document was cited), like V6d; a teacher who knows that a document is new learns nothing, because documents without appearances do not count.
+- **Safe with rule F.** G depends only on the facts of the covered weeks, so two worlds that differ only in a withheld week still give identical responses. `no_material_rate` does not depend on documents and is not affected: the two rates may now differ in being null (`suppressed` is true when either is).
+- **Cost:** the document counts are already built in the same pass; no new query, no field, no migration. The dashboard shows «Datos insuficientes» in the card, as for any withheld figure.
+
+### Validation of rule G (2026-11-25): insufficient as written, completed as G2
+
+Evidence: `reports/2026-11-25-rule-g-validation.md`. V6a, V6b and V7 were reproduced by running the unmodified source of `ActivityService` and `attribution_of`, with plain stand-ins for the schemas and repositories (the project interpreter is still blocked on this host). The adversary of rule G ran on a model of the arithmetic.
+
+- **What holds.** With several citations per answer, new documents, documents withheld for dominance and one deleted document, no read under G let the adversary attribute a volume to one document (six scenarios of about 2 400 reads each). Several citations per answer only widen the bound.
+- **What breaks it: V7, deleted documents merge by file name.** A deleted document leaves only the stored file name in the sources, and the service groups deleted sources by that name; nothing prevents two documents of a subject from having the same name. With `notes.pdf` (cited by 6 students, figure 6) and another `notes.pdf` (cited by 3, withheld): deleting the first shows 6, deleting the second shows 9, so the withheld figure is exactly 9 - 6 = 3. It needs no rate, it is deterministic, the teacher triggers it, and **it exists in `main` today** (the switch is off). The same merge turns "exactly one withheld document" into "none", so G then publishes the rate. A new version of a file uploaded and deleted later merges in the same way, without intent.
+- **Rule G2 (recommended, replaces G).**
+  1. The summary does **not list deleted documents**: their figures can no longer be attributed to one document.
+  2. `no_cited_source_rate` is null when **a cited answer of the covered weeks cites a deleted document**, or **exactly one current document** with appearances has a withheld figure.
+- **Property of G2: deleting a document only removes or withholds.** Every figure after the deletion is the same as before or null. In 3 000 random worlds with repeated names and successive deletions, a read after a deletion showed something new in 61.4 % of them today, 61.4 % under G and **0 %** under G2.
+- **Cost of G2.** The figures of deleted documents disappear (they are shown today when they reach the minimum group), and a block that cites a deleted document has no uncited rate. The share of real blocks affected depends on how often teachers delete material; it was not modelled. No migration, no field: `documents[].document_id` stays nullable in the schema and is no longer null in practice.
+- **Alternatives discarded.** Keeping the identity of the document in `message_sources` needs a migration and does not repair the stored rows. Rejecting duplicate names changes the upload contract and does not cover a name used again after a deletion.
+
+**Residuals of G2** (accepted only if the owner approves D-Q17):
+
+| Residual | Size |
+|---|---|
+| With exactly one withheld current document listed, the null or published rate tells whether it was cited at all (one bit, no volume) | in the model the rate status matched it in every such read |
+| With two or more withheld documents cited, their **sum** is bounded | cannot be split |
+| A student's erasure can move a document below the minimum and flip the rate from null to published; the teacher then subtracts the figure seen before and bounds the other withheld document | 577 of 6 000 modelled worlds when one random student erases (an upper estimate of a rare event); the bound was exact in 73. The teacher cannot trigger it. It is part of the erasure residual of D-M5 |
+| The published totals and document figures allow an **estimate** of the withheld volume if most answers cite one document | an assumption, not a deduction; removing it would mean withholding the totals |
+
+**The criteria could pass without detecting anything.** A random property did not catch the mutant that ignores deleted documents (0 events), and it never catches `at least one`, which leaks nothing and only costs availability. So each mutant needs a **named deterministic scenario**, each random property must **count the cases that trigger it** and fail below a minimum, and the same property must fail on `main` or on the mutant.
+
+### The contract (additive in shape; the meaning of the summary figures changes)
+
+`ActivityResponse` gains two nullable properties, and nothing else changes in the shape:
+
+- `summary_window`: the schema already used by `window` (`start`, `end`, `granularity`, `weeks`); here `weeks` is 2. The fixed block. Null when there is no complete and eligible block.
+- `summary_weeks`: a list of one or two dates, ascending, the Mondays of the weeks of the block that the summary covers. Always a subset of the Mondays of `summary_window`. Null when `summary_window` is null or no week of the block is publishable.
+
+| `summary_window` | `summary_weeks` | Meaning | Summary figures |
+|---|---|---|---|
+| null | null | no complete block yet, or it starts before the first Monday after the marker (A2), or the window has 0 weeks | all null |
+| set | null | the block is complete but no week has 5 balanced students | all null |
+| set | one Monday | only that week passes the rule of the weekly cell | over that week |
+| set | two Mondays | both weeks pass | over both |
+
+- **What changes in meaning (stated, not hidden).** `active_students`, `no_material_rate`, `no_cited_source_rate` and `documents` stop covering the requested window and cover `summary_weeks` within `summary_window`. Their names and types do not change, so it is additive in shape and **not** in meaning. The only consumer is the teacher dashboard, switched off by default; there are no external consumers (to be confirmed by the owner with D-Q14).
+- `documents` lists only current documents (D-Q18); the schema keeps `document_id` nullable.
+- `window`, `questions`, `enrolled_students`, `suppressed` and the document names keep their shape. `questions` keeps its description and adds that a cell is also null when one student concentrates it. `suppressed` keeps its meaning (any figure withheld).
+- The descriptions in `docs/api-spec.yml` are written in task 3.1d, not now. The shape test `test_activity_schema_shape.py` fails until the new keys are reviewed (by design), the generated types are regenerated and the contract test is updated.
+- **Why two fields.** `summary_weeks` says which weeks a figure covers, so that no figure is shown with a meaning it does not have; with a single field defined as the covered weeks, a block of four weeks (D-Q10) would break the description, because weeks 1 and 3 are not contiguous. The single-field variant is kept only as a documented alternative.
+
+Illustrative response (fictitious values; the first week has four students, so only the second is covered):
+
+```json
+{
+  "window": {"start": "2026-11-02", "end": "2026-11-29", "granularity": "week", "weeks": 4},
+  "summary_window": {"start": "2026-11-16", "end": "2026-11-29", "granularity": "week", "weeks": 2},
+  "summary_weeks": ["2026-11-23"],
+  "enrolled_students": 9,
+  "active_students": 6,
+  "no_material_rate": 0.083,
+  "no_cited_source_rate": null,
+  "suppressed": true
+}
+```
+
+### The dashboard (final proposal of the Spanish copy; the owner approves the wording in D-Q13)
+
+| Place | Text |
+|---|---|
+| Label of the summary block | «Resumen del bloque del {inicio} al {fin}» (dates in the format of the existing window line) |
+| Both weeks covered | «Incluye las dos semanas del bloque.» |
+| One week covered | «Incluye solo las semanas con datos suficientes: {semanas}.» |
+| Note under it | «El resumen se actualiza cada dos semanas completas.» |
+| Definition of the active students | «Estudiantes que hicieron al menos una pregunta en las semanas incluidas.» |
+| No complete block yet, or no week with enough data | «Todavía no hay un bloque completo de dos semanas con datos suficientes para mostrar el resumen.» |
+| A withheld figure | «Datos insuficientes» (unchanged; never zero, never a bar) |
+| Privacy note (revised in the second review round) | «Cada cifra de actividad que se muestra proviene de al menos {n} estudiantes y ninguna persona aporta más de la mitad; cuando no se cumple, se indica «Datos insuficientes». Aun así, al combinar cifras o comparar consultas podría deducirse información sobre grupos pequeños o sobre una persona. Las cifras pueden cambiar entre consultas.» |
+
+The weekly table keeps its caption and its window line («Semanas del … al …», A2 and A2b); the summary has its own label, so the two ranges are never confused. The cards, the shares and the documents are under the summary label. The judgement-word scan covers the new strings. With `summary_window` null, or no covered week, the summary section shows the enrolled count, «Datos insuficientes» in the cards and the «no complete block» note; the states of A2 (`weeks` below 12, 0) stay.
+
+### Acceptance criteria (tests planned, written first)
+
+> Written for rule G2 and **superseded**: see the sections on the two independent reviews below.
+
+**On `main`, before the rule** (characterisation, PASS means the leak is confirmed, like the tests of part A): V6a (the withheld cell recovered from the rates, on the real service), V6b (the withheld document figure recovered from the rate), each with its `xfail(strict)` property test of the mitigation. **First gate of the implementation:** these characterisations run on the real service on a host where the project interpreter runs (it is blocked by the application-control policy of the host used for this specification, so the leaks are demonstrated here only on a port of the arithmetic). If they do not reproduce V6a and V6b, implementation stops and the finding is reported; the non-interference properties are not accepted as detecting the leaks until they fail on `main`.
+
+- **V3, unchanged test as the acceptance:** the existing `test_v3_property_holds_moving_the_window_does_not_reveal_a_students_activity` (today `xfail(strict)`) passes without edits and its marker is removed in the same change. Both of its reads fall in the same latest block, so the test alone is weak: it is complemented by the properties below.
+- **V3, new properties** (random worlds with fixed seeds, no new dependency): for any two reads, the two `summary_window` are equal or disjoint; equal windows give identical summary figures; a sequence of reads, removals and re-enrolments never shows the same block in two versions; the summary does not depend on `start` or on `end`.
+- **V3, adversarial scenarios:** the sixth student active only in the first week of the **latest** block is not isolable from reads one week apart; a withheld week cannot be isolated by sliding or by the timing of removals.
+- **Composition (V6a), the central new criterion, a non-interference property:** for random worlds, a second world that differs only in the facts of a **withheld** week (the volume or the students of a week with fewer than 5 students, the volume of a heavy student of a withheld week, the answers of that week) gives a **byte-identical response**; the denominator of the rates equals the sum of the published cells of `summary_weeks` (recomputed independently); an executable adversary (the candidate-total search used in this review) finds exactly one candidate, the true published total, and nothing about the withheld weeks. The test is not vacuous: it first fails on `main` (the TDD failing run) and a mutant that computes the summary over the whole block makes it fail.
+- **V6b, rule G2:** exactly one withheld current document with appearances gives a null `no_cited_source_rate` while `no_material_rate` stays published; two give a published rate; a withheld document without appearances (a new one) is not counted; any cited deleted document gives a null rate; a document withheld for dominance is counted; the decision does not depend on a withheld week (non-interference); a published figure equals the true count.
+- **V7:** the characterisation on `main` (two documents with one name, deleted one after the other, give the withheld figure exactly); after the change, no deleted document is listed, and the property that a deletion only removes or withholds passes and fails on `main`.
+- **Non-vacuity:** one named scenario per mutant; each random property counts its triggering cases and fails below a minimum. In the non-interference property both worlds keep the same enrolled students and keep the week withheld.
+- **Transitions:** adding facts after a block has ended never changes it; a removal makes it null; an erasure of a student's data equals the world in which the student never existed (the erasure invariant of the integration module, extended to blocks); a block never shows a figure for a week that is not in `summary_weeks`.
+- **F6:** the characterisation of V4 (50, 1, 1, 1, 1) now gives a null cell; 4, 1, 1, 1, 1 (exactly 50 %) is published; 5, 1, 1, 1, 1 is withheld; balanced students are published; the rates and each document follow the same rule; which student is heavy does not change the response; a published figure equals the true count (recomputed independently).
+- **Small classes:** four active students give a null summary and `summary_weeks`; five balanced give the figures; a block with a week of 4 students and a week of 6 covers only the second; `enrolled_students` is always given.
+- **A2 and A2b:** a block that starts before `c(M)` is withheld whole; zero weeks gives a null `summary_window`; the block appears one hour after its Sunday; two subjects have the same blocks.
+- **Contract and dashboard:** the schema and the generated types carry the two fields; the page shows the label and the covered weeks, never a withheld figure as zero, no bar for a null; the new states pass the accessibility and judgement-word scans; the Playwright mocked suite and a manual run in the demo environment.
+- **Mutation checks:** the blocks overlap (a sliding block), the block is trimmed, `start` or `end` changes the block, the summary is computed over the whole block instead of the covered weeks, the dominance comparison is `>=` instead of `>`, dominance is ignored for the rates or for a document, the figure is capped, the anchor differs by subject, rule G2 with `at least one` instead of `exactly one`, cited deleted documents ignored, deleted documents listed again, documents without appearances counted, dominance-withheld documents not counted, `no_material_rate` made to depend on G2.
+- **Independent adversarial review** with a privacy focus, **asked to attack by composition**, before F6, V3 and V6a can be recorded as mitigated.
+
+### Residual risks of P1
+
+> Written for rule G2 and **superseded**: see the sections on the two independent reviews below.
+
+F8 (TD-071) and F7 (TD-070) are untouched; the residuals of G2 in the table above (one bit, the sum of two or more withheld documents, the flip after an erasure, the estimate from totals); a student's own erasure stays noticeable; the comparison between **different** blocks is possible and is a trend of aggregates, not an isolation; the dominance threshold is a provisional number; the summary is up to two weeks old and small or quiet classes will read «Datos insuficientes» often; the suppression of a rate signals that someone concentrates it (V6d, one bit). The leaks were reproduced on the real service source with stand-ins, not yet with the real schemas, database and test suite.
+
+### Decisions (the owner)
+
+| # | Decision | Status | Recommendation or what approval means |
+|---|---|---|---|
+| D-Q8 | Does `end` select the summary block? | **Closed: no** | a later change if the product needs it |
+| D-Q9 to D-Q11 | Anchor 2026-01-05, blocks of two weeks, dominance 50 % | **Decided**, provisional | revisit with pilot data and the legal review |
+| D-Q12 | Lower availability | **Accepted provisionally** | knowingly |
+| D-Q13 | The Spanish copy | **Approved** (2026-11-25) | G2 needs no new string |
+| D-Q14 | `summary_window` and `summary_weeks` | **Approved** (2026-11-25) | G2 adds nothing to the contract shape |
+| D-Q15 | Closure criteria | **Approved** (2026-11-25) | the additions are D-Q19 |
+| D-Q16 | The composition rule | **Decided: F** | |
+| D-Q17 | V6b: rule G2 and its residuals | **Approved** (2026-11-25), subject to the security checks | G is not used |
+| D-Q18 | Stop listing deleted documents (V7), with the loss of their figures | **Approved** (2026-11-25) | no migration |
+| D-Q19 | Additions to the criteria: V7, one scenario per mutant, minimum triggering cases, the precision of non-interference | **Approved** (2026-11-25) | |
+
+**D-Q15 with the additions of D-Q19.** Nothing is recorded as mitigated before the independent review, and everything is checked on a host where the project interpreter runs, with `mypy --strict`, `ruff` and the whole suite green:
+
+- **V3:** the existing V3 test passes unchanged and without its `xfail`; the block properties; the adversarial scenarios; the mutants of overlap, trimming and selection by `start` or `end` fail.
+- **V6a:** the characterisation fails first on `main` on the real service; the non-interference property and the executable adversary pass; the mutant that computes the summary over the whole block fails.
+- **F6:** the dominance cases, rates, documents and identity independence pass; the mutants (`>=`, dominance ignored for the rates or a document, a capped figure) fail.
+- **V6b:** the characterisation fails first on `main`; the G2 scenarios and non-interference pass; each G2 mutant fails its named scenario.
+- **V7:** the characterisation fails first on `main`; no deleted document is listed; the deletion property passes.
+
+### Recommendation
+
+> Written for rule G2 and **superseded**: see the sections on the two independent reviews below.
+
+**Rule G as written: NO-GO** (V7 defeats it). **P1 with G2: GO to implement once the owner approves D-Q17, D-Q18 and D-Q19.** The first gate of task 3.1a stays: the characterisations of V6a, V6b and V7 run with the real service and its test suite on a host where the interpreter runs; if they do not reproduce, stop and report. **NO-GO to enable the capability for real students** whatever the result: F8 (TD-071) and F7 (TD-070) stay open, and V7 is present in `main`, so the switch must stay off until it is fixed.
+
+### Independent review of the implementation (2026-11-25): V6b is not mitigated
+
+The review ran on the real routes and SQL (report in `reports/2026-11-25-implementation.md`). One Major and five Minor findings; it corrects four statements made above.
+
+- **Major, M-1: G2 counts withheld documents, not the students behind what they hide.** One answer that cites two withheld documents gives both figures (1 and 1); one controlled account that cites a third document brings a withheld figure back exactly; the same material uploaded twice does it with no account. The statement that two or more withheld documents "cannot be split" is **false**. V6b stays open.
+- **The erasure flip can be triggered by the teacher with a controlled account** (its account deletes its conversations and a week leaves the block): the statement "the teacher cannot trigger it" is false. It belongs with F8.
+- **Superseded in the second round (each side of a rate is now checked, so it fires). Dominance on the two rates, as it was, never fired with real data:** a question and its answer are written in one transaction, so answers equal questions per student and week, and a student under half of each covered week is under half of the union. The check stays as defence in depth and is not evidence for F6.
+- **Rate numerators have no group rule** (older than P1): one student's 11 answers without material read as 0.355 of 31.
+- **Deleting a document probes whether a withheld one was cited** (destructive for the teacher; wider than the one-bit residual).
+
+**Candidate G3 (evaluated, not implemented).** Let U be the cited answers that cite a withheld or unlisted document: publish the uncited rate only if U is empty, or U comes from at least 5 students with none above half and cites nothing unlisted; the whole set of cited answers must pass too. In a throwaway run with the real service it closed the reproductions, kept the deletion property, and failed only the scenario "two withheld cited documents keep the rate". It would leave padding with several controlled accounts (the level of F8). Share of reads with published rates that keep the uncited rate, one citation per answer:
+
+| Class | 3 documents: G2 / G3 | 6 documents: G2 / G3 | 12 documents: G2 / G3 |
+|---|---|---|---|
+| 8 | 91 % / 47 % | 100 % / 71 % | 100 % / 75 % |
+| 12 | 64 % / 45 % | 99 % / 78 % | 100 % / 89 % |
+| 20 | 71 % / 69 % | 90 % / 77 % | 100 % / 98 % |
+| 40 | 99 % / 99 % | 60 % / 58 % | 100 % / 98 % |
+
+| # | Decision | Status | Recommendation |
+|---|---|---|---|
+| D-Q20 | V6b: replace G2 by G3, or accept V6b open and keep G2 | **Pending** | G3, with its tests and a new review |
+| D-Q21 | Rate numerators: register only, or apply the same predicate to numerators and complements | **Pending** | evaluate together with D-Q20 |
+| D-Q22 | The approved privacy note says that figures are shown only from at least 5 students and that none identifies a document; M-1 and the numerators show it says more than the system does | **Pending** | revisit the wording unless D-Q20 and D-Q21 close both |
+
+### Corrections after the review (2026-11-25, second review round): G3, both sides of a rate, and what stays open
+
+**Method.** An exhaustive adversary (now in `backend/tests/composition_oracle.py`) enumerates every world of answer types consistent with a published response and reports each withheld quantity of few students that takes one value in all of them: hidden document figures, answers citing hidden documents, both sides of each rate, their difference, the complements of one or several documents and the cited answers outside some documents. In 1 500 small random classes, with an adversary that knows an answer cites at most one document (and at most two):
+
+| Rules | Worlds with an exact disclosure | What |
+|---|---|---|
+| G2 | 85 % (87 %) | hidden documents, cited count, retrieved-only count, document complements |
+| G3 | 47 % (47 %) | retrieved-only count (the difference of the two rates), document complements |
+| G3 and the rate sides | 11 % (15 %) | document complements only |
+| ... and rule D | 0 (1 of 1 500) | inclusion and exclusion of two-document answers |
+
+**Verdict on G3 (corrected by the second review, below):** it closes the channel of V6b through the uncited rate, not V6b, and is **not sufficient alone**: the difference of the two rates and the cell total minus a document figure disclosed small groups in 47 % of the worlds.
+
+**Implemented (inside the approved scope).** G3 replaces G2, and each rate needs its sides publishable, as does the retrieved-but-uncited difference when both rates are shown. It is the same predicate and the same convention (an empty group is not publishable, which covers what the rates tell by themselves, not what the document figures add). Allowing 0 % (an empty group publishable) was measured: availability barely differs in classes of 20 or more, so the approved convention is kept.
+
+**Cost** (simulation, 10 % of answers without material, 15 % retrieved only; share of reads with a covered week that keep `no_material_rate` / `no_cited_source_rate`):
+
+| Class | 3 documents, before -> now | 6 documents, before -> now |
+|---|---|---|
+| 8 | 100 / 89 % -> 2 / 6 % | 100 / 100 % -> 2 / 15 % |
+| 12 | 100 / 64 % -> 11 / 21 % | 100 / 99 % -> 10 / 40 % |
+| 20 | 100 / 71 % -> 50 / 64 % | 100 / 92 % -> 46 / 68 % |
+| 40 | 100 / 100 % -> 96 / 99 % | 100 / 61 % -> 96 / 59 % |
+
+**Small and medium classes will rarely see the two rates.** That is the price of the guarantee on the numerators.
+
+**V8, open: the cell total minus a document figure.** If 12 of 13 questions of the covered weeks are cited document A, the reader knows that one answer did not cite it. It needs no rate. **Rule D (proposed, not implemented, needs approval):** publish no document figure when the answers that cite no published document exist and are not publishable. In the simulation it costs little (document figures shown: 18 -> 13 % for 8 students and 3 documents, 47 -> 41 % for 12, unchanged in larger classes) and removes V8; it leaves inclusion and exclusion between documents that one answer cites together (1 of 1 500 worlds).
+
+**Other residuals, unchanged:** the whole-or-null of a figure tells one bit; deleting documents probes which withheld one was cited; `enrolled_students` minus `active_students` can be one student; changes between reads by erasure, which a teacher can trigger with controlled accounts; padding with accounts (F8).
+
+**Privacy note (D-Q22), now implemented with a claim limited to what is demonstrated:** «Cada cifra de actividad que se muestra proviene de al menos {n} estudiantes y ninguna persona aporta más de la mitad; cuando no se cumple, se indica «Datos insuficientes». Aun así, al combinar cifras o comparar consultas podría deducirse información sobre grupos pequeños o sobre una persona. Las cifras pueden cambiar entre consultas.»
+
+| # | Decision | Status | Recommendation |
+|---|---|---|---|
+| D-Q20 | V6b: G3 | **Approved as candidate; implemented**; insufficient alone | V6b stays open (D-Q23) |
+| D-Q21 | Rate numerators and complements | **Implemented** (approved as a priority) | confirm the loss of availability |
+| D-Q22 | Privacy note | **Revised**, wording pending the owner | approve or edit |
+| D-Q23 | Rule D for the document complement (V8) | **Pending** | approve; without it F6 stays open |
+
+### Second independent review (2026-11-25): composition is still not closed
+
+Verdict **FAIL**, no Blocker, three Major (report in `reports/2026-11-25-second-round.md`). It corrects statements of the section above.
+
+- **M1. The total, `no_material_rate` and a document figure isolate small groups (V9).** 19 answers, 12 citing A, no-material rate 0.316: exactly one answer had material and did not cite A, so every withheld document figure is at most 1; with none left over they are shown to be zero. **Rule D does not close it.** The adversary lacked this target.
+- **M1b. With answers citing two documents, a rate minus a figure gives the answers that cite only withheld documents (V10).** G3 passes because its group also holds answers that cite a published document.
+- The table above and the sentence "rule D removes V8" are therefore **incomplete**: the zero of its last row was measured without these targets.
+- **M2 and M3** (statements that promised more than the code does, and documents still describing G2): corrected.
+
+**What is established.** Each published rate has both sides publishable; no hidden document figure was determined **with a nonzero value** by the uncited rate; V3, V6a and V7 hold. **V6b and F6 stay open.**
+
+**D-Q23, restated (pending; nothing implemented).** Every open complement needs the document figures. Options, measured with the exhaustive adversary in memory (600 classes) and simulated classes:
+
+| Option | Determined with a nonzero value | Determined zeros | Document figures shown (3 documents; classes of 8 / 12 / 20 / 40) | Guarantee |
+|---|---|---|---|---|
+| Today | 21 of 300 and 24 of 300 | 8 and 4 | 18 / 47 / 87 / 100 % | none for the complements |
+| (a) D': publish document figures only if each group of answers citing no published document that the rates separate is publishable **or empty** | 0 | 8 and 4 | 13 / 39 / 82 / 100 % | one citation per answer; "none" stays visible; intersections of two-document answers are not covered and the adversary has no target for them |
+| (b) D' strict (an empty group also withholds) | 0 | 0 | 12 / 29 / 20 / 0 % | one citation per answer; the figures vanish in large classes |
+| (c) Publish no document figure (every `cited_appearances` null; the contract keeps its shape) | 0 | 0 | 0 % | any number of citations for rates and documents: nothing is determined from rates and cells alone. It does **not** close V11 (`active_students`), and it must also say what then happens to G3. Removes an approved feature (D-M6) |
+| (d) Keep as is, V6b and F6 open | as today | as today | as today | none; no claim is made |
+
+Recommendation: **(c)** if privacy before publication is the aim, as it is the only one whose guarantee does not depend on how many documents an answer cites; **(a)** if the document figures are essential, accepting its limits. Either needs its own tests and a new independent review. It does not close F8, F7, comparisons between reads or `enrolled_students` minus `active_students`.
+
+
+### V11: the active students against the weekly cells (found 2026-11-25, open)
+
+A published week has at least 5 students and no more students than questions. With both weeks covered, `active_students - 5` bounds how many students asked **only** in one given week: 6 active students mean at most one, 5 mean none. With two cells of 5 and 6 active, exactly one asked only in the first week and one only in the second. No identity follows. The same arithmetic existed before P1; no option of D-Q23 closes it.
+
+**D-Q24 (pending; a new rule, not implemented).** Either (a) declare it and keep `active_students`; or (b) publish `active_students` only when the summary covers a single week, which loses the figure in the usual case; or (c) require a margin (publish only when it is at least 10), which was not measured. Recommendation: decide together with D-Q23; (a) is honest at no cost.
+
+## A first, simplified cut (analysis of 2026-11-26; planning only, nothing implemented)
+
+> **Rejected by the owner on 2026-11-26.** V12, found here, stays valid and open.
+
+**Approved by the owner (2026-11-26).** D-Q23: option (c), no document citation figure is published, as the objective of the first cut. D-Q24: V11 stays a documented residual risk, **not yet accepted for production**. The mitigations of V3 and V7 are kept, subject to their final checks. F8, F7 and the other findings stay open. This replaces the "pending" state of D-Q23 and D-Q24 above. Everything else in this section is a proposal.
+
+### V12: a counted group that is the whole class (found 2026-11-26; present in `main`)
+
+The minimum group of 5 counts who contributed, not who did **not**. The adversary never had `enrolled_students` as an input, so no earlier round looked for this. Reproduced on the service of the branch with a disposable in-memory script (outside the repository, so a test is still due):
+
+| World | Response | What the teacher learns |
+|---|---|---|
+| 5 enrolled, 5 questions in a week | cell 5, active 5, enrolled 5 | **every enrolled student asked exactly one question** |
+| 12 enrolled, all ask | active 12, enrolled 12 | every enrolled student used the assistant |
+| 5 enrolled, each with answers of every kind | rates 0.333 and 0.667 | every enrolled student got an answer without material and one without citation |
+| 6 enrolled, 5 ask | cell 5, enrolled 6 | which one did not ask is not determined |
+
+These are individual inferences from **one** response, without extra accounts. `main` has the same thresholds, so the same holds there (the capability is switched off). The enrolment dates are known to the teacher, so a student enrolled later does not enlarge the earlier group.
+
+**`active_students` cannot be protected cheaply.** It equals the class whenever everybody asked. Withholding it when `enrolled - active < k` is a rule on the data: beside published weeks, its `null` would itself say that nearly everybody asked (with k = 1, exactly everybody).
+
+**A class floor protects the weekly cells.** Publish a week only if at least F students of the subject were enrolled **before that week started** (current enrolment rows, `created_at`; no migration). The rule reads no activity. With F >= 6 and cells only, for every student there is a world consistent with the response in which they asked in that week and one in which they did not: a published cell only says "at least 5 distinct students", so 5 others can always account for it. What remains is an upper bound (nobody asked more than half of a cell, nor more than the cell minus 4; with a cell of 5, at most once). The argument covers one response and no outside knowledge.
+
+### Rates: keep or retire
+
+| | Keep (with (c)) | Retire |
+|---|---|---|
+| Use to the teacher | `no_material_rate` points at gaps in the material; the uncited rate is not a measure of quality | no signal about the material |
+| Availability (classes of 8 / 12 / 20 / 40) | no material 2 / 11 / 50 / 96 %; uncited 6 / 21 / 64 / 99 % (measured with 10 % of answers without material; a share of 0 is never shown, so "all is well" reads like "not enough data") | none |
+| Composition | with (c), rates and cells alone determined nothing (D-Q23 table, 1 or 2 citations, model without `enrolled` and `active`) | none |
+| Whole class | V12 applies: needs the floor, and rates against enrolment were never an adversary target | gone |
+| Across reads | an erasure or a document deletion can move a rate, which says something about the **kind** of that student's answers | only counts move |
+| Data processed | reads the text and sources of every answer | no answer is read |
+| Code and tests to maintain | rate sides, G3 or its replacement, blocks, rule F, composition oracle | cells and floor |
+
+**Recommendation: retire both rates from the first cut.** With (c) the case is not a demonstrated leak from rates and cells; it is that small classes rarely see them, that they are the only figures that say something about what a student's answers contained, and that keeping them keeps most of P1's rules and an analysis still to be done.
+
+### Weekly questions and `active_students` together
+
+| Inference | Weekly cells only | Cells + `active_students` |
+|---|---|---|
+| Whole class (V12) | closed by the floor | **open**, whatever the floor |
+| How many asked in only one week (V11) | not published | open: at most `active - 5` per week |
+| Students who asked in neither covered week | not derivable | at most `enrolled - active`, down to none |
+| Two windows or two blocks subtracted (V3) | not possible: weeks are fixed and disjoint | closed by the blocks |
+| A student erases data between two reads | the cell moves by their exact count (open, by the right of erasure) | idem, and `active_students` moves by one |
+| A teacher with controlled accounts (F8) | open | open |
+| Two cells combined | disjoint, no relation between them | related through `active_students` |
+
+**Limit of "no demonstrable individual inference".** It can be claimed only for one response, with cells and a floor, without outside knowledge. It cannot be claimed across reads around an erasure (an account deletion also changes the roster, so the teacher knows who) or against controlled accounts (F8), which can fill the floor and the group.
+
+### The options
+
+| Option | Publishes | V3 | V6a, V6b, V8-V10 | V11 | V12 | F8, F7, erasure between reads |
+|---|---|---|---|---|---|---|
+| P1 in the branch | cells, active, 2 rates, document figures | mitigated by blocks | V6a mitigated; V6b and V8-V10 **open** | open | open | open |
+| S1 = (c) only | cells, active, 2 rates | blocks | not exposed (document figures gone) | open | open | open |
+| S2 | cells, active | blocks | not exposed (no rates) | open | open | open |
+| **S3 (recommended)** | cells, enrolled count | not exposed | not exposed | not exposed | closed for cells by the floor | open |
+
+"Not exposed" means that the figure is not published, not that it was mitigated: re-publishing it reopens the vector, so the register keeps each one open or latent with that condition. V7 stays closed by listing only current documents.
+
+**Conflict to decide.** S3 keeps what the V3 mitigation protects (no two reads can be subtracted) but removes the blocks, because no summary figure is left. The owner asked to keep the V3 mitigation: choosing S3 replaces it by non-publication and needs that approval.
+
+**Availability of S3** (weeks of a reference model that would show a cell, from the table of "Two weeks against four weeks"): classes of 8 / 12 at activity 0.5, 33 / 75 %; 12 / 20 at 0.3, 25 / 72 %. With F = 10, a class below 10 shows only the enrolled count. The floor's effect was not simulated beyond that.
+
+### Minimum adjustment for S3 (not applied)
+
+- **Spec** (this change): replace the requirements of the block, the covered weeks, the rates, G3 and the document figures by "only weekly cells and the enrolled count", add the floor, keep dominance for cells, A2, A2b, one snapshot, erasure, switches. The earlier changes `activity-events-and-metrics` and `teacher-activity-dashboard` require rates, active students and documents: they must be reconciled before any of them is archived.
+- **Contract**: the shape of `main` is kept. `active_students`, both rates and every `cited_appearances` are always `null`, and their descriptions say that this version does not publish them. `summary_window` and `summary_weeks` exist only in the branch: not adding them breaks nothing in `main`, but reverses D-Q14. `suppressed` must stop counting figures that are never published, or it is always true.
+- **Service**: keep the weekly rule, dominance, A2, A2b; add the floor (enrolment dates from the repository); stop reading answers; remove blocks, rates and document use.
+- **Dashboard**: enrolled card, window line, weekly table, the notes of limited and no weeks; remove the active card, the shares, the documents table and the block heading. New privacy note.
+- **Tests**: keep the weekly, dominance, A2, A2b, snapshot, erasure and switch tests; new, failing first: the V12 worlds, the floor and its non-interference, "withheld figures are always null" with a mutant; the V3, V6a, V6b and V7 tests become vacuous and say so; the composition tests of rates and documents go with their code. Then mutation checks and a new independent review (section 9.8).
+- **Documents** (need authorisation when implemented): `api-spec.yml`, `data-model.md`, `technical-debt.md` (V12; the others as latent), roadmap. The proposed patch of `backend-standards.md` is obsolete under S2 or S3 and must be redone.
+- The code of P1 is not committed: before removing any of it, keep a copy (a commit, if authorised, or a patch in `reports/`).
+
+Proposed note (replaces D-Q22 under S3, F = 10): «Solo se muestra cuántas preguntas se hicieron cada semana, cuando la asignatura tenía al menos {f} estudiantes inscritos y las preguntas provienen de al menos {n} sin que una persona aporte más de la mitad; si no, se indica «Datos insuficientes». Aun así, comparando consultas o con otra información podría deducirse algo sobre grupos pequeños o sobre una persona.» A figure for `{f}` in the response would change the contract; the text can state it as a constant of the page or avoid the number, to be decided.
+
+### Decisions pending (the owner)
+
+| # | Decision | Recommendation |
+|---|---|---|
+| D-Q25 | Rates in the first cut | retire both |
+| D-Q26 | `active_students` in the first cut (with it, V11 stays and V12 stays open; without it, the blocks of V3 go) | withhold: S3 |
+| D-Q27 | Class floor F, a new rule: 10, 6, or none and V12 declared | 10, provisional like N; 6 is what the argument needs |
+| D-Q28 | Contract: not adding `summary_window` and `summary_weeks` (reverses D-Q14); meaning of `suppressed` | both as in the adjustment above |
+| D-Q29 | Privacy note | the proposed text |
+
+## Original scope restored (owner decisions of 2026-11-26)
+
+**Decisions.** Pedagogical usefulness first; keep the weekly questions, the active students, both rates and the cited documents; no simplified cut; statistical anonymity is not a condition to finish development. V6b, V8 to V12 and inference by composition are candidates for a formal acceptance within a restricted institutional scope, without being marked as mitigated. Keep the access controls, the isolation and the protections that do not cost functionality; keep V3 and V7 where compatible. F8 and F7 stay open. Asked with the measurements below, the owner chose **to remove all four rules of P1** (rate sides, G3, published weeks only, dominance) and **the original 12 weeks** for the summary, which leaves V3 open.
+
+**Evidence for those choices** (600 simulated subjects per row, 3 documents, the code of `main` and of the branch; share of subjects showing active students / each rate / each document figure):
+
+| Class | `main` (12 weeks) | V3 + V7 (2-week block) | plus published weeks and dominance | P1 as it was |
+|---|---|---|---|---|
+| 8 | 100 / 100 / 98 % | 84 / 84 / 22 % | 54 / 54 / 10 % | 54 / 1 to 3 / 10 % |
+| 12 | 100 / 100 / 100 % | 100 / 100 / 55 % | 93 / 93 / 44 % | 93 / 11 to 20 / 44 % |
+| 20 | 100 / 100 / 100 % | 100 / 100 / 87 % | 100 / 100 / 85 % | 100 / 50 to 60 / 85 % |
+
+**What the branch changes against `main`:** deleted documents are not listed (V7); the privacy note says that anonymity is not guaranteed; the contract and the data model say the same. The calculation, the response shape and A2/A2b are those of `main`. `summary_window` and `summary_weeks` are gone (they never reached `main`), and D-Q1 to D-Q22 and D-Q25 to D-Q29 no longer apply.
+
+**Residual risks, kept apart.** (a) Candidates for acceptance: V6b, V8, V9, V10, V11, V12 (named by the owner) and V3, V6a, F6 (reopened by the choice of the original rules), and a rate of 0 or 1 and enrolled minus active (added on 2026-11-27). (b) Their own treatment: F8 (TD-071, an identity control) and F7 (TD-070, cost and rate of reads). (c) By design: a student's own erasure stays noticeable between reads. (d) Conditions before real students: the privacy text does not tell students that a teacher reads aggregates, the legal basis and the consent version are missing, and figures that allow inferences about one student must be treated as personal data.
+
+### Findings of the review of the restored scope (2026-11-26) and what was done
+
+- **Major, overclaim about V7.** The spec and a test said that the withheld figure of a deleted document could not be computed. V7 only removes the addition by file name; V8 and V9 still derive or bound it. Wording and test names corrected; V8 and V9 now have their own characterisations.
+- **Major, earlier activity and consent (TD-072).** The chat requires consent for the policy in force when a message is written, but the read does not look at it, so enabling would process history written under earlier texts. **Owner decision (2026-11-27):** record it, change no consent rule, process no real activity, and keep the legal evaluation of real data as an independent condition of activation; consent is not assumed to be the only legal basis. It does not block the technical merge, since both switches stay false.
+- **Owner decisions of 2026-11-27.** The new wording of the privacy note is **approved**. A rate of 0 or 1 and enrolled minus active join the candidates for a formal acceptance; none is accepted for production. V3, V6, V8 to V12 and F6 stay documented as open; TD-072, F8 and F7 stay open.
+- **Minor.** The register, the contract and the privacy note also name the inferences about the whole class, a rate of 0 or 1 and enrolled minus active.
+
 ## Tests (demonstration, no persistent data)
 
 The first group uses `ActivityService` with the in-memory repository of `test_activity_service.py`, fictitious ids and fixed dates; it reads and writes nothing persistent. The end-to-end check of V2 (registration, enrolment by email, questions) ran on a throwaway database in its own container, with the owner's authorisation (D-P1 and D-P2 granted on 2026-11-23), and CI runs it on its own test database.

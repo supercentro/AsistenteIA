@@ -52,7 +52,7 @@ Not possible with this contract, and not proposed: daily detail, latency, model 
 | Shares | «Respuestas sin material encontrado», «Respuestas sin fuente citada» with the helper «Incluye las respuestas sin material encontrado» |
 | Documents | caption «Documentos citados en las respuestas»; column «Veces que una respuesta citó el documento»; note «Cuenta citas; no mide comprensión ni uso del material» |
 | Suppressed | «Datos insuficientes» |
-| Privacy note | «Solo se muestran cifras agregadas de al menos {n} estudiantes. Cuando hay menos, se indica «Datos insuficientes». Las cifras pueden cambiar entre consultas.» |
+| Privacy note | «Solo se muestran cifras agregadas de al menos {n} estudiantes. Cuando hay menos, se indica «Datos insuficientes». Las cifras pueden cambiar entre consultas.» (superseded by change `activity-privacy-hardening`: the note now says that anonymity is not guaranteed; the current text is in `frontend/src/lib/strings.es.ts`) |
 | All suppressed | «Todavía no hay datos suficientes para mostrar la actividad de esta asignatura.» |
 | Link on the subject page | «Ver actividad» |
 
