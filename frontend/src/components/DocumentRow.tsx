@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { ApiError, messageFor } from '../lib/apiError'
+import { teacherTopicsEnabled } from '../lib/features'
 import { strings } from '../lib/strings.es'
 import type { Document } from '../types/api'
 import { Alert } from './Alert'
@@ -44,6 +46,16 @@ export function DocumentRow({
       </p>
       {item.status === 'failed' ? (
         <p className="break-words text-sm text-red-800">{failureSentence(item.error_code)}</p>
+      ) : null}
+      {teacherTopicsEnabled() &&
+      item.status === 'ready' &&
+      item.content_type === 'application/pdf' ? (
+        <Link
+          className="text-sm text-slate-900 underline [overflow-wrap:anywhere]"
+          to={`/subjects/${item.subject_id}/documents/${item.id}/topics`}
+        >
+          {strings.topics.documentLink(item.filename)}
+        </Link>
       ) : null}
       {deleteError ? (
         <Alert variant="error">

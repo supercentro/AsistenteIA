@@ -26,6 +26,9 @@ export type ChatResponse = Omit<components['schemas']['ChatResponse'], 'sources'
 }
 export type DocumentStatus = Document['status']
 export type ActivityResponse = components['schemas']['ActivityResponse']
+export type TopicRankingResponse = components['schemas']['TopicRankingResponse']
+export type DocumentTopicsResponse = components['schemas']['DocumentTopicsResponse']
+export type DocumentTopicsUpdate = components['schemas']['DocumentTopicsUpdate']
 export type TokenResponse = components['schemas']['TokenResponse']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type ApiErrorBody = components['schemas']['Error']

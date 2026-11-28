@@ -19,6 +19,7 @@ export default defineConfig({
       VITE_API_URL: process.env.VITE_API_URL ?? 'http://localhost:8000/api/v1',
       // Only for this test server: the teacher activity page is hidden unless the flag is "true".
       VITE_TEACHER_ACTIVITY_ENABLED: 'true',
+      VITE_TEACHER_TOPICS_ENABLED: 'true',
     },
   },
 })

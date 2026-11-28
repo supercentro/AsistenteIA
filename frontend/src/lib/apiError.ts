@@ -13,12 +13,17 @@ export const UPLOAD_REASONS = [
 ] as const
 export type UploadReason = (typeof UPLOAD_REASONS)[number]
 
+/** The reasons the API documents for a refused write of topics (409 and 422). */
+export const TOPIC_REASONS = ['stale', 'not_ready', 'no_pages', 'overlap', 'page_range'] as const
+export type TopicReason = (typeof TOPIC_REASONS)[number]
+
 interface ApiErrorInit {
   kind: ApiErrorKind
   status?: number | null
   code?: string | null
   retryAfterSeconds?: number | null
   reason?: UploadReason | null
+  topicReason?: TopicReason | null
 }
 
 const CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,39}$/
@@ -35,6 +40,7 @@ export class ApiError extends Error {
   readonly retryAfterSeconds: number | null
   /** Documented reason of a 422 upload answer, chosen from a closed list; never server text. */
   readonly reason: UploadReason | null
+  readonly topicReason: TopicReason | null
 
   constructor({
     kind,
@@ -42,6 +48,7 @@ export class ApiError extends Error {
     code = null,
     retryAfterSeconds = null,
     reason = null,
+    topicReason = null,
   }: ApiErrorInit) {
     super('API request failed')
     this.name = 'ApiError'
@@ -50,6 +57,7 @@ export class ApiError extends Error {
     this.code = code
     this.retryAfterSeconds = retryAfterSeconds
     this.reason = reason
+    this.topicReason = topicReason
   }
 
   get isClientError(): boolean {
@@ -86,6 +94,18 @@ function readReason(status: number, body: unknown): UploadReason | null {
   return UPLOAD_REASONS.find((known) => known === reason) ?? null
 }
 
+function readTopicReason(status: number, body: unknown): TopicReason | null {
+  if ((status !== 409 && status !== 422) || typeof body !== 'object' || body === null) {
+    return null
+  }
+  const details = (body as Record<string, unknown>).details
+  if (typeof details !== 'object' || details === null) {
+    return null
+  }
+  const reason = (details as Record<string, unknown>).reason
+  return TOPIC_REASONS.find((known) => known === reason) ?? null
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error
@@ -100,6 +120,7 @@ export function toApiError(error: unknown): ApiError {
         retryAfterSeconds:
           status === 429 || status === 503 ? parseRetryAfter(headers?.['retry-after']) : null,
         reason: readReason(status, data),
+        topicReason: readTopicReason(status, data),
       })
     }
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
