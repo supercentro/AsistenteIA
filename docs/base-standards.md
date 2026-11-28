@@ -100,7 +100,7 @@ OpenSpec (`openspec/`) owns changes: proposal, specs, design, tasks and their li
 
 In scope: subject and material management by teachers; RAG queries by students with verifiable sources; conversation history; deletion of conversations and personal data; authentication and role-based authorization.
 
-Out of scope for the mandatory MVP: Moodle integration; student-services (administrative) assistant; advanced teacher analytics (individual or profiling; should-have only). Planned and switched off by default until the privacy conditions are met: aggregate activity metrics per subject for its owning teacher (change `activity-events-and-metrics`).
+Out of scope for the mandatory MVP: Moodle integration; student-services (administrative) assistant; advanced teacher analytics (individual or profiling; should-have only). Planned and switched off by default until the privacy conditions are met: aggregate activity metrics per subject for its owning teacher (change `activity-events-and-metrics`). Also planned, switched off by default and with fictitious data only (R-D1 extended on 2026-11-28 to this alone): the topics of a subject's PDF material, defined by their bookmarks or by the owning teacher, and the aggregate ranking of the most cited ones (change `frequent-questions-and-topics`).
 
 ## 9. Quality Gates
 
