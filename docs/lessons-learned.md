@@ -551,3 +551,38 @@ Sources: `openspec/changes/archive/2026-10-27-project-scaffold/` and `.../2026-1
 - **Preventive measure:** a dependency that opens a connection states how many a request holds, and a test with a pool of one covers it.
 - **Status:** implemented (`test_the_activity_read_needs_one_pooled_connection_at_a_time`).
 - **Evidence:** `backend/app/api/deps.py` (`get_activity_db`), `reports/2026-11-23-a2-adversarial-review.md`.
+
+### L53. A test double that raises proves nothing under a catch-all
+
+- **What happened:** two tests of `frequent-questions-and-topics` used a loader that raised `AssertionError` if it was called. The code under test swallows every error of the loader by design, so the tests passed with the guard removed; a mutation check found it.
+- **Preventive measure:** when the code under test catches broadly, record the calls and assert on the record; mutate the guard to see the test fail.
+- **Status:** implemented (`backend/tests/integration/test_ingestion_topics.py`).
+- **Evidence:** `openspec/changes/frequent-questions-and-topics/reports/2026-11-28-tdd-evidence.md`.
+
+### L54. A running stack that mounts the working tree runs whatever branch is checked out
+
+- **What happened:** the local API, worker and frontend containers mount the code of the repository. Implementing in that tree would have run unfinished code against the persistent development database; a worker restart would have used tables that did not exist.
+- **Preventive measure:** before changing code, check what the running containers mount; if they mount the tree, work in a separate git worktree and verify with disposable containers.
+- **Status:** applied (`frequent-questions-and-topics`).
+- **Evidence:** `openspec/changes/frequent-questions-and-topics/reports/2026-11-28-step-0-approvals.md`.
+
+### L55. Editing files while a suite runs in the background invalidates the run
+
+- **What happened:** the baseline integration run was started and a migration was added before it finished; six migration tests failed because they read the new head, so the run served as no baseline.
+- **Preventive measure:** do not touch anything a running suite reads; mount the tree read-only in a container, or wait, and rerun after the last change.
+- **Status:** applied.
+- **Evidence:** `openspec/changes/frequent-questions-and-topics/reports/2026-11-28-tdd-evidence.md`.
+
+### L56. A refetch that fails still resolves
+
+- **What happened:** after a refused save, "reload" rebuilt the editor when the `refetch()` promise settled. React Query resolves it on failure too, so a `503` replaced the typed rows with the cached ones and hid every message. Found by the independent review of `frequent-questions-and-topics`.
+- **Preventive measure:** read `error` from the result of `refetch()` before discarding anything the user typed, and test the failing reload.
+- **Status:** implemented (`frontend/src/pages/DocumentTopicsPage.test.tsx`).
+- **Evidence:** `openspec/changes/frequent-questions-and-topics/reports/2026-11-28-step-12-adversarial-review.md`.
+
+### L57. Layered guards hide an untested inner guard
+
+- **What happened:** the teacher scope of three repository queries, a status filter and the read-only snapshot of the ranking could be removed with every test green, because the service check above them kept the routes safe. Found by mutation in the independent review.
+- **Preventive measure:** test each repository query with a foreign owner directly, and assert transaction properties that a route test cannot see.
+- **Status:** implemented (tests added; seven mutations fail).
+- **Evidence:** same report.

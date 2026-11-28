@@ -6,6 +6,7 @@ import { LoadingState } from '../components/LoadingState'
 import { useActivity } from '../hooks/useActivity'
 import { useSession } from '../hooks/useSession'
 import { ApiError, messageFor } from '../lib/apiError'
+import { teacherTopicsEnabled } from '../lib/features'
 import { strings } from '../lib/strings.es'
 import type { ActivityResponse } from '../types/api'
 import ForbiddenPage from './ForbiddenPage'
@@ -61,6 +62,14 @@ function ActivityView({ subjectId, data }: { subjectId: string; data: ActivityRe
       <h1 ref={heading} tabIndex={-1} className="text-2xl font-bold">
         {text.title}
       </h1>
+      {teacherTopicsEnabled() ? (
+        <Link
+          className="text-sm text-slate-900 underline"
+          to={`/subjects/${subjectId}/activity/topics`}
+        >
+          {strings.topics.link}
+        </Link>
+      ) : null}
       <ActivityDashboard data={data} />
     </div>
   )

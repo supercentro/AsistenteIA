@@ -73,7 +73,7 @@ frontend/src/
 
 ## 5. Security
 
-- MUST: no secrets in the frontend; only public variables are configured: `VITE_API_URL` and, by the owner's exception of 2026-11-23 (change `teacher-activity-dashboard`), `VITE_TEACHER_ACTIVITY_ENABLED` (default `false`; any value but `true` keeps it off). The second one only hides the entry point of the teacher activity page (no route, no link, no request): it is not a security control, because the backend switch `TEACHER_ACTIVITY_ENABLED` decides. Any other variable needs the owner's approval.
+- MUST: no secrets in the frontend; only public variables are configured: `VITE_API_URL` and, by the owner's exception of 2026-11-23 (change `teacher-activity-dashboard`), `VITE_TEACHER_ACTIVITY_ENABLED` (default `false`; any value but `true` keeps it off). A third one, `VITE_TEACHER_TOPICS_ENABLED` (same default and rule, approved with change `frequent-questions-and-topics` on 2026-11-28), hides the topic views and needs the second one. The second one only hides the entry point of the teacher activity page (no route, no link, no request): it is not a security control, because the backend switch `TEACHER_ACTIVITY_ENABLED` decides. Any other variable needs the owner's approval.
 - SHOULD: keep the JWT in memory plus a refresh strategy; if `localStorage` is used for the MVP, document the XSS trade-off in the PR and keep strict content rendering rules above.
 - MUST: role-based routes hide teacher/student screens, but the backend remains the authority (never rely on UI checks).
 

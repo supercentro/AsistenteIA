@@ -393,6 +393,76 @@ export const strings = {
         'La consulta tardó demasiado y la respuesta puede haberse guardado. Revise la conversación abierta y la lista de conversaciones antes de volver a preguntar.',
     },
   },
+  topics: {
+    link: 'Ver temas más consultados',
+    documentLink: (name: string) => `Temas de ${name}`,
+    ranking: {
+      title: 'Temas más consultados',
+      back: 'Volver a la actividad',
+      loading: 'Cargando temas…',
+      caption: 'Temas y respuestas que citaron su material',
+      topic: 'Tema',
+      document: 'Documento',
+      since: (date: string) => `Cuenta desde el ${date}`,
+      answers: 'Respuestas',
+      pages: (from: number, to: number) =>
+        from === to ? `Página ${from}` : `Páginas ${from} a ${to}`,
+      alsoIn: 'También aparece en',
+      noTopics:
+        'Esta asignatura todavía no tiene temas. Salen de los marcadores de cada PDF o los define el docente.',
+      nothingToShow: 'Ningún tema reúne datos suficientes para mostrarse.',
+      withoutHeading: 'Documentos sin temas',
+      reasons: {
+        not_defined: 'Temas sin definir',
+        no_pages: 'Sin páginas: no admite temas',
+      },
+      define: (name: string) => `Definir temas de ${name}`,
+      restartedHeading: 'Documentos con páginas modificadas',
+      restartedItem: (name: string, date: string) => `${name}: cuenta desde la semana del ${date}.`,
+      note: (minimumGroup: number) =>
+        `Cada cifra cuenta las respuestas que citaron material del tema; una respuesta puede contar en varios temas, así que las cifras no se suman. No mide dificultad ni comprensión, ni todo lo que preguntaron los estudiantes, y solo incluye documentos con temas. Las cifras son agregadas y solo se muestran cuando se calculan sobre al menos ${minimumGroup} estudiantes; esto no garantiza el anonimato.`,
+    },
+    editor: {
+      title: 'Temas del documento',
+      back: 'Volver a la asignatura',
+      loading: 'Cargando temas del documento…',
+      pagesHelp: (last: number) =>
+        `Las páginas son las posiciones dentro del archivo (de 1 a ${last}), no los números impresos.`,
+      fromBookmarks: 'Temas tomados de los marcadores del PDF.',
+      countingFrom: (date: string) =>
+        `Por un cambio de páginas, las cifras de este documento cuentan desde la semana del ${date}.`,
+      empty: 'Este documento no tiene temas.',
+      fieldTitle: 'Título del tema',
+      from: 'Desde la página',
+      to: 'Hasta la página',
+      add: 'Agregar tema',
+      remove: (position: number) => `Quitar tema ${position}`,
+      save: 'Guardar temas',
+      saving: 'Guardando…',
+      saved: 'Temas guardados.',
+      reload: 'Recargar temas',
+      warning: {
+        question: '¿Guardar el cambio de páginas?',
+        body: (date: string) =>
+          `Las cifras de este documento volverán a contar desde la semana del ${date} y se mostrarán cuando esa semana termine. Cambiar solo los títulos no las afecta.`,
+        confirm: 'Guardar el cambio',
+        cancel: 'Cancelar',
+      },
+      errors: {
+        title: 'Cada tema necesita un título de hasta 200 caracteres.',
+        pages: (last: number) =>
+          `Las páginas deben ser números enteros entre 1 y ${last}, y la primera no puede superar a la última.`,
+        overlap: 'Los rangos de páginas no pueden superponerse.',
+        stale:
+          'Los temas cambiaron desde que abrió esta página. Recárguelos antes de guardar; lo que escribió sigue aquí.',
+        invalid: 'No se pudieron guardar los temas. Revise los títulos y las páginas.',
+      },
+      unavailable: {
+        no_pages: 'Este documento no tiene páginas, así que no admite temas.',
+        not_ready: 'El documento todavía no está listo.',
+      },
+    },
+  },
   activity: {
     link: 'Ver actividad',
     back: 'Volver a la asignatura',

@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     enrollments,
     health,
     subjects,
+    topics,
     users,
 )
 
@@ -20,5 +21,6 @@ api_router.include_router(subjects.router)
 api_router.include_router(activity.router)
 api_router.include_router(enrollments.router)
 api_router.include_router(documents.router)
+api_router.include_router(topics.router)
 api_router.include_router(chat.router)
 api_router.include_router(conversations.router)

@@ -37,6 +37,7 @@ _BYTES_PER_MB = 1024 * 1024
 _READ_SIZE = 65_536
 _POLL_SECONDS = 0.25
 _CHILD_SCRIPT = Path(__file__).with_name("pdf_child.py")
+_MAX_OUTLINE_ENTRIES = 100
 # Codes the child may report; anything else it says is treated as a processing failure.
 _CHILD_CODES = frozenset(
     {
@@ -228,6 +229,44 @@ def _parse(output: bytes, returncode: int, max_pages: int) -> list[Page]:
     return pages
 
 
+@dataclass(frozen=True)
+class OutlineEntry:
+    """A bookmark of a PDF: its raw title and the position of the page where it starts."""
+
+    title: str
+    page: int
+
+
+def parse_outline(output: bytes, returncode: int) -> list[OutlineEntry]:
+    """Validate the outline protocol of the child as strictly as the page protocol."""
+    failed = DocumentErrorCode.PROCESSING_FAILED
+    entries: list[OutlineEntry] = []
+    ended = False
+    for raw in output.split(b"\n"):
+        if not raw:
+            continue
+        try:
+            record: Any = json.loads(raw)
+        except (ValueError, RecursionError):
+            raise _fail(failed) from None
+        if ended or not isinstance(record, dict):
+            raise _fail(failed)
+        if "error" in record:
+            raise _fail(_child_code(record["error"]))
+        if set(record) == {"end"} and record["end"] is True:
+            ended = True
+            continue
+        title, number = record.get("title"), record.get("page")
+        if set(record) != {"title", "page"} or not isinstance(title, str):
+            raise _fail(failed)
+        if type(number) is not int or number < 1 or len(entries) >= _MAX_OUTLINE_ENTRIES:
+            raise _fail(failed)
+        entries.append(OutlineEntry(title=title, page=number))
+    if returncode != 0 or not ended:
+        raise _fail(failed)
+    return entries
+
+
 def load_pdf(payload: bytes, limits: PdfLimits) -> list[Page]:
     """Extract the text of a PDF in the isolated child; one `Page` per page with visible text.
 
@@ -235,6 +274,21 @@ def load_pdf(payload: bytes, limits: PdfLimits) -> list[Page]:
     (`ENCRYPTED_PDF`, `CORRUPT_FILE`, `TOO_MANY_PAGES`, `TEXT_TOO_LARGE`, `NO_EXTRACTABLE_TEXT`,
     `PROCESSING_TIMEOUT`, `RESOURCE_LIMIT_EXCEEDED`, `PROCESSING_FAILED`).
     """
+    output, returncode = _run_child(payload, limits)
+    pages = _parse(output, returncode, limits.max_pages)
+    if not pages:
+        raise DocumentLoadError(DocumentErrorCode.NO_EXTRACTABLE_TEXT)
+    return pages
+
+
+def load_pdf_outline(payload: bytes, limits: PdfLimits) -> list[OutlineEntry]:
+    """The bookmarks of a PDF, read in a second isolated child with the same limits."""
+    output, returncode = _run_child(payload, limits, "outline")
+    return parse_outline(output, returncode)
+
+
+def _run_child(payload: bytes, limits: PdfLimits, *mode: str) -> tuple[bytes, int]:
+    """Run one child under every limit; returns its output and exit status."""
     if sys.platform != "linux":
         raise UnsupportedPlatformError("PDF files are parsed only on Linux")
     deadline = time.monotonic() + limits.timeout_seconds
@@ -246,6 +300,7 @@ def load_pdf(payload: bytes, limits: PdfLimits) -> list[Page]:
         str(limits.cpu_seconds),
         str(limits.max_pages),
         str(limits.max_chars),
+        *mode,
     ]
     process = subprocess.Popen(  # noqa: S603 - fixed argument list, no shell, no user input
         command,
@@ -267,9 +322,6 @@ def load_pdf(payload: bytes, limits: PdfLimits) -> list[Page]:
         killed = _exit_error(process.returncode)
         if killed is not None:
             raise killed
-        pages = _parse(output, process.returncode, limits.max_pages)
+        return output, process.returncode
     finally:
         _stop(process, feeder)
-    if not pages:
-        raise DocumentLoadError(DocumentErrorCode.NO_EXTRACTABLE_TEXT)
-    return pages

@@ -13,6 +13,8 @@ context: |
   deletion of conversations and personal data (GDPR); JWT authentication with teacher/student roles.
   Out of scope: Moodle integration, student-services assistant, advanced teacher analytics (individual or profiling; should-have only).
   Planned, switched off by default until the privacy conditions are met: aggregate activity metrics per subject for the owning teacher (change `activity-events-and-metrics`).
+  Also planned, switched off by default and with fictitious data only (R-D1 extended on 2026-11-28 to this alone): topics of
+  a subject's PDF material and the aggregate ranking of the most cited ones (change `frequent-questions-and-topics`).
   Do not propose features outside this scope without user approval.
 
   Single source of truth per topic (link, do not copy; if two sources disagree, docs/ wins over readme.md and the

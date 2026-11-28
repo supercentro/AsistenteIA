@@ -713,6 +713,190 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/subjects/{subject_id}/activity/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: components["parameters"]["SubjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Most cited topics of a subject for its owning teacher (disabled by default)
+         * @description Up to five topics of the PDF material of the subject, ordered by the number of answers that cited a
+         *     fragment of the topic's document on one of its pages (an answer counts once per topic, and once in
+         *     each topic it cites, so the figures do not add up). It is not a measure of difficulty or of
+         *     understanding. Answers whose sources were only retrieved do not count.
+         *
+         *     Switched off unless `TEACHER_ACTIVITY_ENABLED` and `TEACHER_TOPICS_ENABLED` are both `true` (default
+         *     `false`): while off a teacher gets 404; a student or an anonymous caller is refused (403, 401)
+         *     whatever the settings are. Another teacher's subject and an unknown or malformed id answer the same
+         *     404. **No request parameter exists**: the window is the default one of the activity read (only ended
+         *     weeks, at most 12, only after the last unenrolment), and with no whole week (`weeks` 0) no message is
+         *     read and `topics` is empty.
+         *
+         *     A topic appears only with at least `minimum_group` (5) distinct students behind it, and none appears
+         *     when the subject has fewer active students; the response never says how many were withheld. Topics of
+         *     different documents are never added: `also_in` only names the other current documents with a topic of
+         *     the same title. A document whose page ranges changed after its first topics counts only the weeks that
+         *     start after the week of the change (`counted_since`, `restarted_documents`).
+         *     `documents_without_topics` lists ready documents with no topic (`not_defined`) or without page
+         *     numbers (`no_pages`). Nothing is stored by the read; no field holds message text or anything about a
+         *     student.
+         *
+         *     **These figures are not anonymous (open risks, `docs/technical-debt.md`).** With student accounts it
+         *     controls, a teacher can learn which topic one student's answers cited, down to a single page.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subject_id: components["parameters"]["SubjectId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Topic ranking */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TopicRankingResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subjects/{subject_id}/documents/{document_id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: components["parameters"]["SubjectId"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Topics of one document (owner teacher, disabled by default)
+         * @description The stored topics with their page ranges, the highest page with text and the revision to write on.
+         *     Pages are positions in the file (1-based), not printed page numbers. Reading stores nothing. Switched
+         *     off as the topic ranking; another teacher, a document of another subject and an unknown or malformed
+         *     id answer the same 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subject_id: components["parameters"]["SubjectId"];
+                    document_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Topics of the document */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentTopicsResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        /**
+         * Replace the topics of one document (owner teacher, disabled by default)
+         * @description Replaces the whole set. Only a ready PDF with page numbers accepts topics. 0 to 100 topics; titles of
+         *     1 to 200 characters (code points) on one line, with at least one visible character and without control or direction characters (spaces are collapsed);
+         *     `1 <= start_page <= end_page <= last_page`; when the page ranges differ from the stored ones they may
+         *     not overlap. `revision` is the one that was read (0 when the document never had topics).
+         *
+         *     The first set counts every citation in the ranking window. **Any later change of page ranges**
+         *     (add, remove, move, split, merge, clear) makes the document count only the weeks that start after the
+         *     week of the change; the limit never moves back. A change of titles only moves nothing. A write that
+         *     changes nothing keeps the revision.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subject_id: components["parameters"]["SubjectId"];
+                    document_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DocumentTopicsUpdate"];
+                };
+            };
+            responses: {
+                /** @description The stored topics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentTopicsResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Error code `CONFLICT`; `details.reason` is `stale`, `not_ready` or `no_pages` */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Error code `VALIDATION_ERROR`; an invalid body, or `details.reason` `overlap` or `page_range` */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                500: components["responses"]["InternalError"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/subjects/{subject_id}/documents": {
         parameters: {
             query?: never;
@@ -1320,6 +1504,75 @@ export interface components {
             filename: string;
             /** @description Answers that cite the document (not semantic support, not proof that the material was used); null below the minimum group of students */
             cited_appearances: number | null;
+        };
+        /** @enum {string} */
+        TopicSource: "bookmarks" | "teacher";
+        TopicEntry: {
+            /** @description As sent; after collapsing spaces, 1 to 200 characters with at least one visible one */
+            title: string;
+            start_page: number;
+            end_page: number;
+        };
+        DocumentTopicsUpdate: {
+            revision: number;
+            topics: components["schemas"]["TopicEntry"][];
+        };
+        TopicView: {
+            title: string;
+            start_page: number;
+            end_page: number;
+        };
+        DocumentTopicsResponse: {
+            /** Format: uuid */
+            document_id: string;
+            filename: string;
+            editable: boolean;
+            /** @enum {string|null} */
+            reason: "not_ready" | "no_pages" | null;
+            /** @description Highest page with text */
+            last_page: number | null;
+            revision: number;
+            source: components["schemas"]["TopicSource"] | null;
+            /** Format: date */
+            counting_from: string | null;
+            topics: components["schemas"]["TopicView"][];
+        };
+        RankedTopic: {
+            /** Format: uuid */
+            topic_id: string;
+            title: string;
+            /** Format: uuid */
+            document_id: string;
+            filename: string;
+            start_page: number;
+            end_page: number;
+            /** Format: date */
+            counted_since: string;
+            /** @description Answers that cited the topic */
+            answers: number;
+            also_in: string[];
+        };
+        DocumentWithoutTopics: {
+            /** Format: uuid */
+            document_id: string;
+            filename: string;
+            /** @enum {string} */
+            reason: "not_defined" | "no_pages";
+        };
+        RestartedDocument: {
+            /** Format: uuid */
+            document_id: string;
+            filename: string;
+            /** Format: date */
+            counting_from: string;
+        };
+        TopicRankingResponse: {
+            window: components["schemas"]["ActivityWindow"];
+            minimum_group: number;
+            topics_defined: number;
+            topics: components["schemas"]["RankedTopic"][];
+            documents_without_topics: components["schemas"]["DocumentWithoutTopics"][];
+            restarted_documents: components["schemas"]["RestartedDocument"][];
         };
         ActivityResponse: {
             window: components["schemas"]["ActivityWindow"];

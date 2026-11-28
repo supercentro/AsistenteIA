@@ -83,6 +83,18 @@ SCENARIOS = {
     ): "test_the_teacher_activity_route_reads_under_the_app_role_and_writes_nothing",
     (
         "GET",
+        f"{API}/subjects/{{subject_id}}/activity/topics",
+    ): "test_topics_are_written_read_and_ranked_under_the_app_role",
+    (
+        "GET",
+        f"{API}/subjects/{{subject_id}}/documents/{{document_id}}/topics",
+    ): "test_topics_are_written_read_and_ranked_under_the_app_role",
+    (
+        "PUT",
+        f"{API}/subjects/{{subject_id}}/documents/{{document_id}}/topics",
+    ): "test_topics_are_written_read_and_ranked_under_the_app_role",
+    (
+        "GET",
         f"{API}/subjects/{{subject_id}}/documents",
     ): "test_text_and_markdown_are_uploaded_processed_retrieved_and_deleted",
     (
@@ -464,6 +476,48 @@ ACTIVITY_TABLES = (
     "messages",
     "message_sources",
 )
+
+
+def test_topics_are_written_read_and_ranked_under_the_app_role(
+    cluster: Cluster, own_database: str
+) -> None:
+    switches = {"teacher_activity_enabled": True, "teacher_topics_enabled": True}
+    with api(cluster, own_database, **switches) as client:
+        teacher, headers, _ = teacher_and_subject(cluster, own_database, client)
+        room = Classroom(cluster.admin(own_database), students=5, teacher=uuid.UUID(teacher.id))
+        for student in room.students:
+            room.turn(student, at("2026-03-03"), "cited")
+        subject, document = room.subject, room.document_a
+        body = {"revision": 0, "topics": [{"title": "Unit", "start_page": 1, "end_page": 1}]}
+
+        empty = client.get(f"{API}/subjects/{subject}/documents/{document}/topics", headers=headers)
+        assert empty.status_code == 200 and empty.json()["revision"] == 0
+        created = client.put(
+            f"{API}/subjects/{subject}/documents/{document}/topics", json=body, headers=headers
+        )
+        assert created.status_code == 200, created.text
+        # every kind of write the role needs: lock, update of the set, delete and insert of topics
+        cleared = client.put(
+            f"{API}/subjects/{subject}/documents/{document}/topics",
+            json={"revision": 1, "topics": []},
+            headers=headers,
+        )
+        assert cleared.status_code == 200, cleared.text
+        assert one(cluster, own_database, "SELECT count(*) FROM document_topics") == 0
+        assert (
+            one(
+                cluster,
+                own_database,
+                "SELECT revision = 2 AND ranges_changed_at IS NOT NULL FROM document_topic_sets",
+            )
+            is True
+        )
+        ranking = client.get(f"{API}/subjects/{subject}/activity/topics", headers=headers)
+        assert ranking.status_code == 200, ranking.text
+
+        deleted = client.delete(f"{API}/subjects/{subject}/documents/{document}", headers=headers)
+        assert deleted.status_code == 204, deleted.text
+        assert one(cluster, own_database, "SELECT count(*) FROM document_topic_sets") == 0
 
 
 def test_the_teacher_activity_route_reads_under_the_app_role_and_writes_nothing(

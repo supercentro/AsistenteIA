@@ -138,6 +138,9 @@ class Settings(WorkerSettings):
     # Aggregate activity for teachers (change activity-events-and-metrics). Switched off until the
     # privacy text, the legal review and the consent version are in place (design D-M2).
     teacher_activity_enabled: bool = False
+    # Topics of the PDF material and their ranking (change frequent-questions-and-topics). Needs the
+    # setting above as well; used with fictitious data only until its open risks are closed.
+    teacher_topics_enabled: bool = False
 
     @field_validator("cors_origins", mode="before")
     @classmethod

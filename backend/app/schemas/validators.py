@@ -16,6 +16,9 @@ BIDI_CONTROLS = frozenset(
     chr(code) for code in (*range(0x202A, 0x202F), *range(0x2066, 0x206A), 0x200E, 0x200F)
 )
 
+# Letters and symbols to Unicode that still show nothing (Hangul fillers, blank Braille).
+_BLANK_CHARACTERS = frozenset("\u115f\u1160\u2800\u3164\uffa0")
+
 # Line breaks and tabs are legitimate in free text such as descriptions.
 _TEXT_WHITESPACE = frozenset("\n\r\t")
 
@@ -30,6 +33,14 @@ def ensure_no_control_characters(value: str) -> str:
         if unicodedata.category(char) in {"Cc", "Zl", "Zp"} or char in BIDI_CONTROLS:
             raise ValueError("contains control or direction characters")
     return value
+
+
+def has_visible_character(value: str) -> bool:
+    """False when only controls, formats, separators, marks or blank characters are left."""
+    return any(
+        unicodedata.category(char)[0] not in "CZM" and char not in _BLANK_CHARACTERS
+        for char in value
+    )
 
 
 def ensure_plain_text(value: str) -> str:

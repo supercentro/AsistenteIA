@@ -21,6 +21,8 @@ erDiagram
     CONVERSATIONS ||--o{ MESSAGES : "contains"
     MESSAGES ||--o{ MESSAGE_SOURCES : "cites"
     DOCUMENT_CHUNKS ||--o{ MESSAGE_SOURCES : "is cited by"
+    DOCUMENTS ||--o| DOCUMENT_TOPIC_SETS : "may have topics"
+    DOCUMENT_TOPIC_SETS ||--o{ DOCUMENT_TOPICS : "lists"
 
     USERS {
         uuid id PK
@@ -77,6 +79,21 @@ erDiagram
         text content
         vector_384 embedding
         timestamptz created_at
+    }
+    DOCUMENT_TOPIC_SETS {
+        uuid document_id PK "FK; composite with subject_id"
+        uuid subject_id FK
+        string source "bookmarks | teacher"
+        int revision
+        timestamptz ranges_changed_at "nullable"
+    }
+    DOCUMENT_TOPICS {
+        uuid id PK
+        uuid document_id FK
+        int position
+        string title
+        int start_page
+        int end_page
     }
     CONVERSATIONS {
         uuid id PK
@@ -155,6 +172,18 @@ erDiagram
 - Created by migration `0004`.
 - Chunk size must fit the embedding model's input limit (about 128 word pieces; verify against the model card) — see backend standards.
 
+### document_topic_sets
+- Change `frequent-questions-and-topics`, migration `0009` (its downgrade drops this table and `document_topics` with their rows; no other table changes. **The dropped rows include the privacy marker `ranges_changed_at`**: after a rollback and a new upgrade, past citations count again for a new set, so the topics switch stays off unless the markers are restored). **At most one row per document**: it exists once the document has had topics, from the bookmarks of its PDF or from its teacher.
+- Columns: `document_id` uuid PK and `subject_id` uuid not null, with the composite foreign key `(document_id, subject_id)` → `documents (id, subject_id)` (`ON DELETE CASCADE`); `source` varchar(16) not null (`bookmarks`, `teacher`); `revision` integer not null (`>= 1`, the optimistic concurrency of a write); `ranges_changed_at` timestamptz null. Index `ix_document_topic_sets_subject_id`.
+- `ranges_changed_at` is the database clock at the **last change of page ranges after the first set**, never decreasing, null while the first ranges are in force (a rename sets nothing). The topic ranking counts the document only in weeks that start after the week of that moment, so that two reads under different ranges cannot be subtracted. The row is kept when the topics are cleared: the marker must outlive them. It is `FetchedValue()` in the model.
+- Holds no reference to a student.
+
+### document_topics
+- The topics of a document: `id` uuid, `document_id` uuid not null → `document_topic_sets` (`ON DELETE CASCADE`), `position` integer, `title` varchar(200), `start_page` and `end_page` integer. Unique `(document_id, position)`; checks `position >= 0`, `title ~ '\S'`, `start_page >= 1 AND end_page >= start_page`.
+- Pages are the positions in the file (`document_chunks.page_number`), not printed numbers. A citation belongs to a topic when the cited chunk is of that document and its page is inside the range; the match is made on read and nothing is stored on messages.
+- Written by the worker in the final transaction of an ingestion (bookmarks), or replaced as a whole by the owning teacher. Ranges of a teacher's change never overlap; bookmarks that start on one page share a range.
+- Titles are text written by the author of the file or by the teacher: never logged, never sent to a model.
+
 ### conversations
 - One thread of a student about one subject. The student must be enrolled in the subject when the conversation is created.
 - Index on `(student_id, subject_id, created_at)`.
@@ -182,6 +211,8 @@ erDiagram
 | messages.conversation_id → conversations | CASCADE |
 | message_sources.message_id → messages | CASCADE |
 | message_sources.chunk_id → document_chunks | SET NULL |
+| document_topic_sets.(document_id, subject_id) → documents.(id, subject_id) | CASCADE |
+| document_topics.document_id → document_topic_sets | CASCADE |
 
 ## Data protection rules
 
@@ -190,6 +221,7 @@ erDiagram
 - Visibility: a student sees a conversation (list, messages, citation text) only while enrolled in its subject; unenrolment deletes nothing, re-enrolment makes the conversations visible again, and the right to erasure (delete one or all) works regardless of enrolment.
 - Retention: conversation data lives until the user deletes it or the account is deleted. Application logs must not contain message content or document text.
 - Teacher statistics (change `activity-events-and-metrics`, switched off by default): computed on the fly from `conversations`, `messages`, `message_sources`, `enrollments` and `documents` for the teacher who owns the subject; aggregate only (no text, no student identifier, no per-student figure), every figure withheld below 5 distinct students, weekly cells over a window of at most 12 whole weeks, only students currently enrolled. Nothing is stored (no table, counter or event), so a deletion by a student lowers the next result and no migration is involved. Only current documents are listed: a deleted one leaves nothing but its file name in the stored sources, and adding by name could reveal a withheld figure. **The figures are aggregates but not anonymous**: they can allow inferences about few students or one (TD-069, TD-071), so they must be treated as data about students. Students must be told about it, with that limit, in the privacy text before it is enabled. The read does not look at `consent_version` or `consent_accepted_at`: it would count earlier activity written under earlier policies (TD-072). Which legal basis covers that history is for a legal evaluation of the real data, a condition of activation of its own.
+- Topic ranking (change `frequent-questions-and-topics`, switched off by default, fictitious data only): computed on read under the rules of the teacher statistics above; the topic tables hold material metadata and no student data. It adds an inference: with accounts it controls, a teacher can learn **which pages** one student's answers cited (TD-073, TD-074).
 - Third-party processing: message text and retrieved chunks are sent to Gemini. This must be disclosed in the privacy policy shown at consent time.
 
 ## Database identities and privileges
@@ -229,6 +261,10 @@ Column lists are exact; `SELECT *` means every column of the table. A blank cell
 | `conversations` | SELECT *; INSERT (`student_id`, `subject_id`); DELETE | | SELECT *; DELETE |
 | `messages` | SELECT *; INSERT (`conversation_id`, `role`, `content`) | | SELECT * |
 | `message_sources` | SELECT *; INSERT (`message_id`, `chunk_id`, `document_filename`, `page_number`, `rank`, `score`) | | |
+| `document_topic_sets` | SELECT *; INSERT (`document_id`, `subject_id`, `source`, `revision`); UPDATE (`source`, `revision`, `ranges_changed_at`) | INSERT (`document_id`, `subject_id`, `source`, `revision`); SELECT (`document_id`) | |
+| `document_topics` | SELECT *; INSERT (`document_id`, `position`, `title`, `start_page`, `end_page`); DELETE | INSERT (`document_id`, `position`, `title`, `start_page`, `end_page`); SELECT (`id`) | |
+
+The two topic tables (migration `0009`) are verified on disposable databases only: they have **not** been applied to the development database.
 
 What follows from it (proved by the denied-operation tests and, on the development database, by the checks of the real run of 2026-11-14):
 - **`users.role` can never be written by the API**: registration omits it and the server default `student` (migration `0006`) supplies it; only the CLI role inserts a `role`, which is how teacher accounts exist. The API cannot insert a teacher.

@@ -17,12 +17,15 @@ from app.rag.embedder import Embedder
 from app.repositories.activity_repository import ActivityRepository
 from app.repositories.enrollment_repository import EnrollmentRepository
 from app.repositories.subject_repository import SubjectRepository
+from app.repositories.topic_repository import TopicRepository
 from app.repositories.user_repository import UserRepository
 from app.services.activity_service import ActivityService
 from app.services.auth_service import AuthService
 from app.services.consent_service import ConsentService
 from app.services.enrollment_service import EnrollmentService
 from app.services.subject_service import SubjectService
+from app.services.topic_ranking_service import TopicRankingService
+from app.services.topic_service import DocumentTopicService
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +175,19 @@ def require_teacher_activity(
     return teacher
 
 
+def require_teacher_topics(
+    teacher: Annotated[User, Depends(require_teacher_activity)], settings: AppSettings
+) -> User:
+    """As `require_teacher_activity`, with the switch of the topics also on."""
+    if not settings.teacher_topics_enabled:
+        raise NotFoundError("Resource not found")
+    return teacher
+
+
+def get_document_topic_service(db: DbSession) -> DocumentTopicService:
+    return DocumentTopicService(TopicRepository(db))
+
+
 def get_activity_db(
     request: Request,
     teacher: Annotated[User, Depends(require_teacher_activity)],
@@ -202,6 +218,21 @@ def get_activity_db(
     finally:
         session.rollback()
         session.close()
+
+
+def get_topic_ranking_db(
+    request: Request,
+    teacher: Annotated[User, Depends(require_teacher_topics)],
+    request_db: DbSession,
+) -> Iterator[Session]:
+    """The snapshot of the activity read, opened only when the topics are also on."""
+    yield from get_activity_db(request, teacher, request_db)
+
+
+def get_topic_ranking_service(
+    db: Annotated[Session, Depends(get_topic_ranking_db)],
+) -> TopicRankingService:
+    return TopicRankingService(SubjectRepository(db), ActivityRepository(db), TopicRepository(db))
 
 
 def get_activity_service(db: Annotated[Session, Depends(get_activity_db)]) -> ActivityService:

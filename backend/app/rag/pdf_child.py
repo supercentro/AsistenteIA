@@ -1,7 +1,8 @@
 """Isolated PDF text extraction (change 6, task 6.2), design D9.
 
 This file is run as its own interpreter, `python -I pdf_child.py MEMORY_MB CPU_SECONDS MAX_PAGES
-MAX_CHARS`, by `app.rag.loaders` with a minimal environment, the PDF bytes on standard input,
+MAX_CHARS [outline]`, by `app.rag.loaders` with a minimal environment, the PDF bytes on
+standard input,
 standard output read through a size cap and standard error discarded. It is self-contained on
 purpose (standard library and `pypdf` only): it never imports the application, its settings or
 the database layer, so a hostile file reaches as little code as possible.
@@ -16,6 +17,11 @@ Output protocol, one JSON object per line on standard output:
 - `{"error": "CODE"}` followed by exit status 1 when the file is rejected.
 
 Nothing else is ever written: no library message, path, metadata or exception text.
+
+With `outline` the child writes the bookmarks instead of the text (change
+`frequent-questions-and-topics`): `{"title": "...", "page": N}` for each entry of the first level
+that has more than one entry, then `{"end": true}`. More than `MAX_OUTLINE_ENTRIES` entries give
+none. The titles are data of the file; the parent cleans them.
 """
 
 import io
@@ -33,6 +39,10 @@ CORRUPT_FILE = "CORRUPT_FILE"
 TOO_MANY_PAGES = "TOO_MANY_PAGES"
 TEXT_TOO_LARGE = "TEXT_TOO_LARGE"
 RESOURCE_LIMIT_EXCEEDED = "RESOURCE_LIMIT_EXCEEDED"
+
+MAX_OUTLINE_ENTRIES = 100
+_MAX_OUTLINE_DEPTH = 8
+_MAX_RAW_TITLE = 1000
 
 _SURROGATES = {code: None for code in range(0xD800, 0xE000)}
 
@@ -81,6 +91,46 @@ def _extract(data: bytes, max_pages: int, max_chars: int) -> None:
     _write({"end": True})
 
 
+def _outline_level(outline: list[Any]) -> list[Any]:
+    """The entries of the first level that has more than one (a single root gives its children)."""
+    level = outline
+    for _ in range(_MAX_OUTLINE_DEPTH):
+        items = [entry for entry in level if not isinstance(entry, list)]
+        nested = [entry for entry in level if isinstance(entry, list)]
+        if len(items) != 1 or not nested:
+            return items
+        level = nested[0]
+    return []
+
+
+def _write_outline(reader: Any) -> None:
+    items = _outline_level(reader.outline)
+    if len(items) <= MAX_OUTLINE_ENTRIES:
+        for item in items:
+            try:
+                number = reader.get_destination_page_number(item)
+                title = item.title
+            except MemoryError:
+                raise
+            except Exception:  # noqa: BLE001, S112 - one broken bookmark does not drop the rest
+                continue
+            if not isinstance(title, str) or number is None or number < 0:
+                continue
+            _write({"title": title.translate(_SURROGATES)[:_MAX_RAW_TITLE], "page": number + 1})
+    _write({"end": True})
+
+
+def _outline(data: bytes, max_pages: int) -> None:
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(data), strict=False)
+    if reader.is_encrypted:
+        raise _Rejected(ENCRYPTED_PDF)
+    if len(reader.pages) > max_pages:
+        raise _Rejected(TOO_MANY_PAGES)
+    _write_outline(reader)
+
+
 def _report(code: str) -> int:
     try:
         _write({"error": code})
@@ -95,7 +145,10 @@ def main(argv: list[str]) -> int:
     apply_limits(memory_mb, cpu_seconds)
     data = sys.stdin.buffer.read()
     try:
-        _extract(data, max_pages, max_chars)
+        if argv[5:6] == ["outline"]:
+            _outline(data, max_pages)
+        else:
+            _extract(data, max_pages, max_chars)
         sys.stdout.buffer.flush()
     except _Rejected as rejected:
         return _report(rejected.code)

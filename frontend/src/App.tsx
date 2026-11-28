@@ -6,7 +6,7 @@ import { DEFAULT_HOME, RedirectIfAuthenticated } from './components/RedirectIfAu
 import { RequireAuth } from './components/RequireAuth'
 import { RequireConsent } from './components/RequireConsent'
 import { RequireRole } from './components/RequireRole'
-import { teacherActivityEnabled } from './lib/features'
+import { teacherActivityEnabled, teacherTopicsEnabled } from './lib/features'
 import { strings } from './lib/strings.es'
 
 // Each area is its own chunk: a visitor does not download screens they cannot open.
@@ -17,6 +17,8 @@ const ConsentPage = lazy(() => import('./pages/ConsentPage'))
 const SubjectsPage = lazy(() => import('./pages/SubjectsPage'))
 const TeacherSubjectPage = lazy(() => import('./pages/TeacherSubjectPage'))
 const TeacherActivityPage = lazy(() => import('./pages/TeacherActivityPage'))
+const TeacherTopicsPage = lazy(() => import('./pages/TeacherTopicsPage'))
+const DocumentTopicsPage = lazy(() => import('./pages/DocumentTopicsPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
@@ -41,6 +43,18 @@ export default function App() {
                 <Route path="/subjects/:subjectId" element={<TeacherSubjectPage />} />
                 {teacherActivityEnabled() ? (
                   <Route path="/subjects/:subjectId/activity" element={<TeacherActivityPage />} />
+                ) : null}
+                {teacherTopicsEnabled() ? (
+                  <>
+                    <Route
+                      path="/subjects/:subjectId/activity/topics"
+                      element={<TeacherTopicsPage />}
+                    />
+                    <Route
+                      path="/subjects/:subjectId/documents/:documentId/topics"
+                      element={<DocumentTopicsPage />}
+                    />
+                  </>
                 ) : null}
               </Route>
               <Route element={<RequireRole roles={['student']} />}>

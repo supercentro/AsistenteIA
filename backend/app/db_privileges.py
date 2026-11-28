@@ -67,6 +67,12 @@ KNOWN_COLUMNS: Final[dict[str, frozenset[str]]] = {
             "created_at",
         }
     ),
+    "document_topic_sets": frozenset(
+        {"document_id", "subject_id", "source", "revision", "ranges_changed_at"}
+    ),
+    "document_topics": frozenset(
+        {"id", "document_id", "position", "title", "start_page", "end_page"}
+    ),
     "ingestion_jobs": frozenset(
         {
             "id",
@@ -149,6 +155,17 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
             ),  # fmt: skip
             notes=("read by the retrieval query that the chat endpoint will use",),
         ),
+        "document_topic_sets": TableGrant(
+            select=_all("document_topic_sets"),
+            insert=_cols("document_id", "subject_id", "source", "revision"),
+            # No DELETE: the marker must outlive an emptied set; the row goes with its document.
+            update=_cols("source", "revision", "ranges_changed_at"),
+        ),
+        "document_topics": TableGrant(
+            select=_all("document_topics"),
+            insert=_cols("document_id", "position", "title", "start_page", "end_page"),
+            delete=True,
+        ),
         "ingestion_jobs": TableGrant(
             # Not `locked_by` (the fencing token), `locked_until` or `document_id`; nor the columns
             # the INSERT used to return, since the mapper no longer fetches defaults (DD-14).
@@ -186,6 +203,15 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
             ),
             select=_cols("id"),  # a one-row bulk insert is INSERT ... RETURNING id
         ),
+        # Topics read from bookmarks, written in the final transaction and never touched again.
+        "document_topic_sets": TableGrant(
+            insert=_cols("document_id", "subject_id", "source", "revision"),
+            select=_cols("document_id"),  # the insert may return its primary key
+        ),
+        "document_topics": TableGrant(
+            insert=_cols("document_id", "position", "title", "start_page", "end_page"),
+            select=_cols("id"),  # a bulk insert is INSERT ... RETURNING id
+        ),
         "ingestion_jobs": TableGrant(
             select=_cols(
                 "id",
@@ -212,6 +238,8 @@ MATRIX: Final[dict[str, dict[str, TableGrant]]] = {
         "enrollments": TableGrant(),
         "documents": TableGrant(),
         "document_chunks": TableGrant(),
+        "document_topic_sets": TableGrant(),
+        "document_topics": TableGrant(),
         "ingestion_jobs": TableGrant(),
         "conversations": TableGrant(
             select=_all("conversations"),

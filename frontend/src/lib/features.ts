@@ -7,3 +7,11 @@
 export function teacherActivityEnabled(): boolean {
   return import.meta.env.VITE_TEACHER_ACTIVITY_ENABLED === 'true'
 }
+
+/**
+ * Switch of the topic pages (change `frequent-questions-and-topics`): needs the activity switch
+ * too. Public and not a security control; `TEACHER_TOPICS_ENABLED` decides.
+ */
+export function teacherTopicsEnabled(): boolean {
+  return teacherActivityEnabled() && import.meta.env.VITE_TEACHER_TOPICS_ENABLED === 'true'
+}
