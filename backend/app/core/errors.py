@@ -135,6 +135,26 @@ class InvalidActivityWindowError(AppError):
         super().__init__(message, details={"reason": str(reason)})
 
 
+class TopicDefinitionError(AppError):
+    """The topics of a document break a rule; `details.reason` is a fixed value."""
+
+    status_code = 422
+    code = "VALIDATION_ERROR"
+
+    def __init__(self, reason: str) -> None:
+        super().__init__("The topics are not valid", details={"reason": str(reason)})
+
+
+class TopicConflictError(AppError):
+    """The topics cannot be written now: stale revision, document not ready or without pages."""
+
+    status_code = 409
+    code = "CONFLICT"
+
+    def __init__(self, reason: str) -> None:
+        super().__init__("The topics cannot be saved", details={"reason": str(reason)})
+
+
 class ConsentRequiredError(ForbiddenError):
     """The student has not accepted the current privacy policy version."""
 

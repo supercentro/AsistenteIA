@@ -71,6 +71,11 @@ def _monday(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
+def first_week_after(marker: datetime) -> date:
+    """The Monday that follows the week of a marker."""
+    return _monday(marker.astimezone(UTC).date()) + timedelta(days=7)
+
+
 def _after_marker(first: date, marker: datetime | None) -> date:
     """The first week that starts after the first Monday that follows the unenrolment marker.
 
@@ -79,7 +84,37 @@ def _after_marker(first: date, marker: datetime | None) -> date:
     """
     if marker is None:
         return first
-    return max(first, _monday(marker.astimezone(UTC).date()) + timedelta(days=7))
+    return max(first, first_week_after(marker))
+
+
+def requested_window(today: date, start: date | None, end: date | None) -> tuple[date, date]:
+    """The requested days widened to whole weeks and cut at the last week that has ended.
+
+    Refuses a reversed or too long window. The result may hold no week (the start is inside the
+    open week): the caller measures it.
+    """
+    requested_end = end if end is not None else today
+    if start is not None and requested_end < start:
+        raise InvalidActivityWindowError("end_before_start", "The end is before the start")
+    last_ended_sunday = _monday(today) - timedelta(days=1)  # A2b: the open week is out
+    last_day = min(requested_end, last_ended_sunday)
+    if start is None:
+        first = _monday(last_day) - timedelta(days=7 * (MAX_WEEKS - 1))
+    else:
+        first = _monday(start)
+    last = _monday(last_day) + timedelta(days=6)
+    if ((last - first).days + 1) // 7 > MAX_WEEKS:
+        raise InvalidActivityWindowError(
+            "window_too_long", f"The window covers at most {MAX_WEEKS} weeks"
+        )
+    return first, last
+
+
+def whole_weeks(today: date, marker: datetime | None) -> tuple[date, date, int]:
+    """The default window after the unenrolment marker: first day, last day, number of weeks."""
+    first, last = requested_window(today, None, None)
+    first = _after_marker(first, marker)
+    return first, last, max(0, ((last - first).days + 1) // 7)
 
 
 def _shown(students: set[uuid.UUID], figure: int) -> int | None:
@@ -110,7 +145,7 @@ class ActivityService:
         if subject is None:
             raise NotFoundError(SUBJECT_NOT_FOUND_MESSAGE)  # same answer as an unknown subject
         try:
-            first, last = self._window(start, end)
+            first, last = requested_window(self._today(), start, end)
             first = _after_marker(first, subject.last_unenrolment_at)
             weeks = max(0, ((last - first).days + 1) // 7)
             since = datetime(first.year, first.month, first.day, tzinfo=UTC)
@@ -157,28 +192,6 @@ class ActivityService:
         )
         response.suppressed = _anything_withheld(response)
         return response
-
-    def _window(self, start: date | None, end: date | None) -> tuple[date, date]:
-        """The requested days widened to whole weeks and cut at the last week that has ended.
-
-        Refuses a reversed or too long window. The result may hold no week (the start is inside the
-        open week): the caller measures it.
-        """
-        requested_end = end if end is not None else self._today()
-        if start is not None and requested_end < start:
-            raise InvalidActivityWindowError("end_before_start", "The end is before the start")
-        last_ended_sunday = _monday(self._today()) - timedelta(days=1)  # A2b: the open week is out
-        last_day = min(requested_end, last_ended_sunday)
-        if start is None:
-            first = _monday(last_day) - timedelta(days=7 * (MAX_WEEKS - 1))
-        else:
-            first = _monday(start)
-        last = _monday(last_day) + timedelta(days=6)
-        if ((last - first).days + 1) // 7 > MAX_WEEKS:
-            raise InvalidActivityWindowError(
-                "window_too_long", f"The window covers at most {MAX_WEEKS} weeks"
-            )
-        return first, last
 
     def _no_weeks(
         self, last: date, enrolled: int, current: list[tuple[uuid.UUID, str]]

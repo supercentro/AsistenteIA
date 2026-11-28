@@ -27,8 +27,11 @@ from sqlalchemy.orm import Session
 
 from app.core.vector_validation import validate_embedding
 from app.models.ingestion import DOCUMENT_ERROR_MESSAGES, DocumentErrorCode
+from app.models.topic import TopicSource
 from app.rag.chunker import Chunk
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.topic_repository import TopicRepository
+from app.services.topic_rules import Plan, Topic
 
 _SWEEP_BATCH = 100
 _CLAIM_ATTEMPTS = 3
@@ -181,8 +184,11 @@ class IngestionJobRepository:
         token: str,
         chunks: Sequence[Chunk],
         embeddings: Sequence[Sequence[float]],
+        topics: Sequence[Topic] = (),
     ) -> bool:
         """The final transaction: chunks, count, `ready` and erased bytes, all or nothing.
+
+        `topics` are the ones read from the bookmarks of the file; they are stored here or never.
 
         Validation of the input happens before any statement. Returns `False`, having written
         nothing, when the fence rejects the worker (stale token, expired lease, deleted job or
@@ -209,6 +215,12 @@ class IngestionJobRepository:
         DocumentRepository(self._session).add_chunks(
             owned.document_id, owned.subject_id, chunks, validated
         )
+        if topics:
+            TopicRepository(self._session).create_topic_set(
+                document_id=owned.document_id,
+                subject_id=owned.subject_id,
+                plan=Plan(True, TopicSource.BOOKMARKS, 1, False, tuple(topics)),
+            )
         self._release(job_id)
         return True
 

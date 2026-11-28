@@ -23,6 +23,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import partial
 from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -34,10 +35,12 @@ from app.rag.chunker import Chunk, ChunkingError, Page, TooManyChunksError, chun
 from app.rag.embedder import Embedder, EmbeddingError
 from app.rag.loaders import (
     DocumentLoadError,
+    OutlineEntry,
     PdfLimits,
     UnsupportedPlatformError,
     load_markdown,
     load_pdf,
+    load_pdf_outline,
     load_text,
 )
 from app.repositories.ingestion_job_repository import (
@@ -45,6 +48,8 @@ from app.repositories.ingestion_job_repository import (
     IngestionJobRepository,
     SweepResult,
 )
+from app.services.bookmark_topics import bookmark_topics
+from app.services.topic_rules import Topic
 
 if TYPE_CHECKING:
     from app.core.config import WorkerSettings
@@ -54,6 +59,10 @@ logger = logging.getLogger(__name__)
 _PDF = "application/pdf"
 _MARKDOWN = "text/markdown"
 _TEXT = "text/plain"
+# Bookmarks are read only while this much of the job deadline remains besides the child's timeout,
+# so that the second parse can never turn a document into PROCESSING_TIMEOUT.
+_FINAL_WRITE_MARGIN_SECONDS = 30
+_DEFAULT_PDF_TIMEOUT_SECONDS = 30
 
 
 @dataclass(frozen=True)
@@ -166,6 +175,10 @@ class _Lease:
             else:
                 self.lost.set()
 
+    def remaining(self) -> float:
+        """Seconds left of the job deadline."""
+        return self._deadline - self._clock()
+
     def poll(self) -> None:
         """Inside a long phase: stop if the job was lost or is out of time; renewal stays with the
         heartbeat thread, so this costs no database round trip."""
@@ -195,12 +208,14 @@ class IngestionService:
         limits: IngestionLimits,
         *,
         pdf_loader: Callable[[bytes], list[Page]] | None = None,
+        pdf_outline_loader: Callable[[bytes], list[OutlineEntry]] | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._factory = session_factory
         self._embedder = embedder
         self._limits = limits
         self._pdf_loader = pdf_loader
+        self._pdf_outline_loader = pdf_outline_loader
         self._clock = clock
 
     # --- queue ------------------------------------------------------------------------------
@@ -269,6 +284,7 @@ class IngestionService:
                 if not chunks:
                     raise _Failure(DocumentErrorCode.NO_EXTRACTABLE_TEXT)
                 vectors = self._embed(chunks, lease)
+                topics = self._bookmarks(job, chunks, lease)
                 lease.checkpoint()
             except (_LeaseLost, _Failure):
                 raise
@@ -281,7 +297,7 @@ class IngestionService:
             except Exception as error:  # noqa: BLE001 - mapped by type; the text is never kept
                 logger.warning("ingestion job %s: unexpected %s", job.job_id, type(error).__name__)
                 raise _Failure(DocumentErrorCode.PROCESSING_FAILED) from None
-            return self._finish(job, chunks, vectors)
+            return self._finish(job, chunks, vectors, topics)
         except _LeaseLost:
             return Outcome.LOST
         except _Failure as failure:
@@ -305,6 +321,27 @@ class IngestionService:
             return load_text(job.payload, max_chars=self._limits.max_chars)
         raise _Failure(DocumentErrorCode.PROCESSING_FAILED)
 
+    def _bookmarks(self, job: ClaimedJob, chunks: Sequence[Chunk], lease: _Lease) -> list[Topic]:
+        """Topics from the bookmarks of a PDF; any problem means none, never a failed document."""
+        if job.content_type != _PDF:
+            return []
+        loader = self._pdf_outline_loader
+        pdf = self._limits.pdf
+        if loader is None:
+            if self._pdf_loader is not None or pdf is None:
+                return []
+            loader = partial(load_pdf_outline, limits=pdf)
+        timeout = pdf.timeout_seconds if pdf else _DEFAULT_PDF_TIMEOUT_SECONDS
+        if lease.remaining() <= timeout + _FINAL_WRITE_MARGIN_SECONDS:
+            logger.info("ingestion job %s: bookmarks skipped, short of time", job.job_id)
+            return []
+        last_page = max((chunk.page_number or 0 for chunk in chunks), default=0)
+        try:
+            return bookmark_topics(loader(job.payload), last_page=last_page)
+        except Exception as error:  # noqa: BLE001 - type only: a title could be in the text
+            logger.info("ingestion job %s: no bookmarks (%s)", job.job_id, type(error).__name__)
+            return []
+
     def _embed(self, chunks: Sequence[Chunk], lease: _Lease) -> list[list[float]]:
         vectors: list[list[float]] = []
         size = self._limits.batch_size
@@ -323,12 +360,16 @@ class IngestionService:
     # --- the two terminal writes ------------------------------------------------------------
 
     def _finish(
-        self, job: ClaimedJob, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]
+        self,
+        job: ClaimedJob,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+        topics: Sequence[Topic],
     ) -> Outcome:
         """The final transaction: `ready`, chunks and erased bytes, or nothing at all."""
         with self._factory() as session:
             confirmed = IngestionJobRepository(session).complete(
-                job.job_id, job.token, chunks, vectors
+                job.job_id, job.token, chunks, vectors, topics
             )
             if not confirmed:
                 session.rollback()

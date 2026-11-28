@@ -15,7 +15,8 @@ from tests.ingestion_support import Scene, insert_pending, make_scene
 from tests.least_privilege import role_url
 from tests.pdf_support import pdf_with_pages
 from tests.service_support import built_service
-from tests.sql_support import insert_chunk, insert_enrollment, insert_user
+from tests.sql_support import insert_chunk, insert_enrollment, insert_user, scalar
+from tests.unit.test_pdf_outline import with_outline
 
 PDF_LIMITS = PdfLimits(
     max_pages=300,
@@ -92,6 +93,28 @@ def test_a_generated_pdf_is_found_with_its_page_numbers(scene: Scene) -> None:
     assert {hit.document_id for hit in hits} == {document}
     assert hits[0].page_number == 2
     assert {hit.page_number for hit in hits} == {1, 2}
+
+
+@linux_only
+def test_the_bookmarks_of_a_real_pdf_become_topics_under_the_worker_role(scene: Scene) -> None:
+    document, _ = insert_pending(
+        scene.url,
+        scene.subject,
+        payload=with_outline([("Limits", 0), ("Series", 1)]),
+        filename="analysis.pdf",
+    )
+    with built_service(scene.url, pdf=PDF_LIMITS) as built:
+        assert built.service.run_once() is Outcome.READY
+
+    assert (
+        scalar(
+            scene.url,
+            "SELECT string_agg(title || ':' || start_page || '-' || end_page, '|' "
+            "ORDER BY position) FROM document_topics WHERE document_id = :d",
+            d=document,
+        )
+        == "Limits:1-1|Series:2-6"
+    )
 
 
 def test_failed_and_pending_documents_are_never_returned(scene: Scene) -> None:

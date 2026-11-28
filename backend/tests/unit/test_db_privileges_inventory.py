@@ -116,7 +116,16 @@ def test_worker_needs_derived_from_raw_sql(inventory: Inventory) -> None:
     }
     assert worker["document_chunks"]["SELECT"] == {"id"}
     assert "DELETE" not in worker["documents"]
-    assert set(worker) == {"documents", "document_chunks", "ingestion_jobs"}
+    # Topics read from bookmarks are written once and never updated or deleted by the worker.
+    assert set(worker) == {
+        "documents",
+        "document_chunks",
+        "document_topic_sets",
+        "document_topics",
+        "ingestion_jobs",
+    }
+    for table in ("document_topic_sets", "document_topics"):
+        assert not {"UPDATE", "DELETE"} & set(worker[table])
 
 
 def test_api_needs_derived_from_orm_statements(inventory: Inventory) -> None:

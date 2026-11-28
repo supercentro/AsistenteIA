@@ -29,6 +29,10 @@ DOCUMENT_PATHS = [
     "/subjects/{subject_id}/documents/{document_id}",
 ]
 ACTIVITY_PATHS = ["/subjects/{subject_id}/activity"]
+TOPIC_PATHS = [
+    "/subjects/{subject_id}/activity/topics",
+    "/subjects/{subject_id}/documents/{document_id}/topics",
+]
 Spec = Mapping[str, Any]
 
 
@@ -207,6 +211,28 @@ def test_the_application_publishes_the_activity_contract(spec: Spec) -> None:
     app = create_app(build_settings("postgresql+psycopg://user:pw@localhost:5432/contract_test"))
 
     found = contract_differences(spec, app.openapi(), ACTIVITY_PATHS, server_prefix(spec))
+
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    "schema_name",
+    [
+        "DocumentTopicsResponse",
+        "DocumentTopicsUpdate",
+        "TopicEntry",
+        "TopicRankingResponse",
+        "RankedTopic",
+        "DocumentWithoutTopics",
+        "RestartedDocument",
+    ],
+)
+def test_the_application_publishes_the_topic_contract(spec: Spec, schema_name: str) -> None:
+    app = create_app(build_settings("postgresql+psycopg://user:pw@localhost:5432/contract_test"))
+
+    found = contract_differences(
+        spec, app.openapi(), TOPIC_PATHS, server_prefix(spec), schema_name=schema_name
+    )
 
     assert found == []
 

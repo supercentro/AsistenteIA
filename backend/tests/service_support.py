@@ -23,6 +23,7 @@ from sqlalchemy.pool import QueuePool
 from app.core.database import create_db_engine, create_session_factory
 from app.rag.chunker import Page
 from app.rag.embedder import Embedder, FakeEmbedder
+from app.rag.loaders import OutlineEntry
 from app.services.ingestion_service import IngestionLimits, IngestionService
 from tests.least_privilege import role_url
 
@@ -74,6 +75,7 @@ def built_service(
     embedder: Embedder | None = None,
     *,
     pdf_loader: Callable[[bytes], list[Page]] | None = None,
+    pdf_outline_loader: Callable[[bytes], list[OutlineEntry]] | None = None,
     clock: Callable[[], float] | None = None,
     **limit_overrides: object,
 ) -> Iterator[Built]:
@@ -90,6 +92,7 @@ def built_service(
                 embedder if embedder is not None else HookEmbedder(),
                 default_limits(**limit_overrides),
                 pdf_loader=pdf_loader,
+                pdf_outline_loader=pdf_outline_loader,
                 **extra,  # type: ignore[arg-type]
             ),
             engine,

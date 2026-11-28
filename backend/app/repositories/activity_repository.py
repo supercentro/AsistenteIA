@@ -34,6 +34,7 @@ class SourceFact:
     rank: int
     document_id: uuid.UUID | None  # null once the document was deleted
     filename: str
+    page_number: int | None = None  # of the fragment, null for files without pages
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ class ActivityRepository:
                 MessageSource.rank,
                 DocumentChunk.document_id,
                 MessageSource.document_filename,
+                DocumentChunk.page_number,
             )
             .select_from(Message)
             .join(MessageSource, MessageSource.message_id == Message.id)
@@ -104,9 +106,9 @@ class ActivityRepository:
             MessageRole.ASSISTANT,
         )
         sources: dict[uuid.UUID, list[SourceFact]] = defaultdict(list)
-        for message_id, rank, document_id, filename in self._session.execute(source_rows):
+        for message_id, rank, document_id, filename, page in self._session.execute(source_rows):
             sources[message_id].append(
-                SourceFact(rank=rank, document_id=document_id, filename=filename)
+                SourceFact(rank=rank, document_id=document_id, filename=filename, page_number=page)
             )
         return [
             AnswerFact(

@@ -53,6 +53,7 @@ API_ONLY = {
     "chat_history_messages",
     "chat_rate_limit",
     "teacher_activity_enabled",
+    "teacher_topics_enabled",
 }
 
 
