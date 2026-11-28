@@ -74,6 +74,7 @@ Registered by the owner on 2026-11-27. It names and orders three features alread
 
 - **Frequency is not difficulty.** A topic consulted often may reflect interest, an assessment close by, how much material covers it or how answers are cited; a topic rarely consulted may still be hard. The ranking of capability 1 is never labelled as difficulty, and capability 2 needs its own evidence besides the count, shown with it, and to be checked by the teacher against something other than the chat.
 - **The current dashboard is preserved:** its five metrics, the window of at most 12 weeks, the minimum group of 5 and its switches stay as they are. The initiative only adds to it, in separate changes.
+- **Feature 3, first slice, authorised for implementation on 2026-11-28** (change `frequent-questions-and-topics`, fictitious data only, switches off) and implemented on its branch; not merged, not deployed; independently reviewed on 2026-11-28 without a new Blocker or Major, with TD-073 and TD-074 open. New open risks: TD-073, TD-074, TD-075, TD-076 (cost of the ranking); TD-077 (JSON body size, earlier than this change) registered by its review. The gates below stay for the rest.
 - **Order and gates:** capability 1 → 2 → 3, each one OpenSpec change after `/opsx:explore` (principle 7). Before any of them is proposed: R-D1 extended to it (today it covers only the aggregate metrics, and `docs/base-standards.md` §8 and §9.4 would need the owner's approval to change). Before real students: the conditions of Feature 2 (TD-069, TD-072, F7, F8) plus those of §5.
 
 ### Feature 3 — Frequent questions and recurring topics
@@ -137,7 +138,7 @@ R0 (erasure, consent withdrawal, metering, e2e, deploy)
 
 | ID | Decision | Blocks |
 |---|---|---|
-| R-D1 | Approve moving the excluded items (advanced teacher analytics, LMS integration, institutional assistant) into scope; then update `docs/base-standards.md` §8, `openspec/config.yaml` context and, with approval, `readme.md` (academic deliverable) **Approved on 2026-11-23 only for aggregate teacher activity metrics (switched off by default); `base-standards.md` §8 and `openspec/config.yaml` updated; individual analytics and profiling stay out of the current scope without being excluded from the future roadmap; LMS integration and the institutional assistant are still pending; `readme.md` untouched** | all of phases 2–5 (not phase 0–1) |
+| R-D1 | Approve moving the excluded items (advanced teacher analytics, LMS integration, institutional assistant) into scope; then update `docs/base-standards.md` §8, `openspec/config.yaml` context and, with approval, `readme.md` (academic deliverable) **Approved on 2026-11-23 only for aggregate teacher activity metrics (switched off by default); `base-standards.md` §8 and `openspec/config.yaml` updated; individual analytics and profiling stay out of the current scope without being excluded from the future roadmap; LMS integration and the institutional assistant are still pending; `readme.md` untouched** **Extended on 2026-11-28 to the first slice of Feature 3 only (`frequent-questions-and-topics`), switched off by default and with fictitious data** | all of phases 2–5 (not phase 0–1) |
 | R-D2 | Provider and tier for real students (paid Gemini with data processing terms, another provider, institution-hosted model) and who signs the terms (TD-063) | pilot, not development |
 | R-D3 | Teacher visibility: aggregate only with minimum group size N, or identifiable students; value of N. **Provisional (owner, 2026-11-23): aggregate only, N = 5, weekly, 90 days; identifiable students are not approved** | 2, 3, 4, 7 |
 | R-D4 | Source attribution policy when no valid marker: drop the sources, or keep them flagged (contract change) | 1b |
@@ -148,7 +149,7 @@ R0 (erasure, consent withdrawal, metering, e2e, deploy)
 | R-D9 | Architecture: institution/tenant entity, admin/institution roles, SSO or LTI identity | 8, 9 |
 | R-D10 | Legal opinion on student profiling, learning memory and automated signals; whether memory is opt-in and whether per-student views exist | 4, 5, 6 |
 | R-D11 | Provide or confirm the Aprendiz/MIA analysis the roadmap is based on | prioritisation |
-| R-D12 | Topics of Feature 3: identified from the subject's PDF files (**decided by the owner on 2026-11-27**). Open: the method (document structure, teacher-defined or corrected, model over the material) and whether the teacher reviews the topics before figures are shown | 3 (first slice), then 4 and 7 |
+| R-D12 | Topics of Feature 3: identified from the subject's PDF files (**decided by the owner on 2026-11-27**). **Method decided on 2026-11-28:** PDF bookmarks first, otherwise defined by the teacher, who can also rename them and change their page ranges; no model; no review step. Text and Markdown have no topics in the first slice | 3 (first slice), then 4 and 7 |
 
 ## 7. Recommendation
 
